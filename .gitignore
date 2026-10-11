@@ -1,0 +1,36 @@
+# Dependencies and generated artifacts
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.sites-runtime/
+.sites-checkout/
+.sites-checkout-*/
+
+# Private inputs and raw evidence must live outside this repository.
+/交接目录/
+/handoff/
+/private/
+/evidence/
+*.log
+*.zip
+*.tar
+*.tar.gz
+
+# Credentials and local activity configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.kdbx
+/config/activity.local.json
+
+# Machine state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
