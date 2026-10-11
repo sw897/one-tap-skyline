@@ -1,0 +1,12 @@
+{
+  "cityDisplayName": "城市天际线",
+  "game": {
+    "roundSeconds": 60,
+    "baseSpeed": 2.7,
+    "speedStep": 0.035,
+    "perfectRatio": 0.035,
+    "comboMilestone": 3,
+    "dropSeconds": 0.24
+  },
+  "visual": { "cameraSeconds": 1.15, "growthSeconds": 1.7, "maxPixelRatio": 1.75 }
+}
