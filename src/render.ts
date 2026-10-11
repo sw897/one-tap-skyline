@@ -84,6 +84,7 @@ export class SkylineRenderer {
   private target = new T.Vector3();
   private aim = new T.Vector3();
   private currentSpan = 7;
+  private cameraReady = false;
   private zoom = 1;
   private angle = Math.PI / 4.6;
   private config: RuntimeConfig;
@@ -101,10 +102,12 @@ export class SkylineRenderer {
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
     this.renderer.domElement.setAttribute('aria-label', '三维楼体画面');
+    this.renderer.domElement.style.opacity = '0';
     container.prepend(this.renderer.domElement);
     this.scene.add(new T.HemisphereLight('#f8fcff', '#bdd1bd', 1.9));
     const sun = new T.DirectionalLight('#fff7e4', 2.6); sun.position.set(-5, 14, 9); this.scene.add(sun);
     this.scene.add(this.solo, this.city);
+    this.city.visible = false;
     this.solo.add(this.moving, this.guide);
     const island = new T.Mesh(new T.CylinderGeometry(6.4, 6.55, 0.28, 60), new T.MeshStandardMaterial({ color: '#d3e8d9', roughness: 1 }));
     island.position.y = -0.18; this.solo.add(island);
@@ -112,12 +115,15 @@ export class SkylineRenderer {
     ring.rotation.x = Math.PI / 2; ring.position.y = -0.02; this.solo.add(ring);
     this.createCityGround();
     new ResizeObserver(() => this.resize()).observe(container);
-    this.resize();
+    this.resize(false);
   }
   setConfig(config: RuntimeConfig) { this.config = config; }
-  private resize() {
-    this.width = Math.max(1, this.container.clientWidth); this.height = Math.max(1, this.container.clientHeight);
+  private resize(redraw = true) {
+    const width = Math.max(1, this.container.clientWidth), height = Math.max(1, this.container.clientHeight);
+    if (width === this.width && height === this.height) return;
+    this.width = width; this.height = height;
     this.renderer.setSize(this.width, this.height, false);
+    if (redraw && this.cameraReady) { this.updateCamera(0, true); this.draw(); }
   }
   private createCityGround() {
     const ground = new T.Mesh(unit, new T.MeshStandardMaterial({ color: '#dbe8de', roughness: 1 }));
@@ -146,7 +152,15 @@ export class SkylineRenderer {
     this.soloModel = model;
     this.soloTower = buildTower(model, color); this.solo.add(this.soloTower);
   }
-  setView(view: View) { this.view = view; this.solo.visible = view !== 'city'; this.city.visible = view === 'city'; this.moving.visible = false; this.guide.visible = false; if (view !== 'city') this.focus = undefined; }
+  setView(view: View) {
+    const pullback = this.view === 'play' && view === 'result';
+    this.view = view; this.solo.visible = view !== 'city'; this.city.visible = view === 'city';
+    this.moving.visible = false; this.guide.visible = false;
+    if (view !== 'city') this.focus = undefined;
+    this.resize(false);
+    this.updateCamera(0, !pullback);
+    this.draw();
+  }
   setCity(buildings: CityBuilding[], update?: CityUpdate) {
     for (const building of buildings) {
       const previous = this.cityObjects.get(building.playerId);
@@ -214,6 +228,10 @@ export class SkylineRenderer {
       this.growth.group.userData.floors.scale.y = T.MathUtils.lerp(this.growth.from, 1, eased);
       if (t === 1) this.growth = undefined;
     }
+    this.updateCamera(seconds);
+    this.draw();
+  }
+  private updateCamera(seconds: number, snap = false) {
     const model = this.soloModel;
     const height = model ? towerHeight(model) : 3, aspect = this.width / this.height;
     let span: number;
@@ -225,13 +243,20 @@ export class SkylineRenderer {
       this.aim.set(model ? topLayer(model).x * 0.3 : 0, this.view === 'play' ? Math.max(2.3, height - 1.6) : height * 0.46, 0);
       span = this.view === 'play' ? Math.max(4.6, 4.6 / aspect) : Math.max(2.9, height * 0.49 + 0.85, 3.1 / aspect);
     }
-    const damping = 1 - Math.exp(-Math.max(0.001, seconds) * 4 / this.config.visual.cameraSeconds);
+    const damping = snap || !this.cameraReady ? 1 : 1 - Math.exp(-Math.max(0, seconds) * 4 / this.config.visual.cameraSeconds);
     this.target.lerp(this.aim, damping); this.currentSpan = T.MathUtils.lerp(this.currentSpan, span, damping);
     this.camera.position.copy(this.target).add(new T.Vector3(Math.sin(this.angle) * 25, 23, Math.cos(this.angle) * 25));
     this.camera.lookAt(this.target);
     this.camera.left = -this.currentSpan * aspect; this.camera.right = this.currentSpan * aspect;
     this.camera.top = this.currentSpan; this.camera.bottom = -this.currentSpan; this.camera.updateProjectionMatrix();
+    this.cameraReady = true;
+  }
+  private draw() {
     this.renderer.render(this.scene, this.camera);
+    this.renderer.domElement.style.opacity = '1';
+  }
+  presentation() {
+    return { view: this.view, width: this.width, height: this.height, cameraReady: this.cameraReady, span: this.currentSpan, target: this.target.toArray(), aim: this.aim.toArray() };
   }
   private animateLanding(model: TowerModel, offset: number) {
     if (!this.soloTower || model.layers.length === 0) return;

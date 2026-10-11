@@ -163,7 +163,7 @@ dialog.addEventListener('close', () => {
 
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === '1') {
   const qaWindow = window as unknown as { __SKYLINE_QA__: { snapshot(): unknown } };
-  qaWindow.__SKYLINE_QA__ = { snapshot: () => JSON.parse(JSON.stringify({ view, config, playerId, game: game ? { phase: game.phase, movingX: game.movingX, elapsed: game.elapsed, tower: game.tower, perfectCount: game.perfectCount, combo: game.combo } : null, completed, own: city.get(playerId), rendered: viewer.cityGeometry(playerId), stickerSkipped, logicalHeight: game ? towerHeight(game.tower) : null, drawCalls: viewer.renderer.info.render.calls })) };
+  qaWindow.__SKYLINE_QA__ = { snapshot: () => JSON.parse(JSON.stringify({ view, config, playerId, game: game ? { phase: game.phase, movingX: game.movingX, elapsed: game.elapsed, tower: game.tower, perfectCount: game.perfectCount, combo: game.combo } : null, completed, own: city.get(playerId), rendered: viewer.cityGeometry(playerId), presentation: viewer.presentation(), stickerSkipped, logicalHeight: game ? towerHeight(game.tower) : null, drawCalls: viewer.renderer.info.render.calls })) };
 }
 const initialView: View = new URLSearchParams(location.search).get('view') === 'city' ? 'city' : 'intro';
 show(initialView);
