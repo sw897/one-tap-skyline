@@ -75,3 +75,5 @@ P0 检查基线：**仅完成预检，实际部署与免登录访问待验证。
 Git 是唯一源码版本线。P1 里程碑为 `p1-core-visual`；交接包、客户素材、原始提示词和运行证据均不进入仓库。公开推送前必须审核提交、资产、历史对象及 tag，详见 [AGENTS.md](AGENTS.md)。
 
 阶段资料：[P1 开发过程记录](docs/P1-development-record.md)、[P2 实施计划（B 已批准）](docs/P2-implementation-plan.md)、[P2 计划修订记录](docs/P2-planning-record.md)、[P2 对比候选开发记录](docs/P2-development-record.md)、[后续阶段与重要修复记录模板](docs/development-record-template.md)。
+
+当前 P2 对比候选：`db2921b` / `p2-cutting-preview` / Sites 版本 3。用同一浏览器、默认参数比较 逐层换向（线上地址私存） 与 固定方向（线上地址私存），建议各 3 局。等待用户 iPhone 反馈，安卓暂未验证；`p2-playtest` 尚未创建。
