@@ -19,7 +19,7 @@ export class CityStore {
   constructor(db:D1Database) { this.db=db; }
   stmt(sql:string,...values:(string|number|null)[]) { return this.db.prepare(sql).bind(...values); }
   async ensureCity(city:SharedCityId,name:string) {
-    await this.stmt('INSERT OR IGNORE INTO cities(id,epoch,display_name,ruleset_id,is_test) VALUES(?,?,?,?,?)',city,randomId(),name,RULESET_ID,city==='test'?1:0).run();
+    await this.stmt('INSERT OR IGNORE INTO cities(id,epoch,display_name,ruleset_id,is_test) VALUES(?,?,?,?,?)',city,randomId(),name,RULESET_ID,city!=='public'?1:0).run();
     await this.stmt('UPDATE cities SET display_name=? WHERE id=? AND display_name<>?',name,city,name).run();
   }
   async rateLimit(bucket:string,limit:number,now:number,windowMs:number) {
@@ -35,15 +35,16 @@ export class CityStore {
     await this.stmt('INSERT INTO players(id,public_id,credential_hash,created_at,expires_at) VALUES(?,?,?,?,?)',id,publicId,hash,now,expires).run();
     return {id,public_id:publicId,credential_hash:hash,expires_at:expires};
   }
-  async snapshot(city:SharedCityId,writeOpen:boolean):Promise<CitySnapshot> {
+  async snapshot(city:SharedCityId,writeOpen:boolean,owner?:string):Promise<CitySnapshot> {
     const rows=await this.db.batch([
-      this.stmt('SELECT * FROM cities WHERE id=?',city),
-      this.stmt(`SELECT b.*,p.public_id,RANK() OVER(ORDER BY b.floors DESC) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? ORDER BY b.floors DESC,b.achieved_at,b.id`,city),
+      this.stmt('SELECT c.*,(SELECT COUNT(*) FROM buildings WHERE city_id=c.id) AS total_buildings FROM cities c WHERE id=?',city),
+      owner ? this.stmt(`SELECT b.*,p.public_id,1+(SELECT COUNT(*) FROM buildings other WHERE other.city_id=b.city_id AND other.floors>b.floors) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? AND b.player_id=?`,city,owner) :
+        this.stmt(`SELECT b.*,p.public_id,RANK() OVER(ORDER BY b.floors DESC) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? ORDER BY b.floors DESC,b.achieved_at,b.id`,city),
     ]);
     const meta=rows[0].results[0] as unknown as CityRow;
     if(!meta)throw new ApiError(404,'city_not_found');
     const buildings=(rows[1].results as unknown as BuildingRow[]).map(b=>({playerId:b.public_id,plotId:b.plot_id,color:b.color,name:b.name,bestRunId:b.best_run_id,tower:JSON.parse(b.tower_json),source:'shared' as const,rank:b.rank}));
-    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings};
+    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings,scope:owner?'own':'all',totalBuildings:Number((meta as CityRow&{total_buildings:number}).total_buildings)};
   }
   async activeRun(city:SharedCityId,player:string,now:number) {
     await this.stmt("UPDATE runs SET status='expired' WHERE city_id=? AND player_id=? AND status='active' AND expires_at<?",city,player,now).run();

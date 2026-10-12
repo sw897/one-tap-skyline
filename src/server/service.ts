@@ -10,7 +10,7 @@ import type { PlayerRow } from './store.ts';
 export interface ServerContext { db?: D1Database; publicWriteOpen: boolean; cityName?: string; now?: () => number }
 const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
-const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test')return value;throw new ApiError(400,'invalid_city');};
+const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
 const keys=(body:Record<string,unknown>,allowed:string[])=>{if(Object.keys(body).some(k=>!allowed.includes(k)))throw new ApiError(400,'unexpected_field');};
 const uuid=(v:unknown)=>{if(typeof v!=='string'||!/^[a-f0-9-]{36}$/i.test(v))throw new ApiError(400,'invalid_id');return v;};
 async function readBody(request:Request) {
@@ -32,9 +32,12 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
     let player:PlayerRow|null=null;
     if(token&&/^[a-f0-9]{64}$/.test(token))player=await store.player(await hashText(token),now);
-    const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city==='test'?'城市天际线 · 共享测试':name);};
-    const writeOpen=(city:SharedCityId)=>city==='test'||context.publicWriteOpen;
+    const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name);};
+    const writeOpen=(city:SharedCityId)=>city!=='public'||context.publicWriteOpen;
     const requirePlayer=()=>{if(!player)throw new ApiError(401,'session_required');return player;};
+    const ownOnly=url.searchParams.get('scope')==='own';
+    if(url.searchParams.has('scope')&&!['all','own'].includes(url.searchParams.get('scope')!))throw new ApiError(400,'invalid_scope');
+    const snapshot=(city:SharedCityId)=>store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined);
     if(request.method==='GET'&&url.pathname==='/api/session') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
       let cookie:string|undefined;
@@ -44,15 +47,15 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
         const credential=randomCredential();player=await store.createPlayer(randomId(),randomId(),await hashText(credential),now,now+PLAYER_TTL_MS);
         cookie=`${COOKIE}=${credential}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${PLAYER_TTL_MS/1000}${url.protocol==='https:'?'; Secure':''}`;
       }
-      const snapshot=await store.snapshot(city,writeOpen(city)),active=await store.activeRun(city,player.id,now);
-      const session:SharedSession={playerId:player.public_id,color:playerColor(player.public_id),snapshot,rules:{...OFFICIAL_RULES},rulesetId:RULESET_ID,activeRunId:active?.id??null};
+      const view=await snapshot(city),active=await store.activeRun(city,player.id,now);
+      const session:SharedSession={playerId:player.public_id,color:playerColor(player.public_id),snapshot:view,rules:{...OFFICIAL_RULES},rulesetId:RULESET_ID,activeRunId:active?.id??null};
       return json(session,200,cookie);
     }
     if(request.method==='GET'&&url.pathname==='/api/city') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
-      const snapshot=await store.snapshot(city,writeOpen(city));
-      if(url.searchParams.get('epoch')===snapshot.epoch&&url.searchParams.get('since')===String(snapshot.revision))return json({cityId:city,epoch:snapshot.epoch,revision:snapshot.revision,unchanged:true,writeOpen:snapshot.writeOpen,name:snapshot.name});
-      return json(snapshot);
+      const view=await snapshot(city);
+      if(url.searchParams.get('epoch')===view.epoch&&url.searchParams.get('since')===String(view.revision))return json({cityId:city,epoch:view.epoch,revision:view.revision,unchanged:true,writeOpen:view.writeOpen,name:view.name});
+      return json(view);
     }
     if(request.method==='POST'&&url.pathname==='/api/runs') {
       const body=await readBody(request);keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
@@ -63,7 +66,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const matched=/^\/api\/runs\/([a-f0-9-]{36})(?:\/(submit|cancel))?$/i.exec(url.pathname);
     if(matched) {
       const owner=requirePlayer(),run=await store.getRun(matched[1],owner.id,now);
-      if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await store.snapshot(run.city_id,writeOpen(run.city_id))});
+      if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await snapshot(run.city_id)});
       if(request.method==='POST'&&matched[2]==='cancel') {const body=await readBody(request);keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
       if(request.method==='POST'&&matched[2]==='submit') {
         const body=await readBody(request);keys(body,['name','trace']);
@@ -76,7 +79,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
         const signature=cleanName((body.name as string|undefined)??'');
         const hash=await hashText(JSON.stringify({version:1,runId:run.id,name:signature,trace}));
         const result=await store.submit(run,owner,signature,trace,completed,hash,now);
-        return json({...result,snapshot:await store.snapshot(run.city_id,writeOpen(run.city_id))});
+        return json({...result,snapshot:await snapshot(run.city_id)});
       }
     }
     throw new ApiError(404,'route_not_found');

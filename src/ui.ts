@@ -14,7 +14,7 @@ export function mountUI(root: HTMLElement) {
       <p class="intro-description">找准时机，接住移动的楼层。<br>盖完的小楼，会成为天际线的一部分。</p>
       <button class="primary-button start-button" id="start-button">开始盖楼 <span aria-hidden="true">→</span></button>
       <p class="intro-note" id="intro-direction">楼层左右、前后交替移动 · 单指点击落层</p>
-      <p class="mode-links"><a id="practice-link" href="/?mode=practice">先练习</a><a id="shared-link" href="/?mode=shared">进入共享城市</a></p>
+      <p class="mode-links"><a id="practice-link" href="/?mode=practice">先练习</a><a id="shared-link" href="/?mode=shared">共享试玩</a></p>
       <div class="how-to"><span><b>01</b> 点击落层</span><span><b>02</b> 留下作品</span><span><b>03</b> 原地长高</span></div>
     </section>
 
@@ -43,6 +43,7 @@ export function mountUI(root: HTMLElement) {
     </section>
 
     <section data-screen="city" class="city-ui" hidden>
+      <div class="personal-summary" id="personal-summary" hidden><span class="eyebrow">属于你的天际线</span><h1>我的楼</h1><p>个人最佳 <strong id="personal-floors">0</strong> 层</p><p id="personal-name">还没有保存的作品</p><small id="personal-note"></small></div>
       <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span></div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside class="glass city-board">

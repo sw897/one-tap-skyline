@@ -37,3 +37,10 @@
 .mode-links { margin: 8px 0; font-size: 13px; }
 .mode-links a { color: #4777b0; text-decoration: underline; text-underline-offset: 3px; }
 #scene-data-mark { position:absolute;top:72px;left:18px;z-index:4;font-size:11px;color:#526b88;background:rgba(255,255,255,.7);padding:3px 8px;border-radius:12px;pointer-events:none; }
+:root[data-surface=personal] .city-title,:root[data-surface=personal] .city-board,:root[data-surface=personal] .map-controls{display:none}
+.personal-summary{position:absolute;left:24px;right:24px;top:101px;z-index:3;color:var(--ink)}
+.personal-summary .eyebrow{font-size:10px}.personal-summary h1{font-size:28px;margin:8px 0}.personal-summary p{font-size:12px;margin:6px 0}.personal-summary strong{font-size:20px}.personal-summary small{display:block;max-width:320px;line-height:1.7;color:#6589a7;font-size:10px}
+:root[data-surface=personal][data-view=city] #viewport{left:0;right:0;top:242px;bottom:165px}
+:root[data-surface=personal] #city-event{top:auto;bottom:146px;left:24px;right:24px;padding:9px 13px}
+:root[data-surface=personal] .city-callout{left:17px;right:17px;bottom:43px;max-width:none;width:auto}
+@media(max-height:540px) and (min-width:600px){:root[data-surface=personal][data-view=city] #viewport{top:70px;left:0;right:40%;bottom:25px}.personal-summary{top:76px;left:62%;right:18px}.personal-summary h1{font-size:21px}.personal-summary small{font-size:9px}:root[data-surface=personal] .city-callout{left:61%;right:17px;bottom:28px;padding:11px;display:block}:root[data-surface=personal] .city-callout .primary-button{margin-top:10px}:root[data-surface=personal] #city-event{left:24px;right:42%;bottom:27px}}

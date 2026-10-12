@@ -226,6 +226,11 @@ export class SkylineRenderer {
     const model = group.userData.model as TowerModel;
     return { model, logicalHeight: towerHeight(model), displayedHeight: model.baseHeight + model.layers.length * model.layerHeight * group.userData.floors.scale.y, plotPosition: group.position.toArray(), color: group.userData.color };
   }
+  soloGeometry(){
+    if(!this.soloTower)return null;
+    const model=this.soloTower.userData.model as TowerModel;
+    return {model,logicalHeight:towerHeight(model),displayedHeight:model.baseHeight+model.layers.length*model.layerHeight*this.soloTower.userData.floors.scale.y,color:this.soloColor};
+  }
   update(seconds: number, game?: GameSession) {
     if (this.view === 'play' && game) {
       this.setSolo(game.tower);
@@ -279,7 +284,8 @@ export class SkylineRenderer {
       span = this.view === 'play' ? Math.max(4.6, 4.6 / aspect) : Math.max(2.9, height * 0.49 + 0.85, 3.1 / aspect);
     }
     const damping = snap || !this.cameraReady ? 1 : 1 - Math.exp(-Math.max(0, seconds) * 4 / this.config.visual.cameraSeconds);
-    this.target.lerp(this.aim, damping); this.currentSpan = T.MathUtils.lerp(this.currentSpan, span, damping);
+    if(snap||!this.cameraReady){this.target.copy(this.aim);this.currentSpan=span;}
+    else{this.target.lerp(this.aim,damping);this.currentSpan=T.MathUtils.lerp(this.currentSpan,span,damping);}
     this.camera.position.copy(this.target).add(new T.Vector3(Math.sin(this.angle) * 25, 23, Math.cos(this.angle) * 25));
     this.camera.lookAt(this.target);
     this.camera.left = -this.currentSpan * aspect; this.camera.right = this.currentSpan * aspect;

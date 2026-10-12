@@ -31,6 +31,30 @@ test('start frequency limit returns429 without duplicate runs and recovers next 
     h.tick(60_001);assert.equal((await h.call('/api/runs',{city:'test',startKey:key},player.cookie)).status,200);
   }finally{h.db.close();}
 });
+
+test('own scope exposes only authenticated best with global rank, including submission responses',async()=>{
+  const h=harness();try{
+    const a=await h.session(),b=await h.session();await h.play(a.cookie,12);await h.play(b.cookie,16);
+    assert.equal((await h.call('/api/city?city=test&scope=own')).status,401);
+    const own=await h.call('/api/session?city=test&scope=own',undefined,a.cookie);
+    assert.equal(own.body.snapshot.scope,'own');assert.equal(own.body.snapshot.totalBuildings,2);assert.equal(own.body.snapshot.buildings.length,1);assert.equal(own.body.snapshot.buildings[0].playerId,a.profile.playerId);assert.equal(own.body.snapshot.buildings[0].rank,2);
+    const foreign=await h.call('/api/city?city=test&scope=own&playerId='+b.profile.playerId,undefined,a.cookie);assert.equal(foreign.body.buildings[0].playerId,a.profile.playerId);
+    const played=await h.play(a.cookie,9),retry=await h.call('/api/runs/'+played.runId+'/submit?scope=own',played.body,a.cookie);assert.equal(retry.body.duplicate,true);assert.equal(retry.body.snapshot.buildings.length,1);assert.equal(retry.body.snapshot.scope,'own');
+    assert.equal((await h.call('/api/city?city=test&scope=unknown',undefined,a.cookie)).status,400);
+    const isolated=await h.call('/api/session?city=test-mobile&scope=own',undefined,a.cookie);assert.equal(isolated.body.snapshot.isTest,true);assert.equal(isolated.body.snapshot.buildings.length,0);assert.equal(isolated.body.snapshot.totalBuildings,0);
+  }finally{h.db.close();}
+});
+
+test('60-building own snapshot returns one complete model with much smaller serialized payload',async()=>{
+  const h=harness();try{
+    let own;
+    for(let i=0;i<60;i++){const player=await h.session();await h.play(player.cookie,1);if(i===0)own=player;}
+    const all=await h.call('/api/city?city=test'),personal=await h.call('/api/city?city=test&scope=own',undefined,own!.cookie);
+    assert.equal(all.body.buildings.length,60);assert.equal(personal.body.buildings.length,1);assert.deepEqual(personal.body.buildings[0],all.body.buildings.find((b:any)=>b.playerId===own!.profile.playerId));
+    const fullBytes=Buffer.byteLength(JSON.stringify(all.body)),ownBytes=Buffer.byteLength(JSON.stringify(personal.body));assert.ok(ownBytes<fullBytes*.08);
+    console.log(JSON.stringify({scope:'Node SQLite/D1 API fixture, 60 equal one-floor models; not measured phone network traffic',fullBytes,ownBytes,reductionPct:100*(1-ownBytes/fullBytes)}));
+  }finally{h.db.close();}
+});
 test('anonymous cookie is private and same-browser identity persists; spectators do not register',async()=>{
   const h=harness();try{
     const a=await h.session(),b=await h.session();assert.notEqual(a.profile.playerId,b.profile.playerId);

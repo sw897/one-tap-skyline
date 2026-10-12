@@ -1,7 +1,7 @@
 import type { CompletedRun } from '../core/game.ts';
 import type { CityBuilding, CityUpdate } from '../core/city.ts';
 import type { RunTrace } from '../core/trace.ts';
-import type { CitySnapshot, SharedCityId, SharedSession, StartReceipt, SubmissionResponse } from './protocol.ts';
+import type { CitySnapshot, SharedCityId, SharedSession, StartReceipt, SubmissionResponse, SnapshotScope } from './protocol.ts';
 
 export class SharedError extends Error {
   readonly code:string;
@@ -16,27 +16,28 @@ export async function requestJson<T>(path:string,body?:unknown,signal?:AbortSign
 }
 export class SharedCityRepository {
   readonly cityId:SharedCityId; readonly playerId:string;
+  readonly scope:SnapshotScope;
   snapshot:CitySnapshot;
   private generation=0;private disposed=false;
   private shownRuns=new Set<string>();
-  constructor(session:SharedSession){this.cityId=session.snapshot.cityId;this.playerId=session.playerId;this.snapshot=session.snapshot;}
+  constructor(session:SharedSession){this.cityId=session.snapshot.cityId;this.playerId=session.playerId;this.snapshot=session.snapshot;this.scope=session.snapshot.scope??'all';}
   all(){return this.snapshot.buildings;}
   get(playerId:string){return this.snapshot.buildings.find(b=>b.playerId===playerId);}
   apply(incoming:CitySnapshot):boolean {
-    if(this.disposed||incoming.cityId!==this.cityId||incoming.epoch!==this.snapshot.epoch||incoming.revision<=this.snapshot.revision)return false;
+    if(this.disposed||incoming.cityId!==this.cityId||incoming.epoch!==this.snapshot.epoch||(incoming.scope??'all')!==this.scope||incoming.revision<=this.snapshot.revision)return false;
     const previous=new Map(this.snapshot.buildings.map(b=>[b.playerId,b]));
     incoming.buildings=incoming.buildings.map(b=>{const old=previous.get(b.playerId);return old&&old.bestRunId===b.bestRunId&&old.plotId===b.plotId&&old.color===b.color&&old.name===b.name?{...old,rank:b.rank}:b;});
     this.snapshot=incoming;return true;
   }
   async refresh(signal?:AbortSignal){
     const generation=this.generation;
-    const incoming=await requestJson<CitySnapshot|{unchanged:true;writeOpen:boolean;name:string}>(`/api/city?city=${this.cityId}&epoch=${encodeURIComponent(this.snapshot.epoch)}&since=${this.snapshot.revision}`,undefined,signal);
+    const incoming=await requestJson<CitySnapshot|{unchanged:true;writeOpen:boolean;name:string}>(`/api/city?city=${this.cityId}&scope=${this.scope}&epoch=${encodeURIComponent(this.snapshot.epoch)}&since=${this.snapshot.revision}`,undefined,signal);
     if(generation!==this.generation||this.disposed)return false;
     if('unchanged'in incoming){const changed=this.snapshot.name!==incoming.name;this.snapshot.writeOpen=incoming.writeOpen;this.snapshot.name=incoming.name;return changed;}
     return this.apply(incoming);
   }
   async submit(_player:string,name:string,run:CompletedRun,trace:RunTrace):Promise<CityUpdate>{
-    const value=await requestJson<SubmissionResponse>(`/api/runs/${run.runId}/submit`,{name,trace});
+    const value=await requestJson<SubmissionResponse>(`/api/runs/${run.runId}/submit?scope=${this.scope}`,{name,trace});
     this.apply(value.snapshot);
     const receipt=value.receipt;
     if(receipt.kind==='zero'||receipt.kind==='full')throw new SharedError(receipt.kind==='full'?'city_full':'invalid_trace');
@@ -49,5 +50,5 @@ export class SharedCityRepository {
   }
   dispose(){this.disposed=true;this.generation++;}
 }
-export const loadSession=(city:SharedCityId,signal?:AbortSignal)=>requestJson<SharedSession>(`/api/session?city=${city}`,undefined,signal);
+export const loadSession=(city:SharedCityId,signal?:AbortSignal,scope:SnapshotScope='all')=>requestJson<SharedSession>(`/api/session?city=${city}&scope=${scope}`,undefined,signal);
 export const startSharedRun=(city:SharedCityId,startKey:string,replaceRunId:string|null)=>requestJson<StartReceipt>('/api/runs',{city,startKey,replaceRunId});

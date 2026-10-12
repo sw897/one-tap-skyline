@@ -17,7 +17,7 @@ try{
  for(let i=0;i<3;i++){
   await page.locator('#overview-button').tap();const frames=await sample(page);
   assert.equal(new Set(frames.map(f=>f.rect.join(','))).size,1);
-  for(const f of frames){assert.equal(f.opacity,'1');assert.equal(f.presentation.view,'city');assert.deepEqual(f.presentation.target,f.presentation.aim);}
+  for(const f of frames){assert.equal(f.opacity,'1');assert.equal(f.presentation.view,'result');assert.deepEqual(f.presentation.target,f.presentation.aim);}
   report.checks.push({name:'city first frame and fixed viewport '+(i+1),passed:true,frames});await page.locator('#home-button').tap();
  }
  await page.locator('#start-button').tap();const drop=await page.locator('#drop-button').boundingBox();

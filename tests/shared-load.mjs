@@ -11,10 +11,25 @@ const root=path.resolve(process.env.SKYLINE_EVIDENCE_DIR??path.join(os.tmpdir(),
 if(root===process.cwd()||root.startsWith(process.cwd()+path.sep))throw new Error('Private evidence path required');await mkdir(root,{recursive:true});
 const origin=new URL(base).origin,delay=ms=>new Promise(r=>setTimeout(r,Math.max(0,ms)));
 const report={timestamp:new Date().toISOString(),base,scope:'Actual HTTP/D1 test city with engine-generated valid event traces, 60 buildings, 20 clients/60s. Desktop Chrome rendering; not phone hardware.',requests:[],errors:[],propagationMs:[],checks:[],passed:false};
+const browserTransport=process.env.SKYLINE_LOAD_TRANSPORT==='browser';report.transport=browserTransport?'Real Chrome same-origin fetch and isolated browser cookie jars':'Node HTTP fetch';
+let apiBrowser,spectatorClient;const apiClients=new Map();
+async function browserCall(url,body,clientId){
+  apiBrowser??=await chromium.launch({headless:true,channel:process.env.SKYLINE_BROWSER_CHANNEL??'chrome'});
+  if(!clientId){if(url.startsWith('/api/session'))clientId=crypto.randomUUID();else clientId=spectatorClient??=crypto.randomUUID();}
+  if(!apiClients.has(clientId)){
+    const context=await apiBrowser.newContext(),page=await context.newPage();await page.goto(new URL('/favicon.svg',base).href);apiClients.set(clientId,{context,page});
+  }
+  const reply=await apiClients.get(clientId).page.evaluate(async({url,body})=>{
+    const response=await fetch(url,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});return {status:response.status,ok:response.ok,text:await response.text()};
+  },{url,body});
+  return {response:{status:reply.status,ok:reply.ok,json:async()=>JSON.parse(reply.text),headers:{get:()=>null}},clientId};
+}
 async function call(url,body,cookie,phase='load'){
-  const start=performance.now();const response=await fetch(new URL(url,base),{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{'Content-Type':'application/json',Origin:origin})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  const start=performance.now();let response,clientId;
+  if(browserTransport)({response,clientId}=await browserCall(url,body,cookie));
+  else response=await fetch(new URL(url,base),{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{'Content-Type':'application/json',Origin:origin})},...(body===undefined?{}:{body:JSON.stringify(body)})});
   const value=await response.json();report.requests.push({phase,kind:body===undefined?'read':'write',status:response.status,ms:performance.now()-start});
-  if(!response.ok)throw new Error('HTTP '+response.status+' '+(value.error??''));return {value,cookie:response.headers.get('set-cookie')?.split(';')[0]};
+  if(!response.ok)throw new Error('HTTP '+response.status+' '+(value.error??''));return {value,cookie:browserTransport?clientId:response.headers.get('set-cookie')?.split(';')[0]};
 }
 const actors=[],targets=new Map(),seen=new Map();let browser,context;
 try{
@@ -25,6 +40,7 @@ try{
     const start=await call('/api/runs',{city:'test',startKey:crypto.randomUUID()},s.cookie,'seed');
     const floors=12+i%15,fixture=makeTrace(floors,i);
     actors.push({cookie:s.cookie,playerId:s.value.playerId,runId:start.value.runId,floors,fixture,readyAt:Date.now()+fixture.trace.endUs/1000+60});
+    if((i+1)%10===0)console.log('Prepared '+(i+1)+'/'+missing+' isolated valid test runs');
   }
   await delay(Math.max(...actors.map(a=>a.readyAt))-Date.now());
   for(let index=0;index<actors.length;index+=10)await Promise.all(actors.slice(index,index+10).map(async a=>{const r=await call('/api/runs/'+a.runId+'/submit',{trace:a.fixture.trace,name:'测试楼 '+String(actors.indexOf(a)+1).padStart(2,'0')},a.cookie,'seed');assert.equal(r.value.receipt.kind,'first');}));
@@ -65,4 +81,4 @@ try{
   assert.equal(report.errors.length,0);assert.ok(report.summary.readP95Ms<=1500);assert.ok(report.summary.writeP95Ms<=2000);assert.equal(targets.size,0);assert.ok(report.summary.propagationSamples>=10);assert.ok(report.summary.within5Seconds/report.summary.propagationSamples>=.95);
   await page.screenshot({path:path.join(root,'city-60-final.png'),fullPage:true});report.passed=true;report.checks.push({name:'20 mixed concurrent clients/60s, atomic best, latency and spectator3s polling',passed:true});
 }catch(error){report.failure=String(error);report.errors.push(String(error));console.error(String(error));process.exitCode=1;}
-finally{await context?.close();await browser?.close();await writeFile(path.join(root,'shared-load-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({passed:report.passed,summary:report.summary,errors:report.errors,evidenceDir:root}));}
+finally{await context?.close();await browser?.close();await apiBrowser?.close();await writeFile(path.join(root,'shared-load-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({passed:report.passed,summary:report.summary,errors:report.errors,evidenceDir:root}));}

@@ -18,3 +18,9 @@ test('unrelated revision keeps same tower reference; dispose rejects all stale r
   assert.equal(city.apply(snapshot(2,12,'same-run')),true);assert.equal(city.get('public-player')!.tower,tower);
   city.dispose();assert.equal(city.apply(snapshot(3,26)),false);
 });
+
+test('personal snapshot cache rejects whole-city coverage even with newer revision',()=>{
+  const city=new SharedCityRepository(session({...snapshot(1,12),scope:'own'}));
+  assert.equal(city.apply({...snapshot(2,16),scope:'all'}),false);
+  assert.equal(city.apply({...snapshot(2,16),scope:'own'}),true);assert.equal(city.all().length,1);
+});
