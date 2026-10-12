@@ -73,3 +73,5 @@ P0 检查基线：**仅完成预检，实际部署与免登录访问待验证。
 身份、真实共享成绩和结构化数据迁移属于 P3；上传、授权、审核、删除与文件迁移属于 P4。P6 再处理 Docker/SSH。前端可保持同一静态构建，但 Sites D1/R2 与通用 Docker 存储须通过对应阶段的适配与迁移验证。
 
 Git 是唯一源码版本线。P1 里程碑为 `p1-core-visual`；交接包、客户素材、原始提示词和运行证据均不进入仓库。公开推送前必须审核提交、资产、历史对象及 tag，详见 [AGENTS.md](AGENTS.md)。
+
+阶段资料：[P1 开发过程记录](docs/P1-development-record.md)、[P2 实施计划（待审核，未实施）](docs/P2-implementation-plan.md)、[后续阶段与重要修复记录模板](docs/development-record-template.md)。
