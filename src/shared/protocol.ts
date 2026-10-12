@@ -7,6 +7,8 @@ export interface CitySnapshot {
   cityId: SharedCityId; epoch: string; revision: number; name: string; isTest: boolean; writeOpen: boolean;
   capacity: number; buildings: RankedBuilding[];
   scope?: SnapshotScope; totalBuildings?: number;
+  photoWriteOpen?: boolean;
+  resetAt?: number;
 }
 export interface SharedSession { playerId: string; color:string; snapshot: CitySnapshot; rules: GameConfig; rulesetId: string; activeRunId: string | null }
 export interface StartReceipt { runId: string; expiresAt: number; rules: GameConfig; rulesetId: string }

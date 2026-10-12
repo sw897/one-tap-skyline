@@ -31,7 +31,7 @@ npm run dev
 
 服务端先创建局次，再开始游戏计时；单玩家/城市一个活跃局，局次墙钟有效期 10 分钟。提交有上限的事件时序，服务端用固定 B/60 秒规则复算完整楼体；不信任客户端总分或几何。相同局和正文重试返回原回执，不重复入城；较低或同分不变，严格更高成绩以整局新几何在原地更新，地块、颜色和首次署名稳定。浏览器时序可被脚本生成，这套校验不保证识别人类操作。
 
-大屏前台约每3秒检查版本，游玩/后台暂停轮询。手机不轮询全城，启动、提交及主动查看只取自身完整最佳楼。60个稳定地块、个人定位与榜外个人名次已纳入测试；满城拒绝新楼，保留已有楼的最佳更新。幕墙只预留位置和跳过入口，真实装饰/上传属于P4。大屏场景尚未达到参考图城市氛围，完整景观/自然漫游归P5待审核方案，Docker/SSH属于P6。
+大屏前台约每3秒检查版本，游玩/后台暂停轮询。手机不轮询全城，启动、提交及主动查看只取自身完整最佳楼。P4新增可选照片裁切/幕墙预览、即时公开保存、换图与撤回，楼体仍为同一几何。每天北京时间00:00全游戏重新开始，楼体/成绩/身份/局次/照片/草稿一起清空；同一天满城拒绝新楼，已有楼可更新最佳。P4正式验收按用户安排延期；大屏现代城市景观/自然漫游归P5，Docker/SSH归P6。
 
 ## 运行时活动配置
 
@@ -56,4 +56,4 @@ npm run db:import:local -- --file D:\private\city-export.json
 
 自动化、手机尺寸模拟和真实手机反馈分别记录；安卓暂不安排。Git 是唯一源码版本线，公开推送前检查待推提交、全历史、tag 与资产，规则见 [AGENTS.md](AGENTS.md)。
 
-阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片贴纸计划](docs/P4-implementation-plan.md)（待审核，未实施）、[后续记录模板](docs/development-record-template.md)。
+阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[后续记录模板](docs/development-record-template.md)。

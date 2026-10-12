@@ -14,6 +14,7 @@ export function mountUI(root: HTMLElement) {
       <p class="intro-description">找准时机，接住移动的楼层。<br>盖完的小楼，会成为天际线的一部分。</p>
       <button class="primary-button start-button" id="start-button">开始盖楼 <span aria-hidden="true">→</span></button>
       <p class="intro-note" id="intro-direction">楼层左右、前后交替移动 · 单指点击落层</p>
+      <p class="intro-note">每天北京时间 00:00，城市与成绩重新开始。</p>
       <p class="mode-links"><a id="practice-link" href="/?mode=practice">先练习</a><a id="shared-link" href="/?mode=shared">共享试玩</a></p>
       <div class="how-to"><span><b>01</b> 点击落层</span><span><b>02</b> 留下作品</span><span><b>03</b> 原地长高</span></div>
     </section>
@@ -35,7 +36,7 @@ export function mountUI(root: HTMLElement) {
         <div class="performance" id="performance-summary"></div>
         <label class="signature-label" for="signature">为这栋楼署名 <small>可选</small></label>
         <input id="signature" maxlength="16" autocomplete="off" placeholder="给你的小楼起个名字" />
-        <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>幕墙贴纸位</strong><small>位置已预留，稍后加入</small></div><button class="subtle-button" id="skip-sticker">跳过</button></div>
+        <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>照片贴纸 <span class="muted">可选</span></strong><small id="sticker-hint">贴在楼的正面，留下你的颜色</small></div><button class="subtle-button" id="choose-sticker">选择照片</button><button class="subtle-button" id="skip-sticker">跳过</button></div>
         <button class="primary-button" id="submit-button">模拟入城 <span aria-hidden="true">↗</span></button>
         <p id="submit-note" class="disclosure">城市使用模拟数据，仅保留在本页。</p>
         <button class="outline-button replay-button" id="replay-button">再来一局 <span aria-hidden="true">↻</span></button>
@@ -44,6 +45,7 @@ export function mountUI(root: HTMLElement) {
 
     <section data-screen="city" class="city-ui" hidden>
       <div class="personal-summary" id="personal-summary" hidden><span class="eyebrow">属于你的天际线</span><h1>我的楼</h1><p>个人最佳 <strong id="personal-floors">0</strong> 层</p><p id="personal-name">还没有保存的作品</p><small id="personal-note"></small></div>
+      <div id="own-photo-actions" class="glass own-photo-actions" hidden><div><strong>给你的楼，留一张照片</strong><small id="photo-own-note">照片即时公开，午夜和城市一起重置</small></div><div class="own-photo-buttons"><button id="edit-own-photo" class="outline-button">装饰我的楼</button><button id="retry-photo" class="outline-button" hidden>重试保存照片</button><button id="remove-own-photo" class="subtle-button" hidden>撤回照片</button></div></div>
       <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span></div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside class="glass city-board">
@@ -57,6 +59,8 @@ export function mountUI(root: HTMLElement) {
       <div class="city-callout glass"><div><strong id="city-callout-title">让这座城市，多一栋你的楼。</strong><span id="city-callout-note">先玩一局，再为作品署名。</span></div><button class="primary-button" id="city-play">开始盖楼 →</button></div>
     </section>
 
+    <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+    <dialog id="photo-dialog" class="glass photo-dialog"><div class="dialog-heading"><div><span class="eyebrow">只装饰，不改变成绩</span><h2>把照片贴到楼上</h2></div><button id="photo-cancel" class="text-button" aria-label="取消照片">×</button></div><div class="crop-layout"><canvas id="photo-canvas" width="512" height="768" aria-label="拖动照片调整位置"></canvas><div class="crop-help"><p>拖动照片调整位置</p><label for="photo-zoom">放大 <input id="photo-zoom" type="range" min="1" max="3" step="0.02" value="1" /></label><p>保存后立即公开到城市与大屏。每天北京时间 00:00 清空游戏；未保存草稿 4 小时后失效。</p><label class="photo-consent"><input id="photo-consent" type="checkbox" />我愿意公开展示这张照片</label><p id="photo-error" role="status"></p><button id="photo-apply" class="primary-button">使用这张照片</button><button id="photo-cancel-bottom" class="outline-button">取消</button></div></div></dialog>
     <footer class="app-footer"><span id="footer-status">单轴盖楼 · 城市使用模拟数据</span><span class="footer-mark">ONE TAP, A NEW SKYLINE.</span></footer>
     <dialog id="settings-dialog" class="glass settings-dialog"><form method="dialog">
       <div class="dialog-heading"><div><span class="eyebrow">初始候选 · 等你试玩</span><h2>调整玩法参数</h2></div><button class="text-button" value="cancel" aria-label="关闭参数面板">×</button></div>

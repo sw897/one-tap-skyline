@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync,readdirSync } from 'node:fs';
 import type { D1Database } from '@cloudflare/workers-types';
 
 /** SQLite-backed D1 contract adapter for transaction fault tests; not hosted D1. */
@@ -10,7 +10,8 @@ export class SqliteD1 {
   batchCalls=0;
   constructor(file=':memory:') {
     this.connection=new DatabaseSync(file);this.connection.exec('PRAGMA foreign_keys=ON');
-    this.connection.exec(readFileSync(new URL('../drizzle/0000_opposite_talos.sql',import.meta.url),'utf8'));
+    const directory=new URL('../drizzle/',import.meta.url);
+    for(const name of readdirSync(directory).filter(x=>x.endsWith('.sql')).sort())this.connection.exec(readFileSync(new URL(name,directory),'utf8'));
   }
   asD1(){return this as unknown as D1Database;}
   prepare(query:string){return new Statement(this,query);}

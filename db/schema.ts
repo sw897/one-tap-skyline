@@ -29,3 +29,22 @@ export const buildings = sqliteTable('buildings', {
 export const rateLimits = sqliteTable('rate_limits', {
   bucket: text('bucket').primaryKey(), count: integer('count').notNull().default(0), expiresAt: integer('expires_at').notNull(),
 });
+
+export const photoAssets = sqliteTable('photo_assets', {
+  id: text('id').primaryKey(), cityId: text('city_id').notNull().references(() => cities.id),
+  playerId: text('player_id').notNull().references(() => players.id),
+  uploadKey: text('upload_key').notNull(), requestHash: text('request_hash').notNull(),
+  status: text('status').notNull(), createdAt: integer('created_at').notNull(), expiresAt: integer('expires_at').notNull(),
+  imageKey: text('image_key').notNull(), thumbnailKey: text('thumbnail_key').notNull(),
+  bytes: integer('bytes').notNull().default(0), width: integer('width').notNull().default(512), height: integer('height').notNull().default(768),
+}, t => [uniqueIndex('photo_upload_retry').on(t.cityId,t.playerId,t.uploadKey), index('photo_expiry').on(t.expiresAt)]);
+
+export const buildingFacades = sqliteTable('building_facades', {
+  buildingId: text('building_id').primaryKey().references(() => buildings.id),
+  assetId: text('asset_id').references(() => photoAssets.id), version: integer('version').notNull().default(0),
+});
+
+// Infrastructure marker, not retained player/game content. Prevents repeat resets.
+export const gameClock = sqliteTable('game_clock', {
+  id: text('id').primaryKey(), dayStart: integer('day_start').notNull(), resetToken: text('reset_token'),
+});

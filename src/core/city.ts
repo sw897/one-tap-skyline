@@ -1,6 +1,7 @@
 import type { CompletedRun } from './game.ts';
 import { cloneTower, fixtureTower, validateTower } from './tower.ts';
 import type { CutMode, TowerModel } from './tower.ts';
+import type { PhotoDecoration } from './photo.ts';
 
 export const PALETTE = ['#75aaff', '#73cbbb', '#ffb084', '#baa0ef', '#f29ea9', '#edcb73'];
 export const playerColor = (publicId:string) => PALETTE[(Number.parseInt(publicId.replaceAll('-','').slice(0,8),16)||0)%PALETTE.length];
@@ -12,6 +13,8 @@ export interface CityBuilding {
   readonly tower: TowerModel;
   readonly bestRunId: string;
   readonly source: 'fixture' | 'local-session' | 'shared';
+  readonly photo?: PhotoDecoration | null;
+  readonly appearanceVersion?: number;
 }
 export type CityUpdate = { kind: 'first' | 'unchanged' | 'best' | 'duplicate' | 'invalid'; building?: CityBuilding; previous?: CityBuilding };
 export interface CityRepository {

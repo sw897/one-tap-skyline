@@ -4,6 +4,7 @@ import type { CompletedRun } from '../core/game.ts';
 import type { RunTrace } from '../core/trace.ts';
 import type { CitySnapshot, SharedCityId, StartReceipt, SubmissionReceipt } from '../shared/protocol.ts';
 import { ApiError, GEOMETRY_VERSION, OFFICIAL_RULES, RULESET_ID, RUN_TTL_MS, randomId } from './policy.ts';
+import { nextShanghaiMidnight } from '../core/photo.ts';
 
 export interface PlayerRow { id: string; public_id: string; credential_hash: string; expires_at: number }
 export interface RunRow {
@@ -40,11 +41,13 @@ export class CityStore {
       this.stmt('SELECT c.*,(SELECT COUNT(*) FROM buildings WHERE city_id=c.id) AS total_buildings FROM cities c WHERE id=?',city),
       owner ? this.stmt(`SELECT b.*,p.public_id,1+(SELECT COUNT(*) FROM buildings other WHERE other.city_id=b.city_id AND other.floors>b.floors) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? AND b.player_id=?`,city,owner) :
         this.stmt(`SELECT b.*,p.public_id,RANK() OVER(ORDER BY b.floors DESC) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? ORDER BY b.floors DESC,b.achieved_at,b.id`,city),
+      this.stmt(`SELECT b.id,COALESCE(f.version,0) AS version,a.id AS asset_id,a.expires_at,a.status FROM buildings b LEFT JOIN building_facades f ON f.building_id=b.id LEFT JOIN photo_assets a ON a.id=f.asset_id WHERE b.city_id=? AND (? IS NULL OR b.player_id=?)`,city,owner??null,owner??null),
     ]);
     const meta=rows[0].results[0] as unknown as CityRow;
     if(!meta)throw new ApiError(404,'city_not_found');
-    const buildings=(rows[1].results as unknown as BuildingRow[]).map(b=>({playerId:b.public_id,plotId:b.plot_id,color:b.color,name:b.name,bestRunId:b.best_run_id,tower:JSON.parse(b.tower_json),source:'shared' as const,rank:b.rank}));
-    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings,scope:owner?'own':'all',totalBuildings:Number((meta as CityRow&{total_buildings:number}).total_buildings)};
+    const appearances=new Map((rows[2].results as unknown as {id:string;version:number;asset_id:string|null;expires_at:number;status:string}[]).map(a=>[a.id,a]));
+    const buildings=(rows[1].results as unknown as BuildingRow[]).map(b=>{const a=appearances.get(b.id);return {playerId:b.public_id,plotId:b.plot_id,color:b.color,name:b.name,bestRunId:b.best_run_id,tower:JSON.parse(b.tower_json),source:'shared' as const,rank:b.rank,appearanceVersion:a?.version??0,photo:a?.asset_id&&a.status==='active'&&a.expires_at>Date.now()?{id:a.asset_id,version:a.version,imageUrl:'/api/photos/media/'+a.asset_id+'/image',thumbnailUrl:'/api/photos/media/'+a.asset_id+'/thumbnail',expiresAt:a.expires_at}:null};});
+    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings,scope:owner?'own':'all',totalBuildings:Number((meta as CityRow&{total_buildings:number}).total_buildings),resetAt:nextShanghaiMidnight()};
   }
   async activeRun(city:SharedCityId,player:string,now:number) {
     await this.stmt("UPDATE runs SET status='expired' WHERE city_id=? AND player_id=? AND status='active' AND expires_at<?",city,player,now).run();

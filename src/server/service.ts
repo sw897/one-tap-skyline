@@ -5,9 +5,12 @@ import { parseRuntimeConfig } from '../config.ts';
 import type { SharedCityId, SharedSession } from '../shared/protocol.ts';
 import { ApiError, OFFICIAL_RULES, PLAYER_TTL_MS, RULESET_ID, RUN_TTL_MS, hashText, randomCredential, randomId } from './policy.ts';
 import { CityStore } from './store.ts';
+import { handlePhotoApi } from './photos.ts';
+import { ensureGameDay,removePastDayFiles } from './daily-reset.ts';
+import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
 
-export interface ServerContext { db?: D1Database; publicWriteOpen: boolean; cityName?: string; now?: () => number }
+export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; now?: () => number }
 const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
@@ -27,6 +30,12 @@ async function readBody(request:Request) {
 export async function handleApi(request:Request,context:ServerContext):Promise<Response> {
   try {
     if(!context.db)throw new ApiError(503,'storage_unavailable');
+    const day=await ensureGameDay(context.db,(context.now??Date.now)());
+    if(new URL(request.url).pathname==='/api/game/reset-due'&&request.method==='GET'){
+      const files=context.bucket?await removePastDayFiles(context.bucket,(context.now??Date.now)()):{removed:0};
+      return json({...day,filesRemoved:files.removed});
+    }
+    if(new URL(request.url).pathname.startsWith('/api/photos/'))return handlePhotoApi(request,{...context,publicPhotosOpen:context.publicPhotosOpen===true});
     const store=new CityStore(context.db),url=new URL(request.url),now=(context.now??Date.now)();
     const name=parseRuntimeConfig({cityDisplayName:context.cityName}).cityDisplayName;
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
@@ -37,7 +46,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const requirePlayer=()=>{if(!player)throw new ApiError(401,'session_required');return player;};
     const ownOnly=url.searchParams.get('scope')==='own';
     if(url.searchParams.has('scope')&&!['all','own'].includes(url.searchParams.get('scope')!))throw new ApiError(400,'invalid_scope');
-    const snapshot=(city:SharedCityId)=>store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined);
+    const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined);view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
     if(request.method==='GET'&&url.pathname==='/api/session') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
       let cookie:string|undefined;

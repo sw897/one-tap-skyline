@@ -5,6 +5,7 @@ declare global { namespace Cloudflare {
     DB?: D1Database;
     BUCKET?: R2Bucket;
     SKYLINE_PUBLIC_WRITE_OPEN?: string;
+    SKYLINE_PUBLIC_PHOTOS_OPEN?: string;
     CITY_DISPLAY_NAME?: string;
     CONNECTORS?: ConnectorBinding;
   }

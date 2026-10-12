@@ -4,6 +4,8 @@ import type { GameSession } from './core/game.ts';
 import { topLayer, towerHeight } from './core/tower.ts';
 import type { Axis, Layer, TowerModel } from './core/tower.ts';
 import type { CityBuilding, CityUpdate } from './core/city.ts';
+import { photoKey } from './core/photo.ts';
+import type { PhotoDecoration } from './core/photo.ts';
 
 const unit = new T.BoxGeometry(1, 1, 1);
 const blockMaterial = new T.MeshStandardMaterial({ roughness: 0.64, metalness: 0.02 });
@@ -32,7 +34,7 @@ function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh,
 }
 
 /** The only tower generator: all three views use these exact layer records. */
-export function buildTower(model: TowerModel, color: string): T.Group {
+export function buildTower(model: TowerModel, color: string,photo?:PhotoDecoration|null,thumbnail=false): T.Group {
   const root = new T.Group();
   const foundation = new T.Mesh(unit, foundationMaterial);
   foundation.scale.set(model.baseWidth + 0.26, model.baseHeight, model.depth + 0.26);
@@ -51,12 +53,63 @@ export function buildTower(model: TowerModel, color: string): T.Group {
     slabs.setColorAt(index, tint);
   });
   floors.add(slabs, windows, slots);
-  root.userData = { model, floors, slabs, windows, slots, logicalHeight: towerHeight(model), color };
+  const photoHolder=new T.Group();floors.add(photoHolder);
+  root.userData = { model, floors, slabs, windows, slots,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color };
+  applyFacade(root,photo,thumbnail);
   return root;
+}
+
+interface TextureEntry { texture:T.Texture; refs:number; loaded:boolean; listeners:Set<()=>void> }
+const photoTextures=new Map<string,TextureEntry>();
+function acquirePhoto(url:string,onReady:()=>void){
+ let entry=photoTextures.get(url);
+ if(!entry){
+  const fresh:TextureEntry={texture:new T.Texture(),refs:0,loaded:false,listeners:new Set()};
+  entry=fresh;photoTextures.set(url,fresh);
+  fresh.texture=new T.TextureLoader().load(url,texture=>{
+   texture.colorSpace=T.SRGBColorSpace;fresh.loaded=true;
+   if(fresh.refs===0){texture.dispose();return;}
+   for(const callback of fresh.listeners)callback();
+  },undefined,()=>{fresh.loaded=false;});
+  fresh.texture.colorSpace=T.SRGBColorSpace;
+ }
+ const saved=entry;saved.refs++;saved.listeners.add(onReady);
+ if(saved.loaded)queueMicrotask(onReady);
+ return {texture:saved.texture,release:()=>{saved.listeners.delete(onReady);saved.refs--;if(saved.refs===0){saved.texture.dispose();if(photoTextures.get(url)===saved)photoTextures.delete(url);}}};
+}
+function applyFacade(root:T.Group,photo?:PhotoDecoration|null,thumbnail=false){
+ const key=photoKey(photo)+(photoKey(photo)?thumbnail?':thumb':':image':'');
+ if(root.userData.photoKey===key)return;
+ root.userData.photoRelease?.();root.userData.photoRelease=undefined;
+ const holder=root.userData.photoHolder as T.Group;
+ holder.traverse(object=>{if(object instanceof T.Mesh){object.geometry.dispose();(object.material as T.Material).dispose();}});
+ holder.clear();root.userData.photo=photo;root.userData.photoKey=key;
+ const model=root.userData.model as TowerModel,slots=root.userData.slots as T.InstancedMesh;
+ slots.count=Math.min(3,model.layers.length);
+ if(!key||!photo||!model.layers.length)return;
+ const count=Math.min(3,model.layers.length),height=count*model.layerHeight;
+ const center=model.layers[0].x,width=Math.min(model.layers[0].width*.32,height*2/3),left=center-width/2;
+ const positions:number[]=[],uvs:number[]=[];
+ for(let i=0;i<count;i++){
+  const layer=model.layers[i],x0=Math.max(left,layer.x-layer.width*.45),x1=Math.min(left+width,layer.x+layer.width*.45);
+  if(x1<=x0)continue;
+  const y0=(i+.06)*model.layerHeight,y1=(i+.94)*model.layerHeight,z=layer.z+layer.depth/2+.043;
+  positions.push(x0,y0,z,x1,y0,z,x1,y1,z,x0,y0,z,x1,y1,z,x0,y1,z);
+  const u0=(x0-left)/width,u1=(x1-left)/width,v0=y0/height,v1=y1/height;
+  uvs.push(u0,v0,u1,v0,u1,v1,u0,v0,u1,v1,u0,v1);
+ }
+ const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));geometry.computeVertexNormals();
+ holder.visible=false;
+ const acquired=acquirePhoto(thumbnail?photo.thumbnailUrl:photo.imageUrl,()=>{
+  if(root.userData.photoKey===key&&photo.expiresAt>Date.now()){holder.visible=true;slots.count=0;}
+ });
+ const material=new T.MeshStandardMaterial({map:acquired.texture,roughness:.75,toneMapped:false,side:T.DoubleSide});
+ holder.add(new T.Mesh(geometry,material));root.userData.photoRelease=acquired.release;
 }
 
 const plotPosition = (plot: number, side=4) => ({ x: (plot % side - (side-1)/2) * 4.6, z: (Math.floor(plot / side) - (side-1)/2) * 4.6 });
 function releaseGroup(group: T.Group) {
+  applyFacade(group,undefined);
   group.traverse(object => { if (object instanceof T.InstancedMesh) object.dispose(); });
   group.removeFromParent();
 }
@@ -97,6 +150,7 @@ export class SkylineRenderer {
   private gridSide: number;
   private maxCityHeight = 0;
   private soloColor='#75aaff';
+  private nextPhotoCheck=0;
 
   constructor(container: HTMLElement, config: RuntimeConfig, gridSide=4) {
     this.gridSide=gridSide;
@@ -158,12 +212,12 @@ export class SkylineRenderer {
     const water = new T.Mesh(new T.CylinderGeometry(0.52, 0.56, 0.12, 32), new T.MeshStandardMaterial({ color: '#92d2e8', roughness: 0.4 }));
     water.position.set(p.x, 0.2, p.z); this.city.add(water);
   }
-  setSolo(model: TowerModel, color = this.soloColor) {
-    if (model === this.soloModel && color===this.soloColor) return;
+  setSolo(model: TowerModel, color = this.soloColor,photo?:PhotoDecoration|null) {
+    if (model === this.soloModel && color===this.soloColor){if(this.soloTower)applyFacade(this.soloTower,photo);return;}
     this.soloColor=color;
     if (this.soloTower) releaseGroup(this.soloTower);
     this.soloModel = model;
-    this.soloTower = buildTower(model, color); this.solo.add(this.soloTower);
+    this.soloTower = buildTower(model, color,photo); this.solo.add(this.soloTower);
   }
   setView(view: View) {
     const pullback = this.view === 'play' && view === 'result';
@@ -181,9 +235,10 @@ export class SkylineRenderer {
     for(const [id,group] of this.cityObjects)if(!present.has(id)){releaseGroup(group);this.cityObjects.delete(id);}
     for (const building of buildings) {
       const previous = this.cityObjects.get(building.playerId);
-      if (previous?.userData.model === building.tower) continue;
+      const thumbnail=this.focus?.playerId!==building.playerId;
+      if (previous?.userData.model === building.tower){applyFacade(previous,building.photo,thumbnail);continue;}
       if (previous) releaseGroup(previous);
-      const group = buildTower(building.tower, building.color), p = plotPosition(building.plotId,this.gridSide);
+      const group = buildTower(building.tower, building.color,building.photo,thumbnail), p = plotPosition(building.plotId,this.gridSide);
       group.position.set(p.x, 0.055, p.z);
       group.userData.playerId = building.playerId;
       this.city.add(group); this.cityObjects.set(building.playerId, group);
@@ -210,7 +265,7 @@ export class SkylineRenderer {
       this.cutGlow.material.opacity = 0.85; this.cutGlow.visible = true;
     }
   }
-  focusBuilding(building?: CityBuilding) { this.focus = building; this.zoom = building ? 0.72 : 1; }
+  focusBuilding(building?: CityBuilding) { this.focus = building; this.zoom = building ? 0.72 : 1;for(const [id,group] of this.cityObjects)applyFacade(group,group.userData.photo,id!==building?.playerId); }
   zoomCity(amount: number) { this.zoom = T.MathUtils.clamp(this.zoom + amount, 0.55, 1.55); }
   rotateCity(direction: number) { this.angle += direction * Math.PI / 12; }
   projectLabel(building: CityBuilding) {
@@ -232,6 +287,7 @@ export class SkylineRenderer {
     return {model,logicalHeight:towerHeight(model),displayedHeight:model.baseHeight+model.layers.length*model.layerHeight*this.soloTower.userData.floors.scale.y,color:this.soloColor};
   }
   update(seconds: number, game?: GameSession) {
+    if(Date.now()>=this.nextPhotoCheck){this.nextPhotoCheck=Date.now()+500;for(const root of [...this.cityObjects.values(),...(this.soloTower?[this.soloTower]:[])])if(root.userData.photo&&root.userData.photo.expiresAt<=Date.now())applyFacade(root,undefined);}
     if (this.view === 'play' && game) {
       this.setSolo(game.tower);
       const top = topLayer(game.tower);
@@ -301,6 +357,7 @@ export class SkylineRenderer {
   }
   dispose() {
     this.observer.disconnect();
+    if(this.soloTower)releaseGroup(this.soloTower);for(const group of this.cityObjects.values())releaseGroup(group);
     this.scene.traverse(object=>{if(object instanceof T.InstancedMesh)object.dispose();});
     this.renderer.dispose();this.renderer.forceContextLoss();this.renderer.domElement.remove();
     this.cityObjects.clear();this.scene.clear();
