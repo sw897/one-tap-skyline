@@ -2,7 +2,7 @@
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-P3手机个人视图修订已部署为Sites5（34030a / p3-shared-city-preview.1）；线上9组流程通过，真实手机及大屏视觉仍待验收。实际commit/tag、部署及缺项见[P3开发记录](docs/P3-development-record.md)。站点：一指盖楼（线上地址私存）。
+P4照片与每日游戏重置候选已部署为Sites7（b6eb322 / p4-photo-facade-preview.1），供用户手工测试，正式验收延期。每日北京时间00:00云任务已保存并启用，工具连接和实际定时清空仍未验证；实际版本、失败与缺项见[P4开发记录](docs/P4-development-record.md)，[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存）。
 
 ## 本地运行
 
@@ -12,7 +12,7 @@ P3手机个人视图修订已部署为Sites5（34030a / p3-shared-city-preview.1
 npm ci
 $env:SKYLINE_D1_STATE_PATH='D:\private\skyline-d1'
 npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to $env:SKYLINE_D1_STATE_PATH --file drizzle/0000_opposite_talos.sql
+Get-ChildItem drizzle/*.sql | Sort-Object Name | ForEach-Object { node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to $env:SKYLINE_D1_STATE_PATH --file $_.FullName }
 npm run dev
 ```
 

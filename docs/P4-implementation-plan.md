@@ -28,7 +28,9 @@
 3. 新照片接口独立于成绩时序JSON，复用既有匿名会话业务定位；草稿/公开关联分开，重试、换图、撤回通过装饰版本更新。图片本体和原文件名不进入城市JSON或Git。
 4. 用服务器时间判定北京时间日期，CAS标记保证一天最多清一次；按外键顺序原子清空游戏表并生成新城市epoch。每次游戏API先检查日期，午夜后不能继续提交旧局或读取旧成绩。客户端检测午夜/新epoch重新加载，重新匿名登记。
 5. 图片key含服务器日期。定时任务清空上一日及更早文件；晚到任务保留新一天图片。撤回先取消公开关联再删文件，删除失败留待重试。用户草稿4小时失效，午夜一并删除。
-6. 发布同一public站点后配置Sites云任务，Asia/Shanghai每天00:00调用服务器固定的reset-due接口；调用不接受客户端日期、城市、对象key或强制清库选项。记录任务是否保存、接口调用结果与首次实际定时执行，三者不能互相替代。
+6. 发布同一public站点后配置Sites云任务，Asia/Shanghai每天00:00调用固定到期清理操作；调用不接受客户端日期、城市、对象key或强制清库选项。普通HTTP遇403后使用Sites支持的MCP工具reset_game_if_due复用原接口，game_reset_status用于读回日期标记。记录任务是否保存、接口调用结果与首次实际定时执行，三者不能互相替代。
+
+2026-10-13实施状态：候选Sites7已发布，云任务已保存/启用，计划首次10月14日00:00；当前工具连接受阻，普通/MCP HTTP均403，实际无人值守执行尚未验证。详见[P4开发记录](P4-development-record.md)，本状态不表示功能验收通过。
 
 文件存储采用R2 Worker API；数据表用D1批处理，文件删除与SQL并非一个事务，故到期禁读和后续物理清理分开。[D1批处理](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)、[R2 Worker API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/)。
 
