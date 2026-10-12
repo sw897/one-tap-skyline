@@ -1,4 +1,6 @@
+import type { CutMode } from './core/tower.ts';
 export interface GameConfig {
+  cutMode: CutMode;
   roundSeconds: number;
   baseSpeed: number;
   speedStep: number;
@@ -13,7 +15,7 @@ export interface RuntimeConfig {
 }
 export const DEFAULT_CONFIG: RuntimeConfig = {
   cityDisplayName: '城市天际线',
-  game: { roundSeconds: 60, baseSpeed: 2.7, speedStep: 0.035, perfectRatio: 0.035, comboMilestone: 3, dropSeconds: 0.24 },
+  game: { cutMode: 'alternate-xz', roundSeconds: 60, baseSpeed: 2.7, speedStep: 0.035, perfectRatio: 0.035, comboMilestone: 3, dropSeconds: 0.24 },
   visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75 },
 };
 const numeric = (input: unknown, fallback: number, min: number, max: number) =>
@@ -27,6 +29,7 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
   return {
     cityDisplayName: name.length > 0 && name.length <= 40 && !/[<>\u0000-\u001f]/u.test(name) ? name : d.cityDisplayName,
     game: {
+      cutMode: game.cutMode === 'single-x' || game.cutMode === 'alternate-xz' ? game.cutMode : d.game.cutMode,
       roundSeconds: numeric(game.roundSeconds, d.game.roundSeconds, 10, 180),
       baseSpeed: numeric(game.baseSpeed, d.game.baseSpeed, 0.5, 8),
       speedStep: numeric(game.speedStep, d.game.speedStep, 0, 0.3),
@@ -40,6 +43,11 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
       maxPixelRatio: numeric(visual.maxPixelRatio, d.visual.maxPixelRatio, 1, 2),
     },
   };
+}
+/** Only the approved comparison mode can be selected by a shared playtest link. */
+export function playtestConfig(config: RuntimeConfig, search: string): RuntimeConfig {
+  const mode = new URLSearchParams(search).get('cut');
+  return mode === 'single-x' || mode === 'alternate-xz' ? { ...config, game: { ...config.game, cutMode: mode } } : config;
 }
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   try {

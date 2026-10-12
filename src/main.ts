@@ -1,5 +1,5 @@
 import './style.css';
-import { loadRuntimeConfig, parseRuntimeConfig } from './config.ts';
+import { loadRuntimeConfig, parseRuntimeConfig, playtestConfig } from './config.ts';
 import { GameSession } from './core/game.ts';
 import type { CompletedRun } from './core/game.ts';
 import { MemoryCityRepository } from './core/city.ts';
@@ -12,8 +12,8 @@ import { mountUI } from './ui.ts';
 const root = document.querySelector<HTMLElement>('#app')!;
 mountUI(root);
 const $ = <E extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as E;
-let config = await loadRuntimeConfig();
-const city = new MemoryCityRepository();
+let config = playtestConfig(await loadRuntimeConfig(), location.search);
+const city = new MemoryCityRepository(true, config.game.cutMode);
 const playerId = temporaryId();
 let game: GameSession | undefined;
 let completed: CompletedRun | null = null;
@@ -30,9 +30,11 @@ catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
   throw new Error('WebGL2 renderer unavailable');
 }
-viewer.setSolo(fixtureTower(10));
+viewer.setSolo(fixtureTower(10, 0, config.game.cutMode));
 viewer.setCity(city.all());
 $('city-name').textContent = config.cityDisplayName;
+$('intro-direction').textContent = config.game.cutMode === 'alternate-xz' ? '楼层左右、前后交替移动 · 单指点击落层' : '楼层沿固定方向移动 · 单指点击落层';
+const modeName = () => (game?.config ?? config.game).cutMode === 'alternate-xz' ? '逐层换向' : '固定方向';
 
 function show(next: View) {
   view = next;
@@ -41,7 +43,7 @@ function show(next: View) {
   viewer.setView(next);
   $('building-labels').hidden = next !== 'city';
   $('overview-button').hidden = next === 'city';
-  $('footer-status').textContent = next === 'city' ? '模拟数据 · 刷新会重置城市' : '单轴盖楼 · 城市使用模拟数据';
+  $('footer-status').textContent = `${modeName()} · ${next === 'city' ? '模拟数据，刷新会重置城市' : '城市使用模拟数据'}`;
 }
 function start() {
   game = new GameSession(config.game); completed = null; endHandled = false;
@@ -54,7 +56,7 @@ function place() {
   const placed = game.place();
   if (!placed) return;
   if (placed.kind !== 'miss') {
-    viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined);
+    viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined, placed.axis);
     const feedback = $('placement-feedback');
     feedback.textContent = placed.kind === 'perfect' ? `Perfect${game.combo >= game.config.comboMilestone ? ` · ${game.combo} 连击！` : '！'}` : '接住了！';
     feedback.className = 'visible ' + (placed.kind === 'perfect' ? 'perfect' : 'trimmed');
@@ -69,6 +71,7 @@ function updateHUD() {
   $('timer-ring').style.setProperty('--progress', `${game.remaining / game.config.roundSeconds * 100}%`);
   ($('drop-button') as HTMLButtonElement).disabled = game.phase !== 'moving';
   $('pause-overlay').hidden = game.phase !== 'paused';
+  $('move-direction').textContent = game.isLanding ? '落稳后，再接下一层' : game.activeAxis === 'x' ? '本层左右移动 ↔' : '本层前后移动 ↗↙';
 }
 function finish() {
   if (!game || endHandled || game.phase !== 'ended') return;
@@ -130,7 +133,7 @@ function submit() {
 
 $('start-button').onclick = start; $('replay-button').onclick = start;
 $('city-play').onclick = () => { if (game?.phase === 'paused') { game.resume(); show('play'); updateHUD(); } else start(); };
-$('home-button').onclick = () => { if (game && game.phase !== 'ended') game.pause(); viewer.setSolo(fixtureTower(10)); show('intro'); };
+$('home-button').onclick = () => { if (game && game.phase !== 'ended') game.pause(); viewer.setSolo(fixtureTower(10, 0, config.game.cutMode)); show('intro'); };
 $('overview-button').onclick = overview;
 $('drop-button').addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) { event.preventDefault(); place(); } });
 viewer.renderer.domElement.addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) place(); });
@@ -163,7 +166,7 @@ dialog.addEventListener('close', () => {
 
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === '1') {
   const qaWindow = window as unknown as { __SKYLINE_QA__: { snapshot(): unknown } };
-  qaWindow.__SKYLINE_QA__ = { snapshot: () => JSON.parse(JSON.stringify({ view, config, playerId, game: game ? { phase: game.phase, movingX: game.movingX, elapsed: game.elapsed, tower: game.tower, perfectCount: game.perfectCount, combo: game.combo } : null, completed, own: city.get(playerId), rendered: viewer.cityGeometry(playerId), presentation: viewer.presentation(), stickerSkipped, logicalHeight: game ? towerHeight(game.tower) : null, drawCalls: viewer.renderer.info.render.calls })) };
+  qaWindow.__SKYLINE_QA__ = { snapshot: () => JSON.parse(JSON.stringify({ view, config, playerId, game: game ? { phase: game.phase, activeAxis: game.activeAxis, movingPosition: game.movingPosition, movingLayer: game.movingLayer, elapsed: game.elapsed, tower: game.tower, perfectCount: game.perfectCount, combo: game.combo } : null, completed, own: city.get(playerId), rendered: viewer.cityGeometry(playerId), presentation: viewer.presentation(), cutting: viewer.cuttingPresentation(), stickerSkipped, logicalHeight: game ? towerHeight(game.tower) : null, drawCalls: viewer.renderer.info.render.calls })) };
 }
 const initialView: View = new URLSearchParams(location.search).get('view') === 'city' ? 'city' : 'intro';
 show(initialView);

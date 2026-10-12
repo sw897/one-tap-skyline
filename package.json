@@ -9,8 +9,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --experimental-strip-types --test tests/core.test.ts",
-    "test:browser": "node tests/browser.mjs"
+    "test": "node --experimental-strip-types --test tests/core.test.ts tests/cutting.test.ts",
+    "test:browser": "node tests/browser.mjs",
+    "test:cutting": "node tests/cutting-browser.mjs",
+    "test:visual": "node tests/visual-browser.mjs"
   },
   "dependencies": { "three": "0.186.1" },
   "devDependencies": {

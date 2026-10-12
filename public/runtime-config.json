@@ -1,6 +1,7 @@
 {
   "cityDisplayName": "城市天际线",
   "game": {
+    "cutMode": "alternate-xz",
     "roundSeconds": 60,
     "baseSpeed": 2.7,
     "speedStep": 0.035,

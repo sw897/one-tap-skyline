@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Matrix4, Vector3 } from 'three';
-import { DEFAULT_CONFIG, parseRuntimeConfig } from '../src/config.ts';
+import { DEFAULT_CONFIG, parseRuntimeConfig, playtestConfig } from '../src/config.ts';
 import { emptyTower, placeLayer, topLayer, towerHeight, fixtureTower, validateTower } from '../src/core/tower.ts';
 import { GameSession } from '../src/core/game.ts';
 import type { CompletedRun } from '../src/core/game.ts';
@@ -13,7 +13,7 @@ test('full overlap is Perfect, adds one real floor, and base is not a floor', ()
   assert.equal(base.layers.length, 0);
   const p = placeLayer(base, 0, 0.035);
   assert.equal(p.kind, 'perfect');
-  assert.deepEqual(p.tower.layers, [{ x: 0, width: base.baseWidth }]);
+  assert.deepEqual(p.tower.layers, [{ x: 0, z: 0, width: base.baseWidth, depth: base.depth }]);
   assert.equal(towerHeight(p.tower), base.baseHeight + base.layerHeight);
 });
 
@@ -46,7 +46,7 @@ test('Perfect tolerance boundary snaps; just outside trims; invalid inputs are r
 test('rapid extra placements are ignored during landing and no combo bonus floors are invented', () => {
   const g = new GameSession(DEFAULT_CONFIG.game);
   for (let i = 0; i < 5; i++) {
-    g.movingX = topLayer(g.tower).x; g.place();
+    g.movingPosition = topLayer(g.tower)[g.activeAxis]; g.place();
     assert.equal(g.place(), null); assert.equal(g.place(), null);
     assert.equal(g.tower.layers.length, i + 1);
     g.advance(g.config.dropSeconds + 0.001);
@@ -55,8 +55,8 @@ test('rapid extra placements are ignored during landing and no combo bonus floor
 });
 
 test('paused clock/motion do not advance and expired sessions reject input', () => {
-  const g = new GameSession(DEFAULT_CONFIG.game), x = g.movingX;
-  g.pause(); g.advance(100); assert.equal(g.elapsed, 0); assert.equal(g.movingX, x); assert.equal(g.place(), null);
+  const g = new GameSession(DEFAULT_CONFIG.game), position = g.movingPosition;
+  g.pause(); g.advance(100); assert.equal(g.elapsed, 0); assert.equal(g.movingPosition, position); assert.equal(g.place(), null);
   g.resume(); g.advance(60); assert.equal(g.phase, 'ended'); assert.equal(g.endReason, 'time');
   assert.equal(g.place(), null); assert.equal(g.result()!.tower.layers.length, 0);
 });
@@ -65,7 +65,7 @@ test('elapsed time and motion are consistent across frame sizes', () => {
   const a = new GameSession(DEFAULT_CONFIG.game), b = new GameSession(DEFAULT_CONFIG.game);
   for (let i = 0; i < 120; i++) a.advance(1 / 120);
   for (let i = 0; i < 30; i++) b.advance(1 / 30);
-  assert.ok(Math.abs(a.movingX - b.movingX) < 1e-10);
+  assert.ok(Math.abs(a.movingPosition - b.movingPosition) < 1e-10);
   assert.ok(Math.abs(a.elapsed - b.elapsed) < 1e-10);
 });
 

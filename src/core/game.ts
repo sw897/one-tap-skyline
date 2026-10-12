@@ -1,5 +1,5 @@
 import type { GameConfig } from '../config.ts';
-import { cloneTower, emptyTower, placeLayer, topLayer } from './tower.ts';
+import { axisForFloor, cloneTower, emptyTower, placeLayer, topLayer } from './tower.ts';
 import type { Placement, TowerModel } from './tower.ts';
 import { temporaryId } from './session-id.ts';
 
@@ -18,7 +18,7 @@ export class GameSession {
   readonly config: GameConfig;
   tower = emptyTower();
   phase: GamePhase = 'moving';
-  movingX = 0;
+  movingPosition = 0;
   elapsed = 0;
   combo = 0;
   perfectCount = 0;
@@ -30,13 +30,18 @@ export class GameSession {
 
   constructor(config: GameConfig) { this.config = { ...config }; this.nextBlock(); }
   get remaining() { return Math.max(0, this.config.roundSeconds - this.elapsed); }
-  get speed() { return this.config.baseSpeed + this.tower.layers.length * this.config.speedStep; }
+  get activeAxis() { return axisForFloor(this.tower.layers.length, this.config.cutMode); }
+  get axisBaseSize() { return this.activeAxis === 'x' ? this.tower.baseWidth : this.tower.depth; }
+  get speed() { return (this.config.baseSpeed + this.tower.layers.length * this.config.speedStep) * this.axisBaseSize / this.tower.baseWidth; }
+  get movementRange() { return this.axisBaseSize * 1.35; }
+  get movingLayer() { return { ...topLayer(this.tower), [this.activeAxis]: this.movingPosition }; }
   get hasMovingBlock() { return this.phase === 'moving' || (this.phase === 'paused' && this.phaseBeforePause === 'moving'); }
   get isLanding() { return this.phase === 'dropping' || (this.phase === 'paused' && this.phaseBeforePause === 'dropping'); }
   private nextBlock() {
-    const sign = this.tower.layers.length % 2 === 0 ? 1 : -1;
+    const pass = this.config.cutMode === 'alternate-xz' ? Math.floor(this.tower.layers.length / 2) : this.tower.layers.length;
+    const sign = pass % 2 === 0 ? 1 : -1;
     this.direction = -sign;
-    this.movingX = topLayer(this.tower).x + sign * this.tower.baseWidth * 1.35;
+    this.movingPosition = topLayer(this.tower)[this.activeAxis] + sign * this.movementRange;
     this.phase = 'moving';
   }
   advance(seconds: number) {
@@ -48,20 +53,20 @@ export class GameSession {
       if (this.dropRemaining <= 0) this.nextBlock();
       return;
     }
-    const center = topLayer(this.tower).x, range = this.tower.baseWidth * 1.35;
-    let relative = this.movingX - center + this.direction * this.speed * seconds;
+    const center = topLayer(this.tower)[this.activeAxis], range = this.movementRange;
+    let relative = this.movingPosition - center + this.direction * this.speed * seconds;
     while (relative > range || relative < -range) {
       if (relative > range) { relative = 2 * range - relative; this.direction = -1; }
       if (relative < -range) { relative = -2 * range - relative; this.direction = 1; }
     }
-    this.movingX = center + relative;
+    this.movingPosition = center + relative;
   }
   place(): Placement | null {
     if (this.phase !== 'moving') return null;
-    const placed = placeLayer(this.tower, this.movingX, this.config.perfectRatio);
+    const placed = placeLayer(this.tower, this.movingPosition, this.config.perfectRatio, this.activeAxis);
     if (placed.kind === 'miss') { this.phase = 'ended'; this.endReason = 'miss'; return placed; }
     this.tower = placed.tower;
-    this.movingX = topLayer(this.tower).x;
+    this.movingPosition = topLayer(this.tower)[this.activeAxis];
     this.phase = 'dropping';
     this.dropRemaining = this.config.dropSeconds;
     this.combo = placed.kind === 'perfect' ? this.combo + 1 : 0;

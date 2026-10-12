@@ -34,8 +34,9 @@ async function buildFloors(page, target, mobile, repeated = false) {
   for (let i = 0; i < target; i++) {
     await page.waitForFunction(() => {
       const g = window.__SKYLINE_QA__.snapshot().game;
-      const top = g.tower.layers.at(-1) || { x: 0, width: g.tower.baseWidth };
-      return g.phase === 'moving' && Math.abs(g.movingX - top.x) < top.width * 0.055;
+      const top = g.tower.layers.at(-1) || { x: 0, z: 0, width: g.tower.baseWidth, depth: g.tower.depth };
+      const size = g.activeAxis === 'x' ? top.width : top.depth;
+      return g.phase === 'moving' && Math.abs(g.movingPosition - top[g.activeAxis]) < size * 0.055;
     }, null, { polling: 'raf', timeout: 12000 });
     if (repeated && i === 0 && !mobile) {
       const box = await page.locator('#drop-button').boundingBox();
@@ -49,8 +50,9 @@ async function endByMiss(page, mobile) {
   const canvas = await page.locator('#viewport canvas').boundingBox();
   await page.waitForFunction(() => {
     const g = window.__SKYLINE_QA__.snapshot().game;
-    const top = g.tower.layers.at(-1) || { x: 0, width: g.tower.baseWidth };
-    return g.phase === 'moving' && Math.abs(g.movingX - top.x) > top.width + 0.65;
+    const top = g.tower.layers.at(-1) || { x: 0, z: 0, width: g.tower.baseWidth, depth: g.tower.depth };
+    const size = g.activeAxis === 'x' ? top.width : top.depth;
+    return g.phase === 'moving' && Math.abs(g.movingPosition - top[g.activeAxis]) > size + 0.35;
   }, null, { polling: 'raf', timeout: 12000 });
   // Direct trusted input on the canvas avoids locator auto-wait delaying a moving target.
   if (mobile) await page.touchscreen.tap(canvas.x + canvas.width / 2, canvas.y + canvas.height * 0.6);
@@ -62,27 +64,27 @@ async function endByMiss(page, mobile) {
 try {
   const desktop = await setup(false, !smoke);
   await desktop.page.waitForTimeout(1200);
-  await screenshot(desktop.page, 'p1-intro-desktop.png');
+  await screenshot(desktop.page, 'p2-intro-desktop.png');
   if (smoke) {
     await desktop.page.locator('#overview-button').click();
     await desktop.page.waitForTimeout(1600);
-    await screenshot(desktop.page, 'p1-city-smoke-desktop.png');
+    await screenshot(desktop.page, 'p2-city-smoke-desktop.png');
     const mobile = await setup(true);
     await mobile.page.waitForTimeout(1500);
-    await screenshot(mobile.page, 'p1-intro-mobile.png');
+    await screenshot(mobile.page, 'p2-intro-mobile.png');
     await mobile.page.locator('#start-button').tap();
     await mobile.page.waitForTimeout(1600);
-    await screenshot(mobile.page, 'p1-game-smoke-mobile.png');
+    await screenshot(mobile.page, 'p2-game-smoke-mobile.png');
     record('desktop and mobile initial rendering', {});
   } else {
     const page = desktop.page;
     await page.locator('#start-button').click();
     await buildFloors(page, 12, false, true);
     record('mouse gameplay and rapid repeated clicks', { floors: 12 });
-    await screenshot(page, 'p1-game-desktop.png');
+    await screenshot(page, 'p2-game-desktop.png');
     await endByMiss(page, false);
     assert.equal((await snap(page)).completed.tower.layers.length, 12);
-    await screenshot(page, 'p1-result-desktop.png');
+    await screenshot(page, 'p2-result-desktop.png');
     await page.locator('#signature').fill('试玩小楼'); await page.locator('#skip-sticker').click();
     assert.equal((await snap(page)).stickerSkipped, true);
     await page.locator('#submit-button').click(); await page.waitForTimeout(1500);
@@ -90,14 +92,14 @@ try {
     assert.deepEqual(first.own.tower, first.completed.tower);
     assert.ok(Math.abs(first.rendered.displayedHeight - first.rendered.logicalHeight) < 1e-6);
     assert.equal(await page.locator('#city-event').getAttribute('data-kind'), 'first');
-    await screenshot(page, 'p1-city-first.png'); record('first simulated entry uses completed geometry', { own: first.own, rendered: first.rendered });
+    await screenshot(page, 'p2-city-first.png'); record('first simulated entry uses completed geometry', { own: first.own, rendered: first.rendered });
     await page.waitForTimeout(1500);
     await page.locator('#city-play').click(); await buildFloors(page, 9, false); await endByMiss(page, false);
     await page.locator('#signature').fill('不应替换署名'); await page.locator('#submit-button').click(); await page.waitForTimeout(1500);
     const unchanged = await snap(page);
     assert.deepEqual(unchanged.own, first.own); assert.deepEqual(unchanged.rendered, first.rendered);
     assert.equal(await page.locator('#city-event').getAttribute('data-kind'), 'unchanged');
-    await screenshot(page, 'p1-city-unchanged.png'); record('non-record leaves complete building unchanged', { floors: 9 });
+    await screenshot(page, 'p2-city-unchanged.png'); record('non-record leaves complete building unchanged', { floors: 9 });
     await page.waitForTimeout(1500);
     await page.locator('#city-play').click(); await buildFloors(page, 16, false); await endByMiss(page, false);
     await page.locator('#submit-button').click();
@@ -111,15 +113,15 @@ try {
     assert.ok(Math.abs(best.rendered.displayedHeight - best.rendered.logicalHeight) < 1e-6);
     assert.equal(best.own.tower.layers.length, 16);
     assert.equal(await page.locator('#city-event').getAttribute('data-kind'), 'best');
-    await screenshot(page, 'p1-city-best.png'); record('new best grows in place 12→16 without identity drift', { growthStart: growthStart.rendered, final: best.rendered });
+    await screenshot(page, 'p2-city-best.png'); record('new best grows in place 12→16 without identity drift', { growthStart: growthStart.rendered, final: best.rendered });
     await page.waitForTimeout(2200);
     const video = page.video(); await desktop.context.close(); contexts.splice(contexts.indexOf(desktop.context), 1);
-    if (video) { const videoPath = await video.path(); await copyFile(videoPath, path.join(evidenceDir, 'p1-first-unchanged-best.webm')); report.video = 'p1-first-unchanged-best.webm'; }
+    if (video) { const videoPath = await video.path(); await copyFile(videoPath, path.join(evidenceDir, 'p2-first-unchanged-best.webm')); report.video = 'p2-first-unchanged-best.webm'; }
 
     const mobile = await setup(true), phone = mobile.page;
-    await screenshot(phone, 'p1-intro-mobile.png');
+    await screenshot(phone, 'p2-intro-mobile.png');
     await phone.locator('#start-button').tap(); await buildFloors(phone, 6, true);
-    await screenshot(phone, 'p1-game-mobile.png');
+    await screenshot(phone, 'p2-game-mobile.png');
     await phone.locator('#pause-button').tap(); const paused = await snap(phone);
     await phone.waitForTimeout(700); assert.equal((await snap(phone)).game.elapsed, paused.game.elapsed);
     await phone.setViewportSize({ width: 844, height: 390 });
@@ -127,12 +129,12 @@ try {
     assert.equal((await snap(phone)).game.tower.layers.length, 6);
     assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await phone.locator('#resume-button').tap(); await phone.waitForTimeout(200);
-    await screenshot(phone, 'p1-game-landscape.png');
+    await screenshot(phone, 'p2-game-landscape.png');
     await phone.setViewportSize({ width: 390, height: 844 }); await phone.waitForTimeout(800);
-    await endByMiss(phone, true); await screenshot(phone, 'p1-result-mobile.png');
+    await endByMiss(phone, true); await screenshot(phone, 'p2-result-mobile.png');
     const result = await snap(phone); assert.equal(result.completed.tower.layers.length, 6);
     await phone.locator('#signature').fill('触摸试玩'); await phone.locator('#submit-button').tap(); await phone.waitForTimeout(1600);
-    await screenshot(phone, 'p1-city-mobile.png');
+    await screenshot(phone, 'p2-city-mobile.png');
     const phoneCity = await snap(phone); assert.deepEqual(phoneCity.own.tower, result.completed.tower);
     record('mobile-emulated touch / pause / orientation / same-model result and city', { viewport: '390x844 / 844x390', floors: 6 });
     await phone.reload({ waitUntil: 'networkidle' }); assert.equal((await snap(phone)).own, undefined);

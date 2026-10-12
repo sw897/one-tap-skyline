@@ -1,6 +1,6 @@
 import type { CompletedRun } from './game.ts';
 import { cloneTower, fixtureTower, validateTower } from './tower.ts';
-import type { TowerModel } from './tower.ts';
+import type { CutMode, TowerModel } from './tower.ts';
 
 export const PALETTE = ['#75aaff', '#73cbbb', '#ffb084', '#baa0ef', '#f29ea9', '#edcb73'];
 export interface CityBuilding {
@@ -23,10 +23,10 @@ export const cleanName = (value: string) => Array.from(value.replace(/[<>\u0000-
 export class MemoryCityRepository implements CityRepository {
   private buildings = new Map<string, CityBuilding>();
   private submitted = new Set<string>();
-  constructor(withFixtures = true) {
+  constructor(withFixtures = true, mode: CutMode = 'alternate-xz') {
     if (withFixtures) [28, 22, 18, 25, 13, 20, 9, 16, 24, 11, 19, 7].forEach((floors, index) => {
       const id = `sample-${index + 1}`;
-      this.buildings.set(id, { playerId: id, plotId: index, color: PALETTE[index % PALETTE.length], name: ['晴空', '薄荷', '杏子', '暮云', '花间', '暖阳'][index % 6] + ` ${String(index + 1).padStart(2, '0')}`, tower: fixtureTower(floors, index), bestRunId: `fixture-${index}`, source: 'fixture' });
+      this.buildings.set(id, { playerId: id, plotId: index, color: PALETTE[index % PALETTE.length], name: ['晴空', '薄荷', '杏子', '暮云', '花间', '暖阳'][index % 6] + ` ${String(index + 1).padStart(2, '0')}`, tower: fixtureTower(floors, index, mode), bestRunId: `fixture-${index}`, source: 'fixture' });
     });
   }
   all() { return [...this.buildings.values()].sort((a, b) => b.tower.layers.length - a.tower.layers.length); }
