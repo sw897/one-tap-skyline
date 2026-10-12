@@ -76,4 +76,8 @@ Git 是唯一源码版本线。P1 里程碑为 `p1-core-visual`；交接包、�
 
 阶段资料：[P1 开发过程记录](docs/P1-development-record.md)、[P2 实施计划（B 已批准）](docs/P2-implementation-plan.md)、[P2 计划修订记录](docs/P2-planning-record.md)、[P2 对比候选开发记录](docs/P2-development-record.md)、[后续阶段与重要修复记录模板](docs/development-record-template.md)。
 
-当前 P2 对比候选：`db2921b` / `p2-cutting-preview` / Sites 版本 3。用同一浏览器、默认参数比较 逐层换向（线上地址私存） 与 固定方向（线上地址私存），建议各 3 局。等待用户 iPhone 反馈，安卓暂未验证；`p2-playtest` 尚未创建。
+当前 P2 对比候选：`db2921b` / `p2-cutting-preview` / Sites 版本 3。用同一浏览器、默认参数比较 逐层换向（线上地址私存） 与 固定方向（线上地址私存），建议各 3 局。首轮 iPhone 13 Pro 反馈更喜欢 B、无触控或闪动问题；系统/浏览器版本与完整真机流程未提供，安卓暂未验证，`p2-playtest` 尚未创建。
+
+电脑大屏可直接打开 模拟城市总览（线上地址私存）。这是 P1/P2 已有的桌面布局；P5 再实现独立展示流程、街区轮播与完整互动。
+
+直达链接已在未登录桌面 Chrome 1920×1080 实际验证。当前仍是本页模拟数据，手机作品与电脑页面尚未共享；P3 再接入真实共享成绩。
