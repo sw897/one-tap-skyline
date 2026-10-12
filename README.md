@@ -66,7 +66,7 @@ P0 检查基线：**仅完成预检，实际部署与免登录访问待验证。
 
 2026-10-11 的 P1 后续实测：Sites 已保存并成功部署版本 1，受众经确认设为任何知道链接的人。公开模拟原型（线上地址私存）在两个全新未登录 Chrome 会话中通过入口、触控开局、结算和模拟入城验证；实际手机验收仍待完成。版本 1 对应 `381f32f` / `p1-core-visual`，详细范围见 [P1 验证摘要](docs/P1-validation.md)。
 
-随后收到真实 iPhone 的 Chrome、Safari 与微信内置浏览器反馈：免登录访问及触控正常，启动和切页有短暂闪动。P1 已修正画布尺寸过渡和首帧镜头，自动化回归通过；修订后手机复测及安卓验收待补。修订标记为 `p1-core-visual.1`，原 tag 保留。公开源码仓库：[sw897/one-tap-skyline](https://github.com/sw897/one-tap-skyline)。
+随后收到真实 iPhone 的 Chrome、Safari 与微信内置浏览器反馈：免登录访问及触控正常，启动和切页有短暂闪动。P1 已修正画布尺寸过渡和首帧镜头，自动化回归通过。2026-10-12 收到 iPhone 复测确认：初始化和切页闪动已修复；安卓及完整三种入城情景的真机验收待补。修订标记为 `p1-core-visual.1`，原 tag 保留。公开源码仓库：[sw897/one-tap-skyline](https://github.com/sw897/one-tap-skyline)。
 
 修订版已保存并部署为 Sites 版本 2，对应应用提交 `c73e407` / `p1-core-visual.1`。两个新建未登录 Chrome 会话均返回 200，实际触控、结算和模拟入城通过，线上 JS/CSS 与该提交构建的 SHA256 一致。GitHub public 已推送代码与两枚 tag，并经无认证访问验证。
 
