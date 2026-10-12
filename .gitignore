@@ -7,6 +7,10 @@ playwright-report/
 .sites-runtime/
 .sites-checkout/
 .sites-checkout-*/
+.wrangler/
+.vinext/
+.next/
+*.tsbuildinfo
 
 # Private inputs and raw evidence must live outside this repository.
 /交接目录/

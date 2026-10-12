@@ -3,6 +3,7 @@ import { cloneTower, fixtureTower, validateTower } from './tower.ts';
 import type { CutMode, TowerModel } from './tower.ts';
 
 export const PALETTE = ['#75aaff', '#73cbbb', '#ffb084', '#baa0ef', '#f29ea9', '#edcb73'];
+export const playerColor = (publicId:string) => PALETTE[(Number.parseInt(publicId.replaceAll('-','').slice(0,8),16)||0)%PALETTE.length];
 export interface CityBuilding {
   readonly playerId: string;
   readonly plotId: number;
@@ -10,7 +11,7 @@ export interface CityBuilding {
   readonly name: string;
   readonly tower: TowerModel;
   readonly bestRunId: string;
-  readonly source: 'fixture' | 'local-session';
+  readonly source: 'fixture' | 'local-session' | 'shared';
 }
 export type CityUpdate = { kind: 'first' | 'unchanged' | 'best' | 'duplicate' | 'invalid'; building?: CityBuilding; previous?: CityBuilding };
 export interface CityRepository {

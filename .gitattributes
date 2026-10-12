@@ -1,0 +1,2 @@
+# Normalize the declaration generated with host-specific line endings.
+next-env.d.ts text eol=lf

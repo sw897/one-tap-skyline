@@ -1,4 +1,3 @@
-import './style.css';
 import { loadRuntimeConfig, parseRuntimeConfig, playtestConfig } from './config.ts';
 import { GameSession } from './core/game.ts';
 import type { CompletedRun } from './core/game.ts';
@@ -8,14 +7,36 @@ import { fixtureTower, towerHeight } from './core/tower.ts';
 import { SkylineRenderer } from './render.ts';
 import type { View } from './render.ts';
 import { mountUI } from './ui.ts';
+import { RunClock } from './core/trace.ts';
+import type { RunTrace } from './core/trace.ts';
+import { SharedCityRepository, SharedError, loadSession, startSharedRun, sharedMessage } from './shared/client.ts';
+import type { SharedSession, SharedCityId } from './shared/protocol.ts';
 
-const root = document.querySelector<HTMLElement>('#app')!;
-mountUI(root);
-const $ = <E extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as E;
+export async function mountSkyline(root: HTMLElement, signal?: AbortSignal): Promise<() => void> {
+const search = new URLSearchParams(location.search);
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
-const city = new MemoryCityRepository(true, config.game.cutMode);
-const playerId = temporaryId();
+const cityId: SharedCityId = search.get('city') === 'test' ? 'test' : 'public';
+let shared = search.get('mode') !== 'practice' && !search.has('cut');
+let session: SharedSession | undefined, initialError = '';
+if (shared) {
+  try { session = await loadSession(cityId,signal); if (!session.snapshot.writeOpen && search.get('mode') !== 'shared') shared=false; }
+  catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); shared=false; }
+}
+if (signal?.aborted) return () => {};
+if (shared && session) config={...config,game:{...session.rules},cityDisplayName:session.snapshot.name};
+mountUI(root);
+const $ = <E extends HTMLElement = HTMLElement>(id: string) => root.querySelector('#'+id) as E;
+const city = shared && session ? new SharedCityRepository(session) : new MemoryCityRepository(true, config.game.cutMode);
+const playerId = shared && session ? session.playerId : temporaryId();
+const buildingColor=shared&&session?session.color:'#75aaff';
 let game: GameSession | undefined;
+let clock: RunClock | undefined, origin = 0, completedTrace: RunTrace | undefined;
+let activeServerRun = session?.activeRunId ?? null;
+let pendingStartKey: string | undefined, starting=false, submitting=false, frozenName: string | undefined;
+let disposed=false, animationFrame=0, pollBusy=false;
+let placementClickPending=false;
+let navigationVersion=0;
+const pollAbort = new AbortController();
 let completed: CompletedRun | null = null;
 let view: View = 'intro';
 let endHandled = false;
@@ -25,35 +46,69 @@ let stickerSkipped = false;
 let labelNodes: Array<{ building: ReturnType<typeof city.all>[number]; node: HTMLButtonElement }> = [];
 let viewer: SkylineRenderer;
 
-try { viewer = new SkylineRenderer($('viewport'), config); }
+try { viewer = new SkylineRenderer($('viewport'), config,shared?8:4); }
 catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
   throw new Error('WebGL2 renderer unavailable');
 }
-viewer.setSolo(fixtureTower(10, 0, config.game.cutMode));
+viewer.setSolo(fixtureTower(10, 0, config.game.cutMode),buildingColor);
 viewer.setCity(city.all());
 $('city-name').textContent = config.cityDisplayName;
 $('intro-direction').textContent = config.game.cutMode === 'alternate-xz' ? '楼层左右、前后交替移动 · 单指点击落层' : '楼层沿固定方向移动 · 单指点击落层';
 const modeName = () => (game?.config ?? config.game).cutMode === 'alternate-xz' ? '逐层换向' : '固定方向';
+const clockNow = () => Math.max(0,Math.round((performance.now()-origin)*1000));
+const pauseGame = () => { if (clock && game?.phase !== 'ended') clock.pause(clockNow()); };
+const resumeGame = () => { if (clock) clock.resume(clockNow()); };
+$('prototype-badge').textContent=shared?'共享试玩':'练习 · 本页模拟';
+$('scene-data-mark').hidden=!(shared&&cityId==='test');
+$('settings-button').hidden=shared;
+$('shared-link').hidden=shared; $('practice-link').hidden=!shared;
+($('practice-link') as HTMLAnchorElement).href='/?mode=practice';
+($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
+$('data-badge').textContent=shared?(cityId==='test'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
+$('board-title').textContent=shared?'层数榜':'模拟高度榜';
+$('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
+$('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
+if(initialError)$('intro-direction').textContent=initialError+' 当前进入练习。';
 
 function show(next: View) {
+  navigationVersion++;
   view = next;
   document.documentElement.dataset.view = next;
   for (const section of document.querySelectorAll<HTMLElement>('[data-screen]')) section.hidden = section.dataset.screen !== next;
   viewer.setView(next);
   $('building-labels').hidden = next !== 'city';
   $('overview-button').hidden = next === 'city';
-  $('footer-status').textContent = `${modeName()} · ${next === 'city' ? '模拟数据，刷新会重置城市' : '城市使用模拟数据'}`;
+  $('footer-status').textContent = `${modeName()} · ${shared?(cityId==='test'?'共享测试数据':'同浏览器匿名身份 · 真实共享'):next === 'city'?'模拟数据，刷新会重置城市':'城市使用模拟数据'}`;
 }
-function start() {
-  game = new GameSession(config.game); completed = null; endHandled = false;
+async function start() {
+  if(starting||submitting||disposed)return;
+  const navigation=navigationVersion;
+  starting=true;
+  try {
+    let runId: string | undefined;
+    if(shared) {
+      pendingStartKey ??= temporaryId();
+      const began=await startSharedRun(cityId,pendingStartKey,activeServerRun);
+      runId=began.runId;activeServerRun=runId;pendingStartKey=undefined;
+      if(disposed||navigation!==navigationVersion)return;
+      config={...config,game:began.rules};
+    }
+    game = new GameSession(config.game,runId); clock=new RunClock(game);origin=performance.now();
+    completed = null; completedTrace=undefined;endHandled = false; frozenName=undefined;
+    ($('signature') as HTMLInputElement).disabled=false;
   stickerSkipped = false; $('skip-sticker').textContent = '跳过'; ($('skip-sticker') as HTMLButtonElement).disabled = false;
   feedbackUntil = 0; $('placement-feedback').classList.remove('visible');
-  viewer.setSolo(game.tower); show('play'); updateHUD();
+  viewer.setSolo(game.tower,buildingColor); show('play'); updateHUD();
+  } catch(error) {
+    if(error instanceof SharedError&&['start_key_finished','run_expired_or_cancelled'].includes(error.code)){pendingStartKey=undefined;activeServerRun=null;}
+    $('intro-direction').textContent=sharedMessage(error);$('city-callout-note').textContent=sharedMessage(error);$('submit-note').textContent=sharedMessage(error);
+  }
+  finally {starting=false;}
 }
 function place() {
   if (view !== 'play' || !game) return;
-  const placed = game.place();
+  const placed = clock?.place(clockNow());
   if (!placed) return;
   if (placed.kind !== 'miss') {
     viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined, placed.axis);
@@ -75,24 +130,25 @@ function updateHUD() {
 }
 function finish() {
   if (!game || endHandled || game.phase !== 'ended') return;
-  endHandled = true; completed = game.result();
+  endHandled = true; completed = game.result(); completedTrace=clock?.trace();
   if (!completed) return;
   const count = completed.tower.layers.length;
   $('result-floors').textContent = String(count);
   $('end-caption').textContent = completed.reason === 'time' ? '时间到，作品完成' : '这一局，收好你的作品';
   $('performance-summary').textContent = `Perfect ${completed.perfectCount} 次 · 最长 ${completed.longestCombo} 连击`;
   ($('submit-button') as HTMLButtonElement).disabled = count === 0;
-  $('submit-note').textContent = count === 0 ? '先成功盖一层，再把小楼放进城市。' : '城市使用模拟数据，仅保留在本页。';
-  viewer.setSolo(completed.tower); show('result');
+  $('submit-note').textContent = count === 0 ? '先成功盖一层，再把小楼放进城市。' : shared?'提交后，署名、成绩与楼体将公开展示。本局需在开局后10分钟内提交。':'城市使用模拟数据，仅保留在本页。';
+  viewer.setSolo(completed.tower,buildingColor); show('result');
 }
 function refreshCityUI() {
+  if(city instanceof SharedCityRepository)$('city-name').textContent=city.snapshot.name;
   const buildings = city.all(), own = city.get(playerId);
-  $('city-count').textContent = `12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
+  $('city-count').textContent = shared?`${buildings.length} 栋${cityId==='test'?'共享测试':'玩家'}建筑`:`12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
   const ranking = $('city-ranking'); ranking.replaceChildren();
   buildings.slice(0, 7).forEach((building, index) => {
     const item = document.createElement('li'), button = document.createElement('button');
     if (building.playerId === playerId) item.className = 'mine';
-    const order = document.createElement('span'); order.className = 'rank-number'; order.textContent = String(index + 1).padStart(2, '0');
+    const order = document.createElement('span'); order.className = 'rank-number'; order.textContent = String('rank' in building ? building.rank : index + 1).padStart(2, '0');
     const dot = document.createElement('span'); dot.className = 'color-dot'; dot.style.backgroundColor = building.color;
     const name = document.createElement('span'); name.className = 'rank-name'; name.textContent = building.name;
     const score = document.createElement('strong'); score.textContent = `${building.tower.layers.length} 层`;
@@ -100,13 +156,14 @@ function refreshCityUI() {
     item.append(button); ranking.append(item);
   });
   const personal = $('personal-building'); personal.hidden = !own;
-  if (own) { personal.textContent = `我的楼 · ${own.name} · 最佳 ${own.tower.layers.length} 层`; personal.onclick = () => viewer.focusBuilding(own); }
+  if (own) { personal.textContent = `我的楼 · ${own.name} · 最佳 ${own.tower.layers.length} 层${'rank' in own?' · 第'+own.rank+'名':''}`; personal.onclick = () => viewer.focusBuilding(own); }
   $('find-building').hidden = !own;
   $('city-callout-title').textContent = own ? `${own.name}，还可以再长高一点。` : '让这座城市，多一栋你的楼。';
-  $('city-callout-note').textContent = own ? `个人最佳 ${own.tower.layers.length} 层 · 地块和颜色保持不变` : '先玩一局，再为作品署名。';
+  const nextTarget=own?buildings.filter(b=>b.tower.layers.length>own.tower.layers.length).at(-1):undefined;
+  $('city-callout-note').textContent = own ? nextTarget?`再盖到 ${nextTarget.tower.layers.length+1} 层，超过下一档目标`:`个人最佳 ${own.tower.layers.length} 层 · 地块和颜色保持不变` : '先玩一局，再为作品署名。';
   $('city-play').textContent = game?.phase === 'paused' ? '继续盖楼 →' : own ? '再盖一局 →' : '开始盖楼 →';
   $('building-labels').replaceChildren();
-  labelNodes = buildings.map(building => {
+  labelNodes = buildings.filter((building,index)=>!shared||index<7||building.playerId===playerId).map(building => {
     const node = document.createElement('button'); node.className = 'building-label' + (building.playerId === playerId ? ' own-label' : '');
     node.style.setProperty('--building-color', building.color);
     node.textContent = building.playerId === playerId ? `${building.name} · ${building.tower.layers.length} 层` : building.name;
@@ -114,43 +171,71 @@ function refreshCityUI() {
     $('building-labels').append(node); return { building, node };
   });
 }
-function overview() {
-  if (game && game.phase !== 'ended') game.pause();
+async function overview() {
+  const navigation=navigationVersion;
+  pauseGame();
+  if(city instanceof SharedCityRepository)try{await city.refresh(pollAbort.signal);}catch(error){$('city-callout-note').textContent=sharedMessage(error);}
+  if(disposed||navigation!==navigationVersion)return;
   viewer.setCity(city.all()); refreshCityUI(); viewer.focusBuilding(); show('city');
 }
-function submit() {
-  if (!completed) return;
-  const update = city.submit(playerId, $('signature') instanceof HTMLInputElement ? ($('signature') as HTMLInputElement).value : '', completed);
-  if (!update.building || ['invalid', 'duplicate'].includes(update.kind)) return;
+async function submit() {
+  if (!completed || submitting || disposed) return;
+  const navigation=navigationVersion;
+  submitting=true;($('submit-button') as HTMLButtonElement).disabled=true;
+  try {
+  frozenName ??= ($('signature') as HTMLInputElement).value;
+  if(shared)($('signature') as HTMLInputElement).disabled=true;
+  $('submit-note').textContent=shared?'正在共享，请稍等…':'正在入城…';
+  const update = city instanceof SharedCityRepository ? await city.submit(playerId,frozenName,completed,completedTrace!) : city.submit(playerId,frozenName,completed);
+  if(disposed)return;
+  if (!update.building || update.kind==='invalid') throw new Error('No accepted building');
+  activeServerRun=null;
+  if(navigation!==navigationVersion)return;
   viewer.setCity(city.all(), update); refreshCityUI(); viewer.focusBuilding(); show('city');
   const event = $('city-event'); event.replaceChildren();
   const title = document.createElement('strong'), note = document.createElement('span');
-  title.textContent = update.kind === 'first' ? '你的楼，入城了！' : update.kind === 'best' ? '新最佳，原地长高！' : '最佳纪录保持不变';
+  title.textContent = update.kind === 'first' ? '你的楼，入城了！' : update.kind === 'best' ? '新最佳，原地长高！' : update.kind==='duplicate'?'这一局已经共享过':'最佳纪录保持不变';
   note.textContent = update.kind === 'first' ? `${update.building.name} · ${completed.tower.layers.length} 层` : update.kind === 'best' ? `从 ${update.previous!.tower.layers.length} 层，长到 ${update.building.tower.layers.length} 层` : `本局 ${completed.tower.layers.length} 层，主楼仍是 ${update.building.tower.layers.length} 层`;
   event.append(title, note); event.dataset.kind = update.kind; event.hidden = false; eventUntil = performance.now() + 6000;
   ($('submit-button') as HTMLButtonElement).disabled = true;
+  }catch(error){if(!disposed){$('submit-note').textContent=sharedMessage(error)+' 本局尚未确认共享，可重试。';($('submit-button') as HTMLButtonElement).disabled=false;}}
+  finally{submitting=false;}
 }
 
 $('start-button').onclick = start; $('replay-button').onclick = start;
-$('city-play').onclick = () => { if (game?.phase === 'paused') { game.resume(); show('play'); updateHUD(); } else start(); };
-$('home-button').onclick = () => { if (game && game.phase !== 'ended') game.pause(); viewer.setSolo(fixtureTower(10, 0, config.game.cutMode)); show('intro'); };
+$('city-play').onclick = () => { if (game?.phase === 'paused') { resumeGame(); show('play'); updateHUD(); } else void start(); };
+$('home-button').onclick = () => { pauseGame(); viewer.setSolo(fixtureTower(10, 0, config.game.cutMode),buildingColor); show('intro'); };
 $('overview-button').onclick = overview;
+// A touch may finish the run before its click is dispatched. Consume that
+// gesture's click even if the result buttons now occupy the same coordinates.
+const gestureStart=(event:PointerEvent)=>{
+  if(!event.isPrimary||event.button!==0)return;
+  placementClickPending=view==='play'&&event.target instanceof Element&&
+    (Boolean(event.target.closest('#drop-button'))||event.target===viewer.renderer.domElement);
+};
+const gestureClick=(event:MouseEvent)=>{
+  if(placementClickPending&&event.detail>0){placementClickPending=false;event.preventDefault();event.stopPropagation();}
+};
+root.addEventListener('pointerdown',gestureStart,true);
+root.addEventListener('click',gestureClick,true);
 $('drop-button').addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) { event.preventDefault(); place(); } });
 viewer.renderer.domElement.addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) place(); });
-$('pause-button').onclick = () => { game?.pause(); updateHUD(); };
-$('resume-button').onclick = () => { game?.resume(); updateHUD(); };
+$('pause-button').onclick = () => { pauseGame(); updateHUD(); };
+$('resume-button').onclick = () => { resumeGame(); updateHUD(); };
 $('skip-sticker').onclick = () => { stickerSkipped = true; $('skip-sticker').textContent = '已跳过'; ($('skip-sticker') as HTMLButtonElement).disabled = true; };
 $('submit-button').onclick = submit;
 $('zoom-in').onclick = () => viewer.zoomCity(-0.12); $('zoom-out').onclick = () => viewer.zoomCity(0.12);
 $('rotate-city').onclick = () => viewer.rotateCity(1); $('city-wide').onclick = () => viewer.focusBuilding();
 $('find-building').onclick = () => viewer.focusBuilding(city.get(playerId));
-document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase !== 'ended') { game.pause(); updateHUD(); } });
-document.addEventListener('keydown', event => {
+const visibilityHandler=()=>{if(document.hidden){pauseGame();updateHUD();}else if(view==='city')void pollCity();};
+document.addEventListener('visibilitychange', visibilityHandler);
+const keyHandler=(event:KeyboardEvent)=>{
   if (event.code === 'Space' && !event.repeat && view === 'play' && !(event.target instanceof HTMLInputElement) && !($('settings-dialog') as HTMLDialogElement).open) { event.preventDefault(); place(); }
-});
+};
+document.addEventListener('keydown',keyHandler);
 const dialog = $('settings-dialog') as HTMLDialogElement;
 $('settings-button').onclick = () => {
-  game?.pause(); updateHUD();
+  pauseGame(); updateHUD();
   ($('setting-time') as HTMLInputElement).value = String(config.game.roundSeconds);
   ($('setting-speed') as HTMLInputElement).value = String(config.game.baseSpeed);
   ($('setting-perfect') as HTMLInputElement).value = String(config.game.perfectRatio * 100);
@@ -174,11 +259,26 @@ if (initialView === 'city') refreshCityUI();
 let previousTime = performance.now(), lastHUD = 0;
 function frame(now: number) {
   const seconds = Math.max(0, (now - previousTime) / 1000); previousTime = now;
-  if (view === 'play' && game) { game.advance(seconds); finish(); if (now - lastHUD > 90) { updateHUD(); lastHUD = now; } }
+  if (view === 'play' && game) { clock?.sync(clockNow()); finish(); if (now - lastHUD > 90) { updateHUD(); lastHUD = now; } }
   viewer.update(seconds, game);
   if (view === 'city') for (const { building, node } of labelNodes) { const p = viewer.projectLabel(building); node.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`; node.hidden = !p.visible; }
   if (feedbackUntil && now > feedbackUntil) { $('placement-feedback').classList.remove('visible'); feedbackUntil = 0; }
   if (eventUntil && now > eventUntil) { $('city-event').hidden = true; eventUntil = 0; }
-  requestAnimationFrame(frame);
+  if(!disposed)animationFrame=requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+async function pollCity(){
+  if(!(city instanceof SharedCityRepository)||pollBusy||disposed||view!=='city'||document.hidden)return;
+  pollBusy=true;
+  try{if(await city.refresh(pollAbort.signal)&&!disposed&&view==='city'){viewer.setCity(city.all());refreshCityUI();}}
+  catch(error){if(!disposed&&!pollAbort.signal.aborted)$('city-callout-note').textContent=sharedMessage(error)+' 正在显示上次已共享的城市。';}
+  finally{pollBusy=false;}
+}
+const pollTimer=setInterval(()=>void pollCity(),3000);
+animationFrame=requestAnimationFrame(frame);
+return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);pollAbort.abort();
+  root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);
+  document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
+  if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();
+  if(import.meta.env.DEV)delete(window as unknown as {__SKYLINE_QA__?:unknown}).__SKYLINE_QA__;
+};
+}

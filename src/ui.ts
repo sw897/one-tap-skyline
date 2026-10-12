@@ -4,9 +4,9 @@ export function mountUI(root: HTMLElement) {
     <div class="sky-cloud cloud-a"></div><div class="sky-cloud cloud-b"></div><div class="sky-cloud cloud-c"></div>
     <header class="app-header">
       <button class="brand" id="home-button" aria-label="一指盖楼：城市天际线 首页">${cube}<span><strong>一指盖楼</strong><small>城市天际线</small></span></button>
-      <div class="header-actions"><span class="prototype-badge">P2 对比试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
+      <div class="header-actions"><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
     </header>
-    <div id="viewport"><div id="building-labels"></div></div>
+    <div id="viewport"><div id="building-labels"></div><span id="scene-data-mark" hidden>共享测试数据</span></div>
 
     <section data-screen="intro" class="intro-copy">
       <div class="eyebrow"><span></span> 一指之间，一座城市</div>
@@ -14,6 +14,7 @@ export function mountUI(root: HTMLElement) {
       <p class="intro-description">找准时机，接住移动的楼层。<br>盖完的小楼，会成为天际线的一部分。</p>
       <button class="primary-button start-button" id="start-button">开始盖楼 <span aria-hidden="true">→</span></button>
       <p class="intro-note" id="intro-direction">楼层左右、前后交替移动 · 单指点击落层</p>
+      <p class="mode-links"><a id="practice-link" href="/?mode=practice">先练习</a><a id="shared-link" href="/?mode=shared">进入共享城市</a></p>
       <div class="how-to"><span><b>01</b> 点击落层</span><span><b>02</b> 留下作品</span><span><b>03</b> 原地长高</span></div>
     </section>
 
@@ -42,14 +43,14 @@ export function mountUI(root: HTMLElement) {
     </section>
 
     <section data-screen="city" class="city-ui" hidden>
-      <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge">模拟数据 · 本页城市</span></div>
+      <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span></div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside class="glass city-board">
-        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2>模拟高度榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
+        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟高度榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
         <p class="board-caption" id="city-count">12 栋样例建筑</p><ol id="city-ranking"></ol>
         <div id="personal-building" class="personal-building" hidden></div>
         <div class="qr-placeholder"><span class="qr-symbol" aria-hidden="true">⌗</span><div><strong>入口占位</strong><small>不可扫码 · 使用实际测试链接</small></div></div>
-        <p class="disclosure">这里是视觉模拟。刷新会重置，<br>不是共享城市或真实排名。</p>
+        <p class="disclosure" id="city-disclosure">这里是视觉模拟。刷新会重置，<br>不是共享城市或真实排名。</p>
       </aside>
       <div class="map-controls"><button aria-label="放大城市" id="zoom-in">＋</button><button aria-label="缩小城市" id="zoom-out">−</button><button aria-label="旋转城市" id="rotate-city">↻</button><button aria-label="城市全景" id="city-wide">▦</button><button id="find-building" class="find-button" hidden>找到我的楼</button></div>
       <div class="city-callout glass"><div><strong id="city-callout-title">让这座城市，多一栋你的楼。</strong><span id="city-callout-note">先玩一局，再为作品署名。</span></div><button class="primary-button" id="city-play">开始盖楼 →</button></div>

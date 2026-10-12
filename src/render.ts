@@ -55,7 +55,7 @@ export function buildTower(model: TowerModel, color: string): T.Group {
   return root;
 }
 
-const plotPosition = (plot: number) => ({ x: (plot % 4 - 1.5) * 4.6, z: (Math.floor(plot / 4) - 1.5) * 4.6 });
+const plotPosition = (plot: number, side=4) => ({ x: (plot % side - (side-1)/2) * 4.6, z: (Math.floor(plot / side) - (side-1)/2) * 4.6 });
 function releaseGroup(group: T.Group) {
   group.traverse(object => { if (object instanceof T.InstancedMesh) object.dispose(); });
   group.removeFromParent();
@@ -93,8 +93,13 @@ export class SkylineRenderer {
   private width = 1;
   private height = 1;
   private container: HTMLElement;
+  private observer: ResizeObserver;
+  private gridSide: number;
+  private maxCityHeight = 0;
+  private soloColor='#75aaff';
 
-  constructor(container: HTMLElement, config: RuntimeConfig) {
+  constructor(container: HTMLElement, config: RuntimeConfig, gridSide=4) {
+    this.gridSide=gridSide;
     this.container = container;
     this.config = config;
     this.renderer = new T.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
@@ -117,7 +122,7 @@ export class SkylineRenderer {
     const ring = new T.Mesh(new T.TorusGeometry(6.46, 0.055, 8, 70), new T.MeshBasicMaterial({ color: '#f4fbff' }));
     ring.rotation.x = Math.PI / 2; ring.position.y = -0.02; this.solo.add(ring);
     this.createCityGround();
-    new ResizeObserver(() => this.resize()).observe(container);
+    this.observer=new ResizeObserver(() => this.resize());this.observer.observe(container);
     this.resize(false);
   }
   setConfig(config: RuntimeConfig) { this.config = config; }
@@ -130,27 +135,32 @@ export class SkylineRenderer {
   }
   private createCityGround() {
     const ground = new T.Mesh(unit, new T.MeshStandardMaterial({ color: '#dbe8de', roughness: 1 }));
-    ground.scale.set(22, 0.28, 22); ground.position.y = -0.23; this.city.add(ground);
+    ground.scale.set(this.gridSide*4.6+3.6, 0.28, this.gridSide*4.6+3.6); ground.position.y = -0.23; this.city.add(ground);
     const parkMaterial = new T.MeshStandardMaterial({ color: '#c9dfc2', roughness: 1 });
     const walkMaterial = new T.MeshStandardMaterial({ color: '#edf1e7', roughness: 1 });
-    for (let plot = 0; plot < 16; plot++) {
-      const p = plotPosition(plot);
-      const walk = new T.Mesh(unit, walkMaterial); walk.position.set(p.x, -0.04, p.z); walk.scale.set(3.95, 0.1, 3.95); this.city.add(walk);
-      const lawn = new T.Mesh(unit, parkMaterial); lawn.position.set(p.x, 0.015, p.z); lawn.scale.set(3.55, 0.055, 3.55); this.city.add(lawn);
-      const treeMaterial = new T.MeshStandardMaterial({ color: plot % 2 ? '#82bba5' : '#91c293', roughness: 1 });
+    const count=this.gridSide**2;
+    const walks=new T.InstancedMesh(unit,walkMaterial,count),lawns=new T.InstancedMesh(unit,parkMaterial,count);
+    const trunks=new T.InstancedMesh(unit,new T.MeshStandardMaterial({color:'#a99b87',roughness:1}),count*2);
+    const trees=new T.InstancedMesh(new T.IcosahedronGeometry(0.31,1),new T.MeshStandardMaterial({roughness:1}),count*2);
+    for (let plot = 0; plot < count; plot++) {
+      const p = plotPosition(plot,this.gridSide);
+      scratch.position.set(p.x,-0.04,p.z);scratch.scale.set(3.95,0.1,3.95);scratch.rotation.set(0,0,0);scratch.updateMatrix();walks.setMatrixAt(plot,scratch.matrix);
+      scratch.position.set(p.x,0.015,p.z);scratch.scale.set(3.55,0.055,3.55);scratch.updateMatrix();lawns.setMatrixAt(plot,scratch.matrix);
       for (const side of [-1, 1]) {
-        const trunk = new T.Mesh(unit, new T.MeshStandardMaterial({ color: '#a99b87', roughness: 1 }));
-        trunk.scale.set(0.1, 0.33, 0.1); trunk.position.set(p.x + side * 1.52, 0.23, p.z + 1.42); this.city.add(trunk);
-        const tree = new T.Mesh(new T.IcosahedronGeometry(0.31, 1), treeMaterial); tree.position.set(trunk.position.x, 0.58, trunk.position.z); this.city.add(tree);
+        const i=plot*2+(side>0?1:0);
+        scratch.position.set(p.x+side*1.52,0.23,p.z+1.42);scratch.scale.set(0.1,0.33,0.1);scratch.updateMatrix();trunks.setMatrixAt(i,scratch.matrix);
+        scratch.position.y=0.58;scratch.scale.set(1,1,1);scratch.updateMatrix();trees.setMatrixAt(i,scratch.matrix);trees.setColorAt(i,new T.Color(plot%2?'#82bba5':'#91c293'));
       }
     }
+    this.city.add(walks,lawns,trunks,trees);
     const park = new T.Mesh(new T.CylinderGeometry(1.2, 1.25, 0.08, 40), parkMaterial);
-    const p = plotPosition(13); park.position.set(p.x, 0.1, p.z); this.city.add(park);
+    const p = plotPosition(13,this.gridSide); park.position.set(p.x, 0.1, p.z); this.city.add(park);
     const water = new T.Mesh(new T.CylinderGeometry(0.52, 0.56, 0.12, 32), new T.MeshStandardMaterial({ color: '#92d2e8', roughness: 0.4 }));
     water.position.set(p.x, 0.2, p.z); this.city.add(water);
   }
-  setSolo(model: TowerModel, color = '#75aaff') {
-    if (model === this.soloModel) return;
+  setSolo(model: TowerModel, color = this.soloColor) {
+    if (model === this.soloModel && color===this.soloColor) return;
+    this.soloColor=color;
     if (this.soloTower) releaseGroup(this.soloTower);
     this.soloModel = model;
     this.soloTower = buildTower(model, color); this.solo.add(this.soloTower);
@@ -166,11 +176,14 @@ export class SkylineRenderer {
     this.draw();
   }
   setCity(buildings: CityBuilding[], update?: CityUpdate) {
+    this.maxCityHeight=Math.max(0,...buildings.map(b=>towerHeight(b.tower)));
+    const present=new Set(buildings.map(b=>b.playerId));
+    for(const [id,group] of this.cityObjects)if(!present.has(id)){releaseGroup(group);this.cityObjects.delete(id);}
     for (const building of buildings) {
       const previous = this.cityObjects.get(building.playerId);
       if (previous?.userData.model === building.tower) continue;
       if (previous) releaseGroup(previous);
-      const group = buildTower(building.tower, building.color), p = plotPosition(building.plotId);
+      const group = buildTower(building.tower, building.color), p = plotPosition(building.plotId,this.gridSide);
       group.position.set(p.x, 0.055, p.z);
       group.userData.playerId = building.playerId;
       this.city.add(group); this.cityObjects.set(building.playerId, group);
@@ -201,7 +214,7 @@ export class SkylineRenderer {
   zoomCity(amount: number) { this.zoom = T.MathUtils.clamp(this.zoom + amount, 0.55, 1.55); }
   rotateCity(direction: number) { this.angle += direction * Math.PI / 12; }
   projectLabel(building: CityBuilding) {
-    const group = this.cityObjects.get(building.playerId), p = plotPosition(building.plotId);
+    const group = this.cityObjects.get(building.playerId), p = plotPosition(building.plotId,this.gridSide);
     const height = building.tower.baseHeight + building.tower.layers.length * building.tower.layerHeight * (group?.userData.floors.scale.y ?? 1);
     const top = topLayer(building.tower);
     const v = new T.Vector3(p.x + top.x, height + 0.8, p.z + top.z).project(this.camera);
@@ -258,9 +271,9 @@ export class SkylineRenderer {
     const height = model ? towerHeight(model) : 3, aspect = this.width / this.height;
     let span: number;
     if (this.view === 'city') {
-      const focus = this.focus ? plotPosition(this.focus.plotId) : { x: 0, z: 0 };
+      const focus = this.focus ? plotPosition(this.focus.plotId,this.gridSide) : { x: 0, z: 0 };
       this.aim.set(focus.x, this.focus ? towerHeight(this.focus.tower) * 0.45 : 3.2, focus.z);
-      span = Math.max(13.2, 15.8 / aspect) * this.zoom;
+      span = (this.focus?Math.max(4.6,5.5/aspect,towerHeight(this.focus.tower)*0.55+1):Math.max(13.2*this.gridSide/4,15.8*this.gridSide/4/aspect,this.maxCityHeight*0.65))*this.zoom;
     } else {
       this.aim.set(model ? topLayer(model).x * 0.3 : 0, this.view === 'play' ? Math.max(2.3, height - 1.6) : height * 0.46, model ? topLayer(model).z * 0.3 : 0);
       span = this.view === 'play' ? Math.max(4.6, 4.6 / aspect) : Math.max(2.9, height * 0.49 + 0.85, 3.1 / aspect);
@@ -279,6 +292,12 @@ export class SkylineRenderer {
   }
   presentation() {
     return { view: this.view, width: this.width, height: this.height, cameraReady: this.cameraReady, span: this.currentSpan, target: this.target.toArray(), aim: this.aim.toArray() };
+  }
+  dispose() {
+    this.observer.disconnect();
+    this.scene.traverse(object=>{if(object instanceof T.InstancedMesh)object.dispose();});
+    this.renderer.dispose();this.renderer.forceContextLoss();this.renderer.domElement.remove();
+    this.cityObjects.clear();this.scene.clear();
   }
   cuttingPresentation() {
     return { moving: { visible: this.moving.visible, position: this.moving.position.toArray(), scale: this.moving.scale.toArray(), color: this.moving.material.color.getHexString() }, fragment: this.fragment ? { axis: this.fragment.axis, age: this.fragment.age, position: this.fragment.mesh.position.toArray(), scale: this.fragment.mesh.scale.toArray(), color: this.fragmentMesh.material.color.getHexString() } : null, cutGlow: { visible: this.cutGlow.visible, position: this.cutGlow.position.toArray(), scale: this.cutGlow.scale.toArray(), opacity: this.cutGlow.material.opacity } };

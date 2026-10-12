@@ -1,25 +1,57 @@
 {
   "name": "one-tap-skyline",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "packageManager": "npm@10.9.7",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "test": "node --experimental-strip-types --test tests/core.test.ts tests/cutting.test.ts",
+    "install:ci": "node scripts/install-ci.mjs",
+    "dev": "node scripts/run-framework.mjs dev",
+    "build": "tsc --noEmit && node scripts/run-framework.mjs build",
+    "start": "node scripts/preview.mjs",
+    "preview": "node scripts/preview.mjs",
+    "db:export:local": "node --experimental-strip-types scripts/city-data.mjs export",
+    "db:import:local": "node --experimental-strip-types scripts/city-data.mjs import",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:browser": "node tests/browser.mjs",
     "test:cutting": "node tests/cutting-browser.mjs",
-    "test:visual": "node tests/visual-browser.mjs"
+    "test:visual": "node tests/visual-browser.mjs",
+    "test:shared": "node tests/shared-browser.mjs"
   },
-  "dependencies": { "three": "0.186.1" },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "next": "16.3.4",
+    "drizzle-orm": "0.45.2",
+    "three": "0.186.1"
+  },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/workers-types": "4.20260515.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
+    "json-rpc-2.0": "1.7.1",
+    "raw-body": "3.0.2",
+    "react-server-dom-webpack": "19.2.6",
+    "vinext": "1.0.0-beta.5",
+    "wrangler": "4.92.0",
+    "miniflare": "4.20260515.0",
+    "@types/node": "22.19.19",
     "@types/three": "^0.186.0",
     "playwright": "1.64.0",
     "typescript": "7.0.2",
-    "vite": "8.3.4"
+    "vite": "8.0.13"
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "0.35.4"
+    }
   }
 }
