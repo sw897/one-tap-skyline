@@ -2,7 +2,7 @@
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-P5滨水城市与只读大屏候选已部署Sites12（44f589b / p5-event-screen-preview.4），正式验收按用户要求延期，先手工体验。用户反馈此前闪动已解决；本次全屏三维画布/二维码下方小字、一次构建和本地1920×1080预览及缺项见[P5全屏修订记录](docs/P5-fullscreen-record.md)。[大屏表面记录](docs/P5-display-fix-record.md)、[海岛记录](docs/P5-island-update-record.md)、[此前P5记录](docs/P5-development-record.md)保留。每日北京时间00:00任务仍启用，首次定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
+P5完善候选已部署Sites13（8444bf5 / p5-event-screen-preview.5）：练习入口、整墙照片、可见前三名顶饰、全楼名称、三档楼体与滨水场景；41项开发检查/构建/局部模拟预览及真实失败、缺项见[完善记录](docs/P5-refinement-record.md)。正式验收仍按用户要求延期，先手工体验；此前用户反馈闪动已解决，历史[全屏记录](docs/P5-fullscreen-record.md)、[表面记录](docs/P5-display-fix-record.md)、[海岛记录](docs/P5-island-update-record.md)保留。每日北京时间00:00任务仍启用，实际定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
 
 ## 本地运行
 
@@ -62,4 +62,4 @@ npm run db:import:local -- --file D:\private\city-export.json
 
 阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已实施，候选待手工体验）、[P5开发记录](docs/P5-development-record.md)、[后续记录模板](docs/development-record-template.md)。
 
-下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（待审核，尚未实施）、[P6只读预检记录](docs/P6-planning-record.md)。
+下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（经审查修订，仍待实施确认）、[计划审查](docs/P6-plan-review.md)、[原只读预检记录](docs/P6-planning-record.md)。本轮没有实现Docker/Node适配、连接SSH或执行统一验收。
