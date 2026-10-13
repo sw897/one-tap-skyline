@@ -46,15 +46,16 @@ export function mountUI(root: HTMLElement) {
     <section data-screen="city" class="city-ui" hidden>
       <div class="personal-summary" id="personal-summary" hidden><span class="eyebrow">属于你的天际线</span><h1>我的楼</h1><p>个人最佳 <strong id="personal-floors">0</strong> 层</p><p id="personal-name">还没有保存的作品</p><small id="personal-note"></small></div>
       <div id="own-photo-actions" class="glass own-photo-actions" hidden><div><strong>给你的楼，留一张照片</strong><small id="photo-own-note">照片即时公开，午夜和城市一起重置</small></div><div class="own-photo-buttons"><button id="edit-own-photo" class="outline-button">装饰我的楼</button><button id="retry-photo" class="outline-button" hidden>重试保存照片</button><button id="remove-own-photo" class="subtle-button" hidden>撤回照片</button></div></div>
-      <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span></div>
+      <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span>
+        <div class="city-qr glass"><canvas id="entry-qr" aria-label="手机试玩入口二维码"></canvas><div><strong>扫码，盖进这座城</strong><a id="entry-link" target="_blank" rel="noopener">手机试玩入口</a><small id="qr-note">正在生成二维码</small></div></div>
+      </div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside class="glass city-board">
-        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟高度榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
+        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟高楼榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
         <p class="board-caption" id="city-count">12 栋样例建筑</p><ol id="city-ranking"></ol>
         <div id="personal-building" class="personal-building" hidden></div>
         <div class="city-search"><label for="district-select">查看街区</label><select id="district-select"></select><form id="building-search"><label for="building-query">找一栋楼</label><div><input id="building-query" maxlength="40" placeholder="楼名、地块号或街区名" /><button type="submit">查找</button></div></form><small id="search-note" role="status"></small></div>
         <div class="city-feed"><h3>今日动态</h3><ol id="event-feed"></ol><p id="connection-status" role="status">正在读取今日城市…</p></div>
-        <div class="city-qr"><canvas id="entry-qr" aria-label="手机试玩入口二维码"></canvas><div><strong>扫码，盖进这座城</strong><a id="entry-link" target="_blank" rel="noopener">手机试玩入口</a><small id="qr-note">正在生成二维码</small></div></div>
         <p class="disclosure" id="city-disclosure">这里是视觉模拟。刷新会重置，<br>不是共享城市或真实排名。</p>
       </aside>
       <div class="map-controls"><button aria-label="放大城市" id="zoom-in">＋</button><button aria-label="缩小城市" id="zoom-out">−</button><button aria-label="旋转城市" id="rotate-city">↻</button><button aria-label="城市全景" id="city-wide">▦</button><button id="tour-toggle" class="find-button">暂停巡游</button><button id="find-building" class="find-button" hidden>找到我的楼</button><span id="tour-status">自动巡游</span></div>

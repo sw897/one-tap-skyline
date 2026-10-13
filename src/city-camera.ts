@@ -7,7 +7,7 @@ import {towerHeight} from './core/tower.ts';
 import {islandPlan,shoreLoop,shorePoint,type IslandPlan} from './core/island.ts';
 interface Goal{target:T.Vector3;position:T.Vector3;label:string}
 export class CityCamera {
-  readonly camera=new T.PerspectiveCamera(44,1,.1,2500);
+  readonly camera=new T.PerspectiveCamera(44,1,1,2500);
   readonly controls:OrbitControls;
   private layout:CityLayout;private config:RuntimeConfig;private buildings:CityBuilding[]=[];
   private island:IslandPlan;

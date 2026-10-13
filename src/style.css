@@ -38,12 +38,15 @@
 .city-feed{border-top:1px solid #dce8ea;margin-top:12px;padding-top:8px}.city-feed h3{font-size:12px;font-weight:650;margin:5px 0 9px}
 .city-feed li{font-size:10px;color:#668995;line-height:1.65}.city-feed li button{font-size:10px;display:block;min-height:37px;line-height:1.5}.city-feed li small{display:block;color:#9cb0bc;font-size:9px}
 #connection-status{font-size:9px;color:#7496a6;line-height:1.6;margin:12px 0}
-.city-qr{display:flex;align-items:center;gap:12px;padding-top:15px;border-top:1px solid #dce8ea;margin-top:12px}.city-qr canvas{width:100px!important;height:100px!important;border-radius:9px;background:white;flex-shrink:0}
+.city-qr{display:flex;align-items:center;gap:14px;width:fit-content;max-width:100%;padding:14px;border:1px solid #ffffffd9;border-radius:18px;margin-top:14px;background:#fffffff0;box-shadow:0 8px 25px #527f8d12}.city-qr canvas{width:144px!important;height:144px!important;border-radius:9px;background:white;flex-shrink:0}
 .city-qr strong{display:block;font-size:12px;color:#365e72}.city-qr a{display:block;word-break:break-all;font-size:10px;color:#5089af;margin:8px 0}.city-qr small{display:block;color:#8ba4b0;font-size:9px;line-height:1.5}
 #tour-status{font-size:10px;color:#577f92;align-self:center;margin-left:5px;max-width:240px;line-height:1.5}
 :root[data-surface=display][data-view=city] #app{background:linear-gradient(155deg,#eef9fd,#ccecf0 65%,#e5f0e4)}
 :root[data-surface=display][data-view=city] .app-header{height:76px;padding:20px 36px}
-:root[data-surface=display][data-view=city] .city-title{top:26px;left:36px;right:32%;display:flex;align-items:center;gap:22px}
+:root[data-surface=display][data-view=city] .app-header,:root[data-surface=display][data-view=city] #scene-data-mark{display:none}
+:root[data-surface=display][data-view=city] .city-title{top:26px;left:36px;right:32%;display:grid;grid-template-columns:max-content auto;align-items:center;gap:12px 18px}
+:root[data-surface=display][data-view=city] .city-title .simulation-badge{justify-self:start}
+:root[data-surface=display][data-view=city] .city-title .city-qr{grid-column:1/-1;justify-self:start;margin:0}
 :root[data-surface=display][data-view=city] .city-title .eyebrow{display:none}
 :root[data-surface=display][data-view=city] .city-title h1{font-size:30px;margin:0}
 :root[data-surface=display][data-view=city] #viewport{left:0;right:28%;top:90px;bottom:88px}
@@ -51,15 +54,15 @@
 :root[data-surface=display][data-view=city] .city-board li button{min-height:38px}.city-board #event-feed li button{min-height:35px}
 :root[data-surface=display][data-view=city] .rank-name,:root[data-surface=display][data-view=city] .city-board li strong{font-size:12px}
 :root[data-surface=display][data-view=city] .city-board .board-caption{font-size:11px;margin:10px 0 14px}
-:root[data-surface=display][data-view=city] .city-board .city-qr canvas{width:134px!important;height:134px!important}
-:root[data-surface=display][data-view=city] .city-board .city-qr strong{font-size:15px}
-:root[data-surface=display][data-view=city] .city-board .city-qr a{font-size:11px}
+:root[data-surface=display][data-view=city] .city-qr canvas{width:184px!important;height:184px!important}
+:root[data-surface=display][data-view=city] .city-qr strong{font-size:16px}
+:root[data-surface=display][data-view=city] .city-qr small{max-width:160px;font-size:11px;margin-top:10px}
 :root[data-surface=display][data-view=city] .map-controls{left:32px;bottom:94px;background:#ffffffbb;padding:8px;border-radius:15px;backdrop-filter:blur(10px)}
-:root[data-surface=display][data-view=city] .city-callout{bottom:33px;left:36px;width:calc(72% - 72px);max-width:none;border:0;box-shadow:none;background:none;padding:0}
+:root[data-surface=display][data-view=city] .city-callout{display:none}
 :root[data-surface=display][data-view=city] .city-callout strong{font-size:14px}.city-callout span{line-height:1.5}
 :root[data-surface=display][data-view=city] .app-footer{right:30%;bottom:10px;left:36px}
-:root[data-surface=display][data-view=city] #city-event{left:36px;top:103px}
-@media(max-width:1100px){:root[data-surface=display][data-view=city] .city-board{padding:16px;width:285px}:root[data-surface=display][data-view=city] #viewport{right:300px}:root[data-surface=display][data-view=city] .city-title{right:315px}:root[data-surface=display][data-view=city] .city-callout{width:calc(100% - 345px)}:root[data-surface=display][data-view=city] .city-board .city-qr canvas{width:90px!important;height:90px!important}}
+:root[data-surface=display][data-view=city] #city-event{left:36px;top:306px}
+@media(max-width:1100px){:root[data-surface=display][data-view=city] .city-board{padding:16px;width:285px}:root[data-surface=display][data-view=city] #viewport{right:300px}:root[data-surface=display][data-view=city] .city-title{right:315px}:root[data-surface=display][data-view=city] .city-qr canvas{width:112px!important;height:112px!important}}
 @media(max-height:540px) and (min-width:600px){#app{min-height:360px}.app-header{height:58px;padding:10px 22px}.brand strong{font-size:15px}.brand small{font-size:8px}.brand svg{height:30px}.prototype-badge{display:none}.intro-copy{top:85px;left:7%;width:42%}.intro-copy h1{font-size:25px;margin:8px 0}.intro-description{font-size:10px;margin-bottom:13px}.start-button{min-height:44px;font-size:13px}.intro-note,.how-to{display:none}.timer-card,.floor-card{top:80px;padding:10px}.timer-card #timer-ring{width:43px;height:43px}.timer-card #timer-ring span{font-size:20px}.floor-card strong{font-size:31px}.timer-card .muted,.floor-card>.muted{font-size:8px}.pause-button{top:72px;right:19%;width:30px;height:30px}.play-caption{top:69px;font-size:10px}.play-caption span{display:none}.drop-button{bottom:32px;width:215px;padding:10px 17px;border-radius:18px}.drop-button strong{font-size:14px}.drop-button small{font-size:8px}#viewport,:root[data-view=play] #viewport{top:60px;bottom:38px}.app-footer{bottom:9px}.result-title{top:70px;left:5%}.result-title h1{font-size:21px}.result-title p{display:none}.result-panel{top:71px;bottom:31px;right:4%;left:auto;width:290px;padding:14px;overflow:auto}.result-score strong{font-size:34px}.performance{margin:0 0 9px;font-size:8px}.signature-label{font-size:10px}#signature{min-height:34px;padding:9px}.sticker-row{margin:10px 0}.result-panel>.primary-button{min-height:35px;padding:10px;font-size:11px}.result-panel .disclosure{font-size:8px;margin:6px 0}.replay-button{min-height:32px;padding:7px;font-size:10px}:root[data-view=result] #viewport{top:96px;bottom:22px;right:38%;left:0}.city-title{top:65px}.city-title h1{font-size:24px}.city-board{top:64px;bottom:33px;max-height:none;width:235px;right:20px;left:auto;padding:15px}.city-board .qr-placeholder,.city-board .disclosure,.board-caption{display:none}.city-board li button{min-height:26px}.city-callout{left:25px;bottom:29px;max-width:calc(100% - 300px);padding:10px;width:450px}.city-callout strong{font-size:10px}.city-callout span{display:none}.map-controls{bottom:100px;left:25px}:root[data-view=city] #viewport{top:115px;right:235px;bottom:45px}.building-label{font-size:7px;padding:3px}#city-event{left:30px;top:135px;padding:9px}.settings-dialog{max-height:95dvh}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 @media(max-width:760px) and (min-height:541px){:root[data-view=result] #viewport{bottom:415px}}

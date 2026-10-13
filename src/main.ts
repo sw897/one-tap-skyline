@@ -91,14 +91,15 @@ $('shared-link').hidden=shared; $('practice-link').hidden=!shared;
 ($('practice-link') as HTMLAnchorElement).href='/?mode=practice';
 ($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
-$('board-title').textContent=shared?'层数榜':'模拟高度榜';
+$('board-title').textContent=shared?'高楼榜':'模拟高楼榜';
 $('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
 $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
 if(initialError)$('intro-direction').textContent=initialError+(displaySurface?'':' 当前进入练习。');
 if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','practice-link','shared-link'])$(id).hidden=true;
   $('prototype-badge').textContent='今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
 const mobileEntry=new URL('/',location.origin);($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;($('entry-link')).textContent=mobileEntry.host;
-void QRCode.toCanvas($<HTMLCanvasElement>('entry-qr'),mobileEntry.href,{width:184,margin:4,errorCorrectionLevel:'M',color:{dark:'#213e54',light:'#ffffff'}}).then(()=>{if(!disposed)$('qr-note').textContent='同一试玩入口 · 每日 00:00 重置';}).catch(()=>{if(!disposed)$('qr-note').textContent='二维码暂未生成，可点击入口链接';});
+$('entry-link').hidden=displaySurface;
+void QRCode.toCanvas($<HTMLCanvasElement>('entry-qr'),mobileEntry.href,{width:240,margin:4,errorCorrectionLevel:'M',color:{dark:'#213e54',light:'#ffffff'}}).then(()=>{if(!disposed)$('qr-note').textContent='手机相机扫码参与 · 每日 00:00 重置';}).catch(()=>{if(!disposed)$('qr-note').textContent=displaySurface?'二维码暂未生成，请刷新重试':'二维码暂未生成，可点击入口链接';});
 
 function show(next: View) {
   navigationVersion++;

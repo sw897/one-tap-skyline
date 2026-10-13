@@ -2,7 +2,12 @@ import * as T from 'three';
 import {allPlots,districtPoint,districtsFor,streetCurve,type CityLayout} from './core/layout.ts';
 import {islandPlan,shoreLoop,shorePoint} from './core/island.ts';
 const v=(x:number,z:number,y=.035)=>new T.Vector3(x,y,z);
-function ribbon(points:T.Vector3[],width:number,color:string,y=.035){
+// Bias only ground overlays: intersections have a stable order while buildings
+// and raised bridges still occlude them through the normal depth buffer.
+function surfaceMaterial(color:string,order:number){
+  return new T.MeshStandardMaterial({color,roughness:.9,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-order*.25,polygonOffsetUnits:-order*2});
+}
+function ribbon(points:T.Vector3[],width:number,color:string,y=.035,order=2){
   const closed=points[0].distanceToSquared(points.at(-1)!)<.00001;
   const curve=new T.CatmullRomCurve3(closed?points.slice(0,-1):points,closed),p:number[]=[],uv:number[]=[];
   const count=Math.max(24,points.length*10);
@@ -14,7 +19,7 @@ function ribbon(points:T.Vector3[],width:number,color:string,y=.035){
     uv.push(0,i/count,1,i/count,0,(i+1)/count,1,i/count,1,(i+1)/count,0,(i+1)/count);
   }
   const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(p,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geometry.computeVertexNormals();
-  return new T.Mesh(geometry,new T.MeshStandardMaterial({color,roughness:.9,side:T.DoubleSide}));
+  const mesh=new T.Mesh(geometry,surfaceMaterial(color,order));mesh.renderOrder=order;return mesh;
 }
 export function disposeLandscape(group:T.Group){
   const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
@@ -25,7 +30,7 @@ export function disposeLandscape(group:T.Group){
 export function createWaterfront(layout:CityLayout,publicBuildings=true){
   const root=new T.Group(),island=islandPlan(layout),ds=districtsFor(layout);
   const box=new T.BoxGeometry(1,1,1),stone=new T.MeshStandardMaterial({color:'#eee8d8',roughness:.9});
-  const mint=new T.MeshStandardMaterial({color:'#9ac8af',roughness:1}),blue=new T.MeshStandardMaterial({color:'#6ac8dd',roughness:.34,metalness:.12});
+  const mint=new T.MeshStandardMaterial({color:'#9ac8af',roughness:1});
   // The sea extends beyond the camera's fog range; no visible board edge.
   const ocean=new T.Mesh(new T.CircleGeometry(10000,96),new T.MeshBasicMaterial({color:'#b8e1e7',toneMapped:false}));ocean.rotation.x=-Math.PI/2;ocean.position.set(island.x,-.33,island.z);root.add(ocean);
   const landShape=(scale:number)=>new T.Shape(shoreLoop(island,scale).slice(0,-1).map(p=>new T.Vector2(p.x,p.z)));
@@ -37,19 +42,19 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   // Main boulevard and short links connect the differently oriented neighborhood streets.
   if(layout.version==='waterfront-1'){
     const avenue=[v(-52,46),v(-22,41),v(-16,19),v(-19,-4),v(4,-8),v(30,0),v(54,19),v(55,48)];
-    root.add(ribbon(avenue,4.8,'#eef0e7',.012),ribbon(avenue,3.25,'#a7b6b7',.026),ribbon(avenue,.06,'#fff2c1',.037));
+    root.add(ribbon(avenue,4.8,'#eef0e7',.012,3),ribbon(avenue,3.25,'#a7b6b7',.04,4),ribbon(avenue,.06,'#fff2c1',.065,5));
     const links:[number,number][]=[[-19,-4],[4,-8],[30,0],[54,19],[-16,19],[-22,41],[-37,-21],[28,-32],[55,48],[-52,46]];
     ds.forEach((d,i)=>{
       const local=Array.from({length:9},(_,j)=>{const x=(j-4)*4,p=districtPoint(d,x,streetCurve(x));return v(p.x,p.z);});
       const [x,z]=links[i];const link=[v(d.x,d.z),v((d.x+x)/2,(d.z+z)/2),v(x,z)];
-      root.add(ribbon(link,3.9,'#eef0e7',.018),ribbon(link,2.5,'#a7b6b7',.027));
-      root.add(ribbon(local,3.9,'#eef0e7',.024),ribbon(local,2.5,'#a7b6b7',.03),ribbon(local,.05,'#fff4ce',.04));
+      root.add(ribbon(link,3.9,'#eef0e7',.012,3),ribbon(link,2.5,'#a7b6b7',.04,4));
+      root.add(ribbon(local,3.9,'#eef0e7',.012,3),ribbon(local,2.5,'#a7b6b7',.04,4),ribbon(local,.05,'#fff4ce',.065,5));
     });
     const outlet=shorePoint(island,Math.PI*.45,1.045);
     const canal=[v(18,7),v(19,25),v(18,36),v(10,49),v(outlet.x,outlet.z)];
-    root.add(ribbon(canal,5.5,'#ede4d2',.046),ribbon(canal,3.8,'#6ac8dd',.048));
-    const lake=new T.Mesh(new T.CircleGeometry(1,64),blue);lake.rotation.x=-Math.PI/2;lake.scale.set(9,5.6,1);lake.position.set(0,.046,0);root.add(lake);
-    const lakeWalk=new T.Mesh(new T.RingGeometry(1,1.14,64),stone);lakeWalk.rotation.x=-Math.PI/2;lakeWalk.scale.set(9.1,5.7,1);lakeWalk.position.set(0,.048,0);root.add(lakeWalk);
+    root.add(ribbon(canal,5.5,'#ede4d2',.09,6),ribbon(canal,3.8,'#6ac8dd',.12,7));
+    const lake=new T.Mesh(new T.CircleGeometry(1,64),surfaceMaterial('#6ac8dd',7));lake.renderOrder=7;lake.rotation.x=-Math.PI/2;lake.scale.set(9,5.6,1);lake.position.set(0,.12,0);root.add(lake);
+    const lakeWalk=new T.Mesh(new T.RingGeometry(1,1.14,64),surfaceMaterial('#eee8d8',6));lakeWalk.renderOrder=6;lakeWalk.rotation.x=-Math.PI/2;lakeWalk.scale.set(9.1,5.7,1);lakeWalk.position.set(0,.09,0);root.add(lakeWalk);
     for(const [x,z,angle] of [[18,35,0],[outlet.x,outlet.z*.88,.12]] as const){const bridge=new T.Mesh(box,stone);bridge.position.set(x,.14,z);bridge.rotation.y=angle;bridge.scale.set(8,.18,2.5);root.add(bridge);}
   }else{
     const side=Math.max(4,Math.ceil(Math.sqrt(layout.capacities[0]+1)));
@@ -64,7 +69,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   const crowns=new T.InstancedMesh(new T.IcosahedronGeometry(1,1),mint,treePoints.length);
   treePoints.forEach((p,i)=>{dummy.rotation.set(0,0,0);dummy.position.set(p.x,.48,p.z);dummy.scale.set(.13,.85,.13);dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);dummy.position.y=1.05;dummy.scale.set(.56,.76,.56);dummy.updateMatrix();crowns.setMatrixAt(i,dummy.matrix);crowns.setColorAt(i,new T.Color(i%3===0?'#80b5a0':'#a7cca5'));});root.add(trunks,crowns);
   for(const [x,z,sx,sz] of [[-15,47,9,5],[-20,-42,9,6],[20,48,5,5]] as const){
-    const park=new T.Mesh(new T.CircleGeometry(1,40),mint);park.rotation.x=-Math.PI/2;park.position.set(x,.02,z);park.scale.set(sx,sz,1);root.add(park);
+    const park=new T.Mesh(new T.CircleGeometry(1,40),surfaceMaterial('#9ac8af',1));park.renderOrder=1;park.rotation.x=-Math.PI/2;park.position.set(x,.005,z);park.scale.set(sx,sz,1);root.add(park);
     root.add(ribbon([v(x-sx,z),v(x,z-1),v(x+sx,z)],.6,'#f1e7d5',.043));
     if(publicBuildings){
       const hall=new T.Group(),shell=new T.Mesh(new T.CylinderGeometry(1.8,1.8,1.05,8),new T.MeshStandardMaterial({color:'#b4d7e0',roughness:.36,metalness:.1}));shell.position.y=.59;hall.add(shell);
