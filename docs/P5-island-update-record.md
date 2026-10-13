@@ -1,5 +1,7 @@
 # P5 即时布局与海岛视觉修订记录
 
+本篇保留Sites10的历史事实；后续Sites11二维码、榜名和表面修订见[大屏修订记录](P5-display-fix-record.md)。
+
 2026-10-13，Asia/Shanghai。P5-03。应用14fd630eebe2de229690a5c9f115c445a1ebc2e3 / p5-event-screen-preview.2已实际保存并部署Sites10；同一public站点，环境revision2，MCP与原午夜任务保持。完整阶段验收未执行，P6未启动。
 
 电脑大屏（线上地址私存） · 手机试玩（线上地址私存）。刷新加载新版即可查看；不再等待午夜启用布局。[此前P5记录](P5-development-record.md)和旧tag/失败状态保留。

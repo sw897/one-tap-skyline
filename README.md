@@ -2,7 +2,7 @@
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-P5滨水城市与只读大屏候选已部署Sites10（14fd630 / p5-event-screen-preview.2），正式验收按用户要求延期，先手工体验。最新即时布局与自然海岛、8项针对检查、本地模拟截图和线上视觉缺项见[P5修订记录](docs/P5-island-update-record.md)，[此前P5记录](docs/P5-development-record.md)保留。每日北京时间00:00任务仍启用，首次定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
+P5滨水城市与只读大屏候选已部署Sites11（3146dc9 / p5-event-screen-preview.3），正式验收按用户要求延期，先手工体验。最新二维码/高楼榜/表面深度修正、两次构建、本地1920×1080预览及缺项见[P5大屏修订记录](docs/P5-display-fix-record.md)；[海岛记录](docs/P5-island-update-record.md)、[此前P5记录](docs/P5-development-record.md)保留。每日北京时间00:00任务仍启用，首次定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
 
 ## 本地运行
 
