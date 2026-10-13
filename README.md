@@ -56,8 +56,10 @@ npm run db:export:local -- --file D:\private\city-export.json
 npm run db:import:local -- --file D:\private\city-export.json
 ```
 
-浏览器测试使用已安装 Chrome；录屏需要 Playwright FFmpeg。`SKYLINE_BASE_URL` 可指定地址。截图、视频、完整日志、时序、数据库与身份映射仅在仓库外私存。导出工具只操作本地 D1；导入要求已迁移的空库，并在单个批处理中恢复。已应用 SQL/journal 不改历史。线上数据库和 P6 域名/身份迁移须另验，不能宣称随 Docker 自动搬迁。
+浏览器测试使用已安装 Chrome；录屏需要 Playwright FFmpeg。`SKYLINE_BASE_URL` 可指定地址。截图、视频、完整日志、时序、数据库与身份映射仅在仓库外私存。导出工具只操作本地 D1；导入要求已迁移的空库，并在单个批处理中恢复。这些是已有本地开发工具；按最新每日试玩安排，P6计划从新空城开始，不搬迁Sites成绩/照片/匿名身份。已应用 SQL/journal 不改历史。
 
 自动化、手机尺寸模拟和真实手机反馈分别记录；安卓暂不安排。Git 是唯一源码版本线，公开推送前检查待推提交、全历史、tag 与资产，规则见 [AGENTS.md](AGENTS.md)。
 
 阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已实施，候选待手工体验）、[P5开发记录](docs/P5-development-record.md)、[后续记录模板](docs/development-record-template.md)。
+
+下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（待审核，尚未实施）、[P6只读预检记录](docs/P6-planning-record.md)。
