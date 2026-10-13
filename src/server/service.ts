@@ -1,4 +1,4 @@
-import { cleanName, playerColor, randomBuildingName } from '../core/city.ts';
+import { cleanName, playerColor, randomBuildingName, PALETTE } from '../core/city.ts';
 import {waterfrontLayout,type CityLayout} from '../core/layout.ts';
 import type { D1Database } from '@cloudflare/workers-types';
 import { parseTrace, replayTrace } from '../core/trace.ts';
@@ -82,9 +82,10 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
       if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await snapshot(run.city_id)});
       if(request.method==='POST'&&matched[2]==='cancel') {const body=await readBody(request);keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
       if(request.method==='POST'&&matched[2]==='submit') {
-        const body=await readBody(request);keys(body,['name','trace']);
+        const body=await readBody(request);keys(body,['name','trace','color']);
         if(!writeOpen(run.city_id))throw new ApiError(403,'city_write_closed');
         if(body.name!==undefined&&typeof body.name!=='string')throw new ApiError(400,'invalid_name');
+        if(body.color!==undefined&&(typeof body.color!=='string'||!PALETTE.includes(body.color)))throw new ApiError(400,'invalid_color');
         let trace,completed;try{trace=parseTrace(body.trace);completed=replayTrace(JSON.parse(run.rules_json),trace,run.id);}catch{throw new ApiError(400,'invalid_trace');}
         if(trace.endUs/1000>RUN_TTL_MS||trace.endUs/1000>now-run.created_at+1000)throw new ApiError(400,'impossible_run_time');
         if(run.status!=='active'&&!run.receipt_json)throw new ApiError(410,'run_expired_or_cancelled');
@@ -93,8 +94,8 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
         const signature=requestedName||await store.currentName(run.city_id,owner.id)||randomBuildingName(owner.public_id);
         // Keep the existing empty-input hash normalization for outstanding retries.
         // This marker is never the displayed default name.
-        const hash=await hashText(JSON.stringify({version:1,runId:run.id,name:requestedName||'我的小楼',trace}));
-        const result=await store.submit(run,owner,signature,trace,completed,hash,now);
+        const hash=await hashText(JSON.stringify({version:1,runId:run.id,name:requestedName||'我的小楼',trace,...(body.color!==undefined?{color:body.color}:{})}));
+        const result=await store.submit(run,owner,signature,trace,completed,hash,now,body.color as string|undefined);
         return json({...result,snapshot:await snapshot(run.city_id)});
       }
     }

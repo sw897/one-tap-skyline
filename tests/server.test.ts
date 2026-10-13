@@ -5,18 +5,20 @@ import { makeTrace } from './run-fixtures.ts';
 import { CityStore } from '../src/server/store.ts';
 import { handleApi } from '../src/server/service.ts';
 import { hashText, randomId, RUN_TTL_MS } from '../src/server/policy.ts';
+import { waterfrontLayout,plotLocation,type CityLayout } from '../src/core/layout.ts';
+import { PALETTE } from '../src/core/city.ts';
 
-function harness(){
+function harness(layout?:CityLayout){
   const db=new SqliteD1(),store=new CityStore(db.asD1());let now=1_900_000_000_000;
   const call=async(path:string,body?:unknown,cookie?:string,headers:Record<string,string>={})=>{
-    const response=await handleApi(new Request('https://skyline.test'+path,{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{'content-type':'application/json',origin:'https://skyline.test'}),...headers},...(body===undefined?{}:{body:JSON.stringify(body)})}),{db:db.asD1(),publicWriteOpen:true,now:()=>now});
+    const response=await handleApi(new Request('https://skyline.test'+path,{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{'content-type':'application/json',origin:'https://skyline.test'}),...headers},...(body===undefined?{}:{body:JSON.stringify(body)})}),{db:db.asD1(),publicWriteOpen:true,layout,now:()=>now});
     return {response,status:response.status,body:await response.json() as any};
   };
   const session=async()=>{const r=await call('/api/session?city=test');assert.equal(r.status,200);return {cookie:r.response.headers.get('set-cookie')!.split(';')[0],profile:r.body};};
-  const play=async(cookie:string,floors:number,name='测试小楼')=>{
+  const play=async(cookie:string,floors:number,name='测试小楼',color?:string)=>{
     const begun=await call('/api/runs',{city:'test',startKey:randomId()},cookie);assert.equal(begun.status,200);
     const fixture=makeTrace(floors);now+=Math.ceil(fixture.trace.endUs/1000)+5;
-    const body={name,trace:fixture.trace};return {runId:begun.body.runId,body,submitted:await call('/api/runs/'+begun.body.runId+'/submit',body,cookie),fixture};
+    const body={name,trace:fixture.trace,...(color!==undefined?{color}:{})};return {runId:begun.body.runId,body,submitted:await call('/api/runs/'+begun.body.runId+'/submit',body,cookie),fixture};
   };
   return {db,store,call,session,play,tick:(ms:number)=>{now+=ms;},now:()=>now};
 }
@@ -64,13 +66,13 @@ test('anonymous cookie is private and same-browser identity persists; spectators
     assert.equal(h.db.connection.prepare('SELECT COUNT(*) AS n FROM players').get()!.n,2);
   }finally{h.db.close();}
 });
-test('first/lower/equal/best keep plot/color/name and complete new geometry; duplicate is immutable',async()=>{
+test('low/equal keep original; best may rename with fixed plot/color and complete new geometry; duplicate is immutable',async()=>{
   const h=harness();try{
     const a=await h.session();const first=await h.play(a.cookie,12,'测试首楼');assert.equal(first.submitted.status,200);assert.equal(first.submitted.body.receipt.kind,'first');
     const original=first.submitted.body.snapshot.buildings[0];
     for(const n of [9,12]){const low=await h.play(a.cookie,n,'修改名');assert.equal(low.submitted.body.receipt.kind,'unchanged');assert.deepEqual(low.submitted.body.snapshot.buildings[0],original);assert.equal(low.submitted.body.snapshot.revision,1);}
     const best=await h.play(a.cookie,16,'别的名');assert.equal(best.submitted.body.receipt.kind,'best');const updated=best.submitted.body.snapshot.buildings[0];
-    assert.deepEqual(updated.tower,best.fixture.completed.tower);for(const k of ['playerId','plotId','color','name'])assert.equal(updated[k],original[k]);assert.equal(best.submitted.body.snapshot.revision,2);
+    assert.deepEqual(updated.tower,best.fixture.completed.tower);for(const k of ['playerId','plotId','color'])assert.equal(updated[k],original[k]);assert.equal(updated.name,'别的名');assert.equal(best.submitted.body.snapshot.revision,2);
     const retry=await h.call('/api/runs/'+best.runId+'/submit',best.body,a.cookie);assert.equal(retry.status,200);assert.equal(retry.body.duplicate,true);assert.equal(retry.body.snapshot.revision,2);
     const changed=await h.call('/api/runs/'+best.runId+'/submit',{...best.body,name:'改正文'},a.cookie);assert.equal(changed.status,409);
   }finally{h.db.close();}
@@ -95,10 +97,44 @@ test('tied ranks 1/1/3 and foreign run rejection; zero run produces no plot',asy
   }finally{h.db.close();}
 });
 test('capacity rejects newcomer without losing existing best; reserved park never allocated',async()=>{
-  const h=harness();try{const a=await h.session();h.db.connection.exec("UPDATE cities SET capacity=1 WHERE id='test'");
-    await h.play(a.cookie,2);const b=await h.session();const full=await h.play(b.cookie,3);assert.equal(full.submitted.body.receipt.kind,'full');assert.equal(full.submitted.body.snapshot.revision,1);
-    const improved=await h.play(a.cookie,4);assert.equal(improved.submitted.body.receipt.kind,'best');assert.equal(improved.submitted.body.snapshot.buildings.length,1);
+  const h=harness(waterfrontLayout(2));try{const a=await h.session();await h.play(a.cookie,2);
+    for(let i=1;i<22;i++){const player=await h.session();assert.equal((await h.play(player.cookie,2)).submitted.body.receipt.kind,'first');}
+    const b=await h.session();const full=await h.play(b.cookie,3);assert.equal(full.submitted.body.receipt.kind,'full');assert.equal(full.submitted.body.snapshot.revision,22);
+    const ids=full.submitted.body.snapshot.buildings.map((b:any)=>b.plotId);assert.equal(new Set(ids).size,22);assert.ok(!ids.includes(13));assert.ok(ids.every((id:number)=>!!plotLocation(id,waterfrontLayout(2))));
+    const improved=await h.play(a.cookie,4);assert.equal(improved.submitted.body.receipt.kind,'best');assert.equal(improved.submitted.body.snapshot.buildings.length,22);
     assert.equal((await h.call('/api/runs',{city:'test',startKey:randomId()},b.cookie)).status,200);
+  }finally{h.db.close();}
+});
+
+test('selected palette color persists across own/display; low/equal and conflicting retry cannot repaint',async()=>{
+  const h=harness();try{const player=await h.session();
+    const first=await h.play(player.cookie,3,'选色测试',PALETTE[2]);assert.equal(first.submitted.status,200);
+    const original=first.submitted.body.snapshot.buildings[0];assert.equal(original.color,PALETTE[2]);
+    assert.equal((await h.call('/api/city?city=test&scope=own',undefined,player.cookie)).body.buildings[0].color,PALETTE[2]);
+    for(const floors of [2,3]){const low=await h.play(player.cookie,floors,'不应改名',PALETTE[4]);assert.deepEqual(low.submitted.body.snapshot.buildings[0],original);}
+    const best=await h.play(player.cookie,4,'新高选色',PALETTE[1]),updated=best.submitted.body.snapshot.buildings[0];
+    assert.equal(best.submitted.status,200);assert.equal(updated.color,PALETTE[1]);assert.equal(updated.plotId,original.plotId);assert.deepEqual(updated.tower,best.fixture.completed.tower);
+    const replay=await h.call('/api/runs/'+best.runId+'/submit',best.body,player.cookie);assert.equal(replay.body.duplicate,true);assert.equal(replay.body.receipt.building.color,PALETTE[1]);
+    assert.equal((await h.call('/api/runs/'+best.runId+'/submit',{...best.body,color:PALETTE[0]},player.cookie)).status,409);
+    assert.equal((await h.call('/api/city?city=test')).body.buildings[0].color,PALETTE[1]);
+    const omitted=await h.play(player.cookie,5,'沿用颜色');assert.equal(omitted.submitted.body.snapshot.buildings[0].color,PALETTE[1]);
+    const invalid=await h.play(player.cookie,6,'非法颜色','#000000');assert.equal(invalid.submitted.status,400);assert.equal(invalid.submitted.body.error,'invalid_color');
+    assert.equal((await h.call('/api/city?city=test')).body.buildings[0].tower.layers.length,5);
+  }finally{h.db.close();}
+});
+
+test('random empty-plot transaction can choose distant district, retries/best keep position and layout shrink preserves it',async()=>{
+  const h=harness();try{let priority=0;
+    // Reproducible RNG fixture selects far available plots; production uses SQLite random().
+    h.db.connection.function('random',()=>--priority);
+    const a=await h.session(),b=await h.session();
+    const first=await h.play(a.cookie,3),second=await h.play(b.cookie,2);
+    const plot=first.submitted.body.receipt.building.plotId;
+    assert.equal(plot,76);assert.equal(second.submitted.body.receipt.building.plotId,75);
+    assert.equal((await h.call('/api/runs/'+first.runId+'/submit',first.body,a.cookie)).body.receipt.building.plotId,plot);
+    assert.equal((await h.play(a.cookie,4)).submitted.body.receipt.building.plotId,plot);
+    await h.store.ensureCity('test','测试城市',waterfrontLayout(1));
+    const shrunk=await h.store.snapshot('test',true);assert.ok(plotLocation(plot,shrunk.layout!));assert.equal(shrunk.buildings.length,2);
   }finally{h.db.close();}
 });
 test('batch fault after revision rolls back run, best, plot and revision; safe retry works',async()=>{

@@ -15,7 +15,7 @@ export function mountUI(root: HTMLElement) {
       <button class="primary-button start-button" id="start-button">开始盖楼 <span aria-hidden="true">→</span></button>
       <p class="intro-note" id="intro-direction">楼层左右、前后交替移动 · 单指点击落层</p>
       <p class="intro-note">每天北京时间 00:00，城市与成绩重新开始。</p>
-      <p class="mode-links"><a id="practice-link" href="/?mode=practice">先练习</a><a id="shared-link" href="/?mode=shared">共享试玩</a></p>
+      <p class="mode-links" id="mode-links" hidden><a id="shared-link" href="/?mode=shared">返回共享试玩</a></p>
       <div class="how-to"><span><b>01</b> 点击落层</span><span><b>02</b> 留下作品</span><span><b>03</b> 原地长高</span></div>
     </section>
 
@@ -36,6 +36,7 @@ export function mountUI(root: HTMLElement) {
         <div class="performance" id="performance-summary"></div>
         <label class="signature-label" for="signature">给作品起个名字 <small>首次 / 新最佳可改</small></label>
         <input id="signature" maxlength="16" autocomplete="off" placeholder="给你的小楼起个名字" />
+        <fieldset id="building-colors" class="building-colors"><legend>楼体颜色 <small>首次 / 新最佳可选</small></legend><div id="color-options"></div></fieldset>
         <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>照片幕墙 <span class="muted">可选</span></strong><small id="sticker-hint">铺满正面墙，随楼体轮廓裁切</small></div><button class="subtle-button" id="choose-sticker">选择照片</button><button class="subtle-button" id="skip-sticker">跳过</button></div>
         <button class="primary-button" id="submit-button">模拟入城 <span aria-hidden="true">↗</span></button>
         <p id="submit-note" class="disclosure">城市使用模拟数据，仅保留在本页。</p>
@@ -74,4 +75,12 @@ export function mountUI(root: HTMLElement) {
       <p class="disclosure">调整从下一局生效。连击只做反馈，<br>不额外计层、不恢复宽度。</p><button class="primary-button" id="apply-settings" value="apply">保存候选参数</button>
     </form></dialog>
   `;
+}
+
+export function mountSharedUnavailable(root:HTMLElement,message:string):()=>void {
+  root.innerHTML='<main class="compatibility-message"><h1>共享城市暂未连接</h1><p id="shared-error" role="status"></p><button id="retry-shared" class="primary-button">重试连接</button><p>连接成功后再开始盖楼，作品才能同步到大屏。</p></main>';
+  root.querySelector('#shared-error')!.textContent=message;
+  const retry=root.querySelector<HTMLButtonElement>('#retry-shared')!;
+  retry.onclick=()=>location.reload();
+  return ()=>{retry.onclick=null;};
 }

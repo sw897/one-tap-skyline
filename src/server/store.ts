@@ -25,11 +25,12 @@ export class CityStore {
     await this.stmt('INSERT OR IGNORE INTO cities(id,epoch,display_name,ruleset_id,is_test,capacity,layout_json) VALUES(?,?,?,?,?,?,?)',city,randomId(),name,RULESET_ID,city!=='public'?1:0,layoutCapacity(layout),JSON.stringify(layout)).run();
     // Development iteration applies the current map immediately, without deleting game data.
     for(let attempt=0;attempt<3;attempt++){
-      const row=await this.stmt('SELECT next_plot,capacity,layout_json,display_name FROM cities WHERE id=?',city).first<{next_plot:number;capacity:number;layout_json:string;display_name:string}>();
+      const row=await this.stmt('SELECT next_plot,capacity,layout_json,display_name,(SELECT COALESCE(MAX(plot_id),-1) FROM buildings WHERE city_id=?) AS max_plot FROM cities WHERE id=?',city,city).first<{next_plot:number;capacity:number;layout_json:string;display_name:string;max_plot:number}>();
       if(!row)throw new ApiError(404,'city_not_found');
-      const desired=occupiedLayout(layout,row.next_plot),capacity=layoutCapacity(desired),layoutJson=JSON.stringify(desired);
+      const allocatedExtent=row.max_plot<0?0:row.max_plot+(row.max_plot<13?1:0);
+      const desired=occupiedLayout(layout,Math.max(row.next_plot,allocatedExtent)),capacity=layoutCapacity(desired),layoutJson=JSON.stringify(desired);
       if(row.layout_json===layoutJson&&row.capacity===capacity&&row.display_name===name)return;
-      const updated=await this.stmt(`UPDATE cities SET display_name=?,layout_json=?,capacity=?,revision=revision+1 WHERE id=? AND next_plot<=? AND (layout_json<>? OR capacity<>? OR display_name<>?)`,name,layoutJson,capacity,city,capacity,layoutJson,capacity,name).run();
+      const updated=await this.stmt(`UPDATE cities SET display_name=?,layout_json=?,capacity=?,revision=revision+1 WHERE id=? AND next_plot=? AND next_plot<=? AND (layout_json<>? OR capacity<>? OR display_name<>?)`,name,layoutJson,capacity,city,row.next_plot,capacity,layoutJson,capacity,name).run();
       if(updated.meta.changes)return;
     }
     throw new ApiError(503,'service_unavailable');
@@ -93,7 +94,7 @@ export class CityStore {
   async cancel(id:string,player:string) {
     await this.stmt("UPDATE runs SET status='cancelled' WHERE id=? AND player_id=? AND status='active'",id,player).run();
   }
-  async submit(run:RunRow,player:PlayerRow,name:string,trace:RunTrace,completed:CompletedRun,hash:string,now:number):Promise<{receipt:SubmissionReceipt;duplicate:boolean}> {
+  async submit(run:RunRow,player:PlayerRow,name:string,trace:RunTrace,completed:CompletedRun,hash:string,now:number,color?:string):Promise<{receipt:SubmissionReceipt;duplicate:boolean}> {
     const token=randomId(),floors=completed.tower.layers.length,tower=JSON.stringify(completed.tower),id=randomId();
     const owner=player.id,city=run.city_id;
     const currentBuilding=`SELECT ${buildingJson()} FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=runs.city_id AND b.player_id=runs.player_id`;
@@ -106,12 +107,16 @@ export class CityStore {
             CASE WHEN ?> (SELECT floors FROM buildings WHERE city_id=runs.city_id AND player_id=runs.player_id) THEN 'best' ELSE 'unchanged' END
           WHEN (SELECT next_plot>=capacity FROM cities WHERE id=runs.city_id) THEN 'full' ELSE 'first' END
         WHERE id=? AND player_id=? AND status='active' AND expires_at>=?`,hash,JSON.stringify(trace),tower,floors,token,floors,floors,run.id,owner,now),
-      this.stmt(`INSERT INTO buildings(id,city_id,player_id,plot_id,color,name,best_run_id,floors,tower_json,achieved_at)
-        SELECT ?,r.city_id,r.player_id,c.next_plot+CASE WHEN c.next_plot>=13 THEN 1 ELSE 0 END,
+      this.stmt(`WITH RECURSIVE ordinals(n) AS (
+          SELECT 0 UNION ALL SELECT n+1 FROM ordinals WHERE n+1<(SELECT capacity FROM cities WHERE id=?)
+        ) INSERT INTO buildings(id,city_id,player_id,plot_id,color,name,best_run_id,floors,tower_json,achieved_at)
+        SELECT ?,r.city_id,r.player_id,(SELECT n+CASE WHEN n>=13 THEN 1 ELSE 0 END FROM ordinals
+          WHERE NOT EXISTS(SELECT 1 FROM buildings b WHERE b.city_id=r.city_id AND b.plot_id=n+CASE WHEN n>=13 THEN 1 ELSE 0 END)
+          ORDER BY random() LIMIT 1),
           ?,?,r.id,r.floors,r.tower_json,?
-        FROM runs r JOIN cities c ON c.id=r.city_id WHERE r.id=? AND r.finalize_token=? AND r.result_kind='first'`,id,playerColor(player.public_id),cleanName(name),now,run.id,token),
-      this.stmt(`UPDATE buildings SET floors=?,tower_json=?,best_run_id=?,achieved_at=?,name=?
-        WHERE city_id=? AND player_id=? AND floors<? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind='best')`,floors,tower,run.id,now,cleanName(name),city,owner,floors,run.id,token),
+        FROM runs r JOIN cities c ON c.id=r.city_id WHERE r.id=? AND r.finalize_token=? AND r.result_kind='first'`,city,id,color??playerColor(player.public_id),cleanName(name),now,run.id,token),
+      this.stmt(`UPDATE buildings SET floors=?,tower_json=?,best_run_id=?,achieved_at=?,name=?,color=COALESCE(?,color)
+        WHERE city_id=? AND player_id=? AND floors<? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind='best')`,floors,tower,run.id,now,cleanName(name),color??null,city,owner,floors,run.id,token),
       this.stmt(`UPDATE cities SET revision=revision+1,next_plot=next_plot+CASE WHEN (SELECT result_kind FROM runs WHERE id=? AND finalize_token=?)='first' THEN 1 ELSE 0 END
         WHERE id=? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind IN ('first','best'))`,run.id,token,city,run.id,token),
       this.stmt(`INSERT OR IGNORE INTO city_events(city_id,epoch,revision,run_id,kind,player_public_id,plot_id,name,previous_floors,floors,global_record,created_at)

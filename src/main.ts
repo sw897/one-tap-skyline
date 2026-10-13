@@ -1,14 +1,14 @@
 import { loadRuntimeConfig, parseRuntimeConfig, playtestConfig } from './config.ts';
 import { GameSession } from './core/game.ts';
 import type { CompletedRun } from './core/game.ts';
-import { MemoryCityRepository,cleanName,randomBuildingName,type CityBuilding } from './core/city.ts';
+import { MemoryCityRepository,cleanName,randomBuildingName,PALETTE,type CityBuilding } from './core/city.ts';
 import {waterfrontLayout,districtsFor,plotLocation} from './core/layout.ts';
 import QRCode from 'qrcode';
 import { temporaryId } from './core/session-id.ts';
 import { fixtureTower, towerHeight, emptyTower } from './core/tower.ts';
 import { SkylineRenderer } from './render.ts';
 import type { View } from './render.ts';
-import { mountUI } from './ui.ts';
+import { mountUI, mountSharedUnavailable } from './ui.ts';
 import { RunClock } from './core/trace.ts';
 import type { RunTrace } from './core/trace.ts';
 import { SharedCityRepository, DisplayCityRepository,loadDisplay, SharedError, loadSession, startSharedRun, sharedMessage } from './shared/client.ts';
@@ -24,11 +24,11 @@ const displaySurface=search.get('mode')==='display';
 const personalSurface=search.get('mode')!=='display'&&(matchMedia('(pointer: coarse)').matches||matchMedia('(max-width:760px)').matches);
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
 const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':search.get('city')==='test'?'test':'public';
-let shared = displaySurface||search.get('mode') !== 'practice' && !search.has('cut');
+const shared = displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut');
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
-  try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all'); if (!session.snapshot.writeOpen && search.get('mode') !== 'shared') shared=false; }}
-  catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); if(!displaySurface)shared=false; }
+  try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all'); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
+  catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); if(!displaySurface) return mountSharedUnavailable(root,initialError); }
 }
 if (signal?.aborted) return () => {};
 if (shared && session) config={...config,game:{...session.rules},cityDisplayName:session.snapshot.name};
@@ -40,7 +40,8 @@ const city = displaySurface?new DisplayCityRepository(displaySnapshot??{cityId,e
 const playerId = displaySurface?'':shared && session ? session.playerId : temporaryId();
 const currentLayout=()=>city instanceof SharedCityRepository?city.snapshot.layout??defaultLayout:defaultLayout;
 const rankOf=(building:CityBuilding|undefined)=>building&&'rank' in building?Number(building.rank):undefined;
-const buildingColor=shared&&session?session.color:'#75aaff';
+let buildingColor=shared&&session?city.get(playerId)?.color??session.color:'#75aaff';
+let selectedColor=buildingColor,frozenColor:string|undefined;
 let game: GameSession | undefined;
 let clock: RunClock | undefined, origin = 0, completedTrace: RunTrace | undefined;
 let activeServerRun = session?.activeRunId ?? null;
@@ -74,7 +75,7 @@ const photoEditor=new PhotoEditor(root,(photo,context)=>{
   if(context==='result'&&(view!=='result'||!completed)){photoEditor.clear();return;}
   stickerSkipped=false;($('skip-sticker') as HTMLButtonElement).disabled=false;
   $('skip-sticker').textContent='跳过';
-  if(context==='result'&&completed){viewer.setSolo(completed.tower,buildingColor,photo.preview);photoNote('已预览，提交入城后保存。');}
+  if(context==='result'&&completed){viewer.setSolo(completed.tower,selectedColor,photo.preview);photoNote('已预览，提交入城后保存。');}
   else{const own=city.get(playerId);if(own){viewer.setSolo(own.tower,own.color,photo.preview,rankOf(own));void saveSelectedPhoto();}}
 },photoNote);
 if(!personalSurface)viewer.setCity(city.all());
@@ -82,23 +83,34 @@ $('city-name').textContent = config.cityDisplayName;
 $('intro-direction').textContent = config.game.cutMode === 'alternate-xz' ? '楼层左右、前后交替移动 · 单指点击落层' : '楼层沿固定方向移动 · 单指点击落层';
 const modeName = () => (game?.config ?? config.game).cutMode === 'alternate-xz' ? '逐层换向' : '固定方向';
 const clockNow = () => Math.max(0,Math.round((performance.now()-origin)*1000));
+const colorNames=['海蓝','薄荷','珊瑚','暮紫','樱粉','暖金'];
+const colorButtons=PALETTE.map((color,index)=>{
+  const button=document.createElement('button');button.type='button';button.className='color-choice';button.setAttribute('aria-label',colorNames[index]);button.title=colorNames[index];button.style.setProperty('--chosen-color',color);
+  button.onclick=()=>{if(!completed||view!=='result'||button.disabled)return;selectedColor=color;updateColorChoices();viewer.setSolo(completed.tower,selectedColor,photoEditor.selected?.preview??city.get(playerId)?.photo);};
+  $('color-options').append(button);return button;
+});
+function updateColorChoices(){
+  const own=city.get(playerId),canEdit=!!completed&&completed.tower.layers.length>0&&(!own||completed.tower.layers.length>own.tower.layers.length);
+  $('building-colors').hidden=!canEdit;
+  colorButtons.forEach((button,index)=>{button.setAttribute('aria-pressed',String(PALETTE[index]===selectedColor));button.disabled=!canEdit||submitting||frozenColor!==undefined;});
+}
 const pauseGame = () => { if (clock && game?.phase !== 'ended') clock.pause(clockNow()); };
 const resumeGame = () => { if (clock) clock.resume(clockNow()); };
 $('prototype-badge').textContent=shared?'共享试玩':'练习 · 本页模拟';
 $('overview-button').firstChild!.textContent=personalSurface?'我的楼 ':'城市总览 ';
 $('scene-data-mark').hidden=!(shared&&cityId!=='public');
 $('settings-button').hidden=shared;
-$('shared-link').hidden=shared; $('practice-link').hidden=!shared;
-($('practice-link') as HTMLAnchorElement).href='/?mode=practice';
+$('mode-links').hidden=shared;
+$('shared-link').hidden=shared;
 ($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
 $('board-title').textContent=shared?'排行榜':'模拟排行榜';
 $('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
 $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
-if(initialError)$('intro-direction').textContent=initialError+(displaySurface?'':' 当前进入练习。');
-if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','practice-link','shared-link'])$(id).hidden=true;
+if(initialError)$('intro-direction').textContent=initialError;
+if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link'])$(id).hidden=true;
   $('prototype-badge').textContent='今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
-const mobileEntry=new URL('/',location.origin);($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;($('entry-link')).textContent=mobileEntry.host;
+const mobileEntry=new URL('/?mode=shared',location.origin);($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;($('entry-link')).textContent=mobileEntry.host;
 $('entry-link').hidden=displaySurface;
 void QRCode.toCanvas($<HTMLCanvasElement>('entry-qr'),mobileEntry.href,{width:240,margin:4,errorCorrectionLevel:'M',color:{dark:'#213e54',light:'#ffffff'}}).then(()=>{if(!disposed)$('qr-note').textContent='手机相机扫码参与 · 每日 00:00 重置';}).catch(()=>{if(!disposed)$('qr-note').textContent=displaySurface?'二维码暂未生成，请刷新重试':'二维码暂未生成，可点击入口链接';});
 
@@ -129,7 +141,8 @@ async function start() {
       config={...config,game:began.rules};
     }
     game = new GameSession(config.game,runId); clock=new RunClock(game);origin=performance.now();
-    completed = null; completedTrace=undefined;endHandled = false; frozenName=undefined;
+    completed = null; completedTrace=undefined;endHandled = false; frozenName=undefined;frozenColor=undefined;
+    buildingColor=city.get(playerId)?.color??buildingColor;selectedColor=buildingColor;
     ($('signature') as HTMLInputElement).disabled=false;
     ($('signature') as HTMLInputElement).value=city.get(playerId)?.name??randomBuildingName(playerId);
   photoEditor.clear();photoNote('贴在楼的正面，留下你的颜色');
@@ -176,8 +189,9 @@ function finish() {
   $('end-caption').textContent = completed.reason === 'time' ? '时间到，作品完成' : '这一局，收好你的作品';
   $('performance-summary').textContent = `Perfect ${completed.perfectCount} 次 · 最长 ${completed.longestCombo} 连击`;
   ($('submit-button') as HTMLButtonElement).disabled = count === 0;
+  updateColorChoices();
   $('submit-note').textContent = count === 0 ? '先成功盖一层，再把小楼放进城市。' : shared?'提交后，署名、成绩与楼体将公开展示。本局需在开局后10分钟内提交。':'城市使用模拟数据，仅保留在本页。';
-  viewer.setSolo(completed.tower,buildingColor,city.get(playerId)?.photo); show('result');
+  viewer.setSolo(completed.tower,selectedColor,city.get(playerId)?.photo); show('result');
 }
 function refreshCityUI() {
   if(city instanceof SharedCityRepository)$('city-name').textContent=city.snapshot.name;
@@ -272,12 +286,14 @@ async function submit() {
   submitting=true;($('submit-button') as HTMLButtonElement).disabled=true;
   try {
   frozenName ??= cleanName(($('signature') as HTMLInputElement).value,city.get(playerId)?.name??randomBuildingName(playerId));
+  frozenColor ??= selectedColor;updateColorChoices();
   if(shared)($('signature') as HTMLInputElement).disabled=true;
   $('submit-note').textContent=shared?'正在共享，请稍等…':'正在入城…';
-  const update = city instanceof SharedCityRepository ? await city.submit(playerId,frozenName,completed,completedTrace!) : city.submit(playerId,frozenName,completed);
+  const update = city instanceof SharedCityRepository ? await city.submit(playerId,frozenName,completed,completedTrace!,frozenColor) : city.submit(playerId,frozenName,completed,frozenColor);
   if(disposed)return;
   if (!update.building || update.kind==='invalid') throw new Error('No accepted building');
   activeServerRun=null;
+  buildingColor=update.building.color;selectedColor=buildingColor;
   if(navigation!==navigationVersion)return;
   if(personalSurface)viewer.setSolo(update.building.tower,update.building.color,update.building.photo,rankOf(update.building));
   else{viewer.setCity(city.all(),update);viewer.focusBuilding();}

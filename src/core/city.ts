@@ -21,7 +21,7 @@ export type CityUpdate = { kind: 'first' | 'unchanged' | 'best' | 'duplicate' | 
 export interface CityRepository {
   all(): CityBuilding[];
   get(playerId: string): CityBuilding | undefined;
-  submit(playerId: string, name: string, run: CompletedRun): CityUpdate;
+  submit(playerId: string, name: string, run: CompletedRun, color?:string): CityUpdate;
 }
 export const cleanName = (value: string, fallback = '') => Array.from(value.replace(/[<>\u0000-\u001f]/gu, '').trim()).slice(0, 16).join('') || fallback;
 export function randomBuildingName(publicId: string) {
@@ -45,15 +45,15 @@ export class MemoryCityRepository implements CityRepository {
     return ordered.map(b=>({...b,rank:1+ordered.filter(other=>other.tower.layers.length>b.tower.layers.length).length}));
   }
   get(playerId: string) { return this.all().find(b=>b.playerId===playerId); }
-  submit(playerId: string, name: string, run: CompletedRun): CityUpdate {
+  submit(playerId: string, name: string, run: CompletedRun, color?:string): CityUpdate {
     if (!playerId || run.ended !== true || !run.runId || run.tower.layers.length === 0 || !validateTower(run.tower)) return { kind: 'invalid' };
     const existing = this.get(playerId);
     if (this.submitted.has(run.runId)) return { kind: 'duplicate', building: existing };
     this.submitted.add(run.runId);
     if (existing && run.tower.layers.length <= existing.tower.layers.length) return { kind: 'unchanged', building: existing, previous: existing };
     const building: CityBuilding = existing
-      ? { ...existing, name:cleanName(name,existing.name), tower: cloneTower(run.tower), bestRunId: run.runId }
-      : { playerId, plotId: 14, color: PALETTE[0], name: cleanName(name,randomBuildingName(playerId)), tower: cloneTower(run.tower), bestRunId: run.runId, source: 'local-session' };
+      ? { ...existing, color:color&&PALETTE.includes(color)?color:existing.color, name:cleanName(name,existing.name), tower: cloneTower(run.tower), bestRunId: run.runId }
+      : { playerId, plotId: 14, color: color&&PALETTE.includes(color)?color:PALETTE[0], name: cleanName(name,randomBuildingName(playerId)), tower: cloneTower(run.tower), bestRunId: run.runId, source: 'local-session' };
     this.buildings.set(playerId, building);
     return { kind: existing ? 'best' : 'first', building: this.get(playerId), previous: existing };
   }
