@@ -20,6 +20,8 @@ npm run dev
 
 ## 共享与练习
 
+玩家使用一个手机试玩入口：一指盖楼（线上地址私存）。下面的test/test-mobile是开发验证地址，用来隔离程序生成的成绩，页面明确标测试；不代表运营两套游戏，不提供玩家环境切换，也不另建站点。大屏入口只是同一试玩数据的电脑视图。
+
 - `/?mode=shared&view=city`：桌面共享城市总览；手机/窄屏只看自己的楼。署名、成绩和楼体在大屏公开展示。
 - `/?mode=display&view=city`：明确的大屏入口，即使浏览器侧栏较窄也保留全城展示；默认手机入口仍只取自己的楼。
 - `/?mode=shared&city=test`：独立共享测试城市，画面明确标注测试数据；测试成绩不进入真实榜单。
@@ -56,4 +58,4 @@ npm run db:import:local -- --file D:\private\city-export.json
 
 自动化、手机尺寸模拟和真实手机反馈分别记录；安卓暂不安排。Git 是唯一源码版本线，公开推送前检查待推提交、全历史、tag 与资产，规则见 [AGENTS.md](AGENTS.md)。
 
-阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与互动计划](docs/P5-implementation-plan.md)（场景/巡游/1920×1080 Chrome已确定，最多10分区及楼层/前三名装饰细则待审核，未实施）、[后续记录模板](docs/development-record-template.md)。
+阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（六区、1–12/13–24/25+、随机楼名/新高改名换图及单一入口，已修订计划，尚未实施）、[后续记录模板](docs/development-record-template.md)。
