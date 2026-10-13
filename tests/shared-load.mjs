@@ -75,7 +75,7 @@ try{
   await Promise.all(workers);report.durationMs=Date.now()-began;
   await page.waitForTimeout(3500);const final=(await call('/api/city?city=test',undefined,undefined,'final')).value;
   assert.equal(final.buildings.length,60);assert.equal(final.revision,populated.revision+10);
-  const old=new Map(populated.buildings.map(b=>[b.playerId,b]));for(const b of final.buildings){const p=old.get(b.playerId);for(const k of ['plotId','color','name'])assert.equal(b[k],p[k]);assert.ok(b.tower.layers.length>=p.tower.layers.length);}
+  const old=new Map(populated.buildings.map(b=>[b.playerId,b]));for(const b of final.buildings){const p=old.get(b.playerId);for(const k of ['plotId','color'])assert.equal(b[k],p[k]);assert.equal(b.name,b.tower.layers.length>p.tower.layers.length?'后续署名':p.name);assert.ok(b.tower.layers.length>=p.tower.layers.length);}
   const samples=report.requests.filter(r=>r.phase==='load'),percentile=list=>{list.sort((a,b)=>a-b);return list[Math.max(0,Math.ceil(list.length*.95)-1)]??0;};
   report.summary={requests:samples.length,unexpectedErrors:report.errors.length,readP95Ms:percentile(samples.filter(r=>r.kind==='read').map(r=>r.ms)),writeP95Ms:percentile(samples.filter(r=>r.kind==='write').map(r=>r.ms)),propagationSamples:report.propagationMs.length,within5Seconds:report.propagationMs.filter(ms=>ms<=5000).length};
   assert.equal(report.errors.length,0);assert.ok(report.summary.readP95Ms<=1500);assert.ok(report.summary.writeP95Ms<=2000);assert.equal(targets.size,0);assert.ok(report.summary.propagationSamples>=10);assert.ok(report.summary.within5Seconds/report.summary.propagationSamples>=.95);

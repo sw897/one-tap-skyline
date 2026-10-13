@@ -1,4 +1,5 @@
 import type { CutMode } from './core/tower.ts';
+import { DEFAULT_DISTRICT_CAPACITIES, waterfrontLayout } from './core/layout.ts';
 export interface GameConfig {
   cutMode: CutMode;
   roundSeconds: number;
@@ -10,13 +11,15 @@ export interface GameConfig {
 }
 export interface RuntimeConfig {
   cityDisplayName: string;
+  city: { openDistricts: number; capacities: number[] };
   game: GameConfig;
-  visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number };
+  visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number; lowFloors: number; midFloors: number; publicBuildings: boolean; tourStaySeconds: number; tourTransitionSeconds: number; tourIdleSeconds: number };
 }
 export const DEFAULT_CONFIG: RuntimeConfig = {
   cityDisplayName: '城市天际线',
+  city: {openDistricts:6, capacities:[...DEFAULT_DISTRICT_CAPACITIES]},
   game: { cutMode: 'alternate-xz', roundSeconds: 60, baseSpeed: 2.7, speedStep: 0.035, perfectRatio: 0.035, comboMilestone: 3, dropSeconds: 0.24 },
-  visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75 },
+  visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75, lowFloors:12, midFloors:24, publicBuildings:true, tourStaySeconds:10, tourTransitionSeconds:2, tourIdleSeconds:20 },
 };
 const numeric = (input: unknown, fallback: number, min: number, max: number) =>
   typeof input === 'number' && Number.isFinite(input) && input >= min && input <= max ? input : fallback;
@@ -24,10 +27,13 @@ const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 export function parseRuntimeConfig(input: unknown): RuntimeConfig {
-  const root = object(input), game = object(root.game), visual = object(root.visual), d = DEFAULT_CONFIG;
+  const root = object(input), game = object(root.game), visual = object(root.visual), city = object(root.city), d = DEFAULT_CONFIG;
+  const layout=waterfrontLayout(typeof city.openDistricts==='number'?city.openDistricts:6,Array.isArray(city.capacities)?city.capacities as number[]:d.city.capacities);
+  const lowFloors=Math.round(numeric(visual.lowFloors,12,1,100)),midFloors=Math.max(lowFloors+1,Math.round(numeric(visual.midFloors,24,2,200)));
   const name = typeof root.cityDisplayName === 'string' ? root.cityDisplayName.trim() : '';
   return {
     cityDisplayName: name.length > 0 && name.length <= 40 && !/[<>\u0000-\u001f]/u.test(name) ? name : d.cityDisplayName,
+    city:{openDistricts:layout.districtCount,capacities:layout.capacities},
     game: {
       cutMode: game.cutMode === 'single-x' || game.cutMode === 'alternate-xz' ? game.cutMode : d.game.cutMode,
       roundSeconds: numeric(game.roundSeconds, d.game.roundSeconds, 10, 180),
@@ -41,6 +47,8 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
       cameraSeconds: numeric(visual.cameraSeconds, d.visual.cameraSeconds, 0.2, 3),
       growthSeconds: numeric(visual.growthSeconds, d.visual.growthSeconds, 0.3, 4),
       maxPixelRatio: numeric(visual.maxPixelRatio, d.visual.maxPixelRatio, 1, 2),
+      lowFloors,midFloors,publicBuildings:visual.publicBuildings!==false,
+      tourStaySeconds:numeric(visual.tourStaySeconds,10,3,60),tourTransitionSeconds:numeric(visual.tourTransitionSeconds,2,.3,6),tourIdleSeconds:numeric(visual.tourIdleSeconds,20,5,120),
     },
   };
 }

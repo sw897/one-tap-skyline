@@ -11,7 +11,7 @@ export async function ensureGameDay(db:D1Database,now=Date.now()){
   marker=await db.prepare("SELECT day_start FROM game_clock WHERE id='daily'").first<{day_start:number}>();
  }
  if(marker!.day_start>=day)return {reset:false,dayStart:day,resetAt:nextShanghaiMidnight(now)};
- const token=randomId(),tables=['building_facades','photo_assets','buildings','runs','players','rate_limits','cities'];
+ const token=randomId(),tables=['city_events','building_facades','photo_assets','buildings','runs','players','rate_limits','cities'];
  const rows=await db.batch([
   db.prepare("UPDATE game_clock SET reset_token=? WHERE id='daily' AND day_start<?").bind(token,day),
   ...tables.map(table=>db.prepare(`DELETE FROM ${table} WHERE EXISTS(SELECT 1 FROM game_clock WHERE id='daily' AND reset_token=?)`).bind(token)),

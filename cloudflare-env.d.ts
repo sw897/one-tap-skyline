@@ -7,6 +7,9 @@ declare global { namespace Cloudflare {
     SKYLINE_PUBLIC_WRITE_OPEN?: string;
     SKYLINE_PUBLIC_PHOTOS_OPEN?: string;
     CITY_DISPLAY_NAME?: string;
+    SKYLINE_OPEN_DISTRICTS?: string;
+    SKYLINE_DISTRICT_CAPACITIES?: string;
+    SKYLINE_VISUAL_CONFIG?: string;
     CONNECTORS?: ConnectorBinding;
   }
 }

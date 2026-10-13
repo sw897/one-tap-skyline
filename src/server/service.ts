@@ -1,4 +1,5 @@
-import { cleanName, playerColor } from '../core/city.ts';
+import { cleanName, playerColor, randomBuildingName } from '../core/city.ts';
+import {waterfrontLayout,type CityLayout} from '../core/layout.ts';
 import type { D1Database } from '@cloudflare/workers-types';
 import { parseTrace, replayTrace } from '../core/trace.ts';
 import { parseRuntimeConfig } from '../config.ts';
@@ -10,7 +11,7 @@ import { ensureGameDay,removePastDayFiles } from './daily-reset.ts';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
 
-export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; now?: () => number }
+export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; now?: () => number }
 const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
@@ -41,12 +42,15 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
     let player:PlayerRow|null=null;
     if(token&&/^[a-f0-9]{64}$/.test(token))player=await store.player(await hashText(token),now);
-    const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name);};
+    const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name,context.layout??waterfrontLayout());};
     const writeOpen=(city:SharedCityId)=>city!=='public'||context.publicWriteOpen;
     const requirePlayer=()=>{if(!player)throw new ApiError(401,'session_required');return player;};
     const ownOnly=url.searchParams.get('scope')==='own';
     if(url.searchParams.has('scope')&&!['all','own'].includes(url.searchParams.get('scope')!))throw new ApiError(400,'invalid_scope');
-    const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined);view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
+    const afterRaw=url.searchParams.get('after');
+    if(afterRaw!==null&&!/^\d{1,15}$/.test(afterRaw))throw new ApiError(400,'invalid_cursor');
+    const after=afterRaw===null?undefined:Number(afterRaw);
+    const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined,after);view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
     if(request.method==='GET'&&url.pathname==='/api/session') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
       let cookie:string|undefined;
@@ -63,7 +67,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     if(request.method==='GET'&&url.pathname==='/api/city') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
       const view=await snapshot(city);
-      if(url.searchParams.get('epoch')===view.epoch&&url.searchParams.get('since')===String(view.revision))return json({cityId:city,epoch:view.epoch,revision:view.revision,unchanged:true,writeOpen:view.writeOpen,name:view.name});
+      if(url.searchParams.get('epoch')===view.epoch&&url.searchParams.get('since')===String(view.revision)&&!view.events?.length&&!view.eventGap)return json({cityId:city,epoch:view.epoch,revision:view.revision,unchanged:true,writeOpen:view.writeOpen,name:view.name,latestEventId:view.latestEventId});
       return json(view);
     }
     if(request.method==='POST'&&url.pathname==='/api/runs') {
@@ -85,8 +89,11 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
         if(trace.endUs/1000>RUN_TTL_MS||trace.endUs/1000>now-run.created_at+1000)throw new ApiError(400,'impossible_run_time');
         if(run.status!=='active'&&!run.receipt_json)throw new ApiError(410,'run_expired_or_cancelled');
         await store.rateLimit('submit:'+owner.id,60,now,60_000);
-        const signature=cleanName((body.name as string|undefined)??'');
-        const hash=await hashText(JSON.stringify({version:1,runId:run.id,name:signature,trace}));
+        const requestedName=cleanName((body.name as string|undefined)??'');
+        const signature=requestedName||await store.currentName(run.city_id,owner.id)||randomBuildingName(owner.public_id);
+        // Keep the existing empty-input hash normalization for outstanding retries.
+        // This marker is never the displayed default name.
+        const hash=await hashText(JSON.stringify({version:1,runId:run.id,name:requestedName||'我的小楼',trace}));
         const result=await store.submit(run,owner,signature,trace,completed,hash,now);
         return json({...result,snapshot:await snapshot(run.city_id)});
       }

@@ -1,5 +1,6 @@
 {
   "cityDisplayName": "城市天际线",
+  "city": { "openDistricts": 6, "capacities": [10, 12, 14, 11, 13, 16, 16, 16, 16, 16] },
   "game": {
     "cutMode": "alternate-xz",
     "roundSeconds": 60,
@@ -9,5 +10,5 @@
     "comboMilestone": 3,
     "dropSeconds": 0.24
   },
-  "visual": { "cameraSeconds": 1.15, "growthSeconds": 1.7, "maxPixelRatio": 1.75 }
+  "visual": { "cameraSeconds": 1.15, "growthSeconds": 1.7, "maxPixelRatio": 1.75, "lowFloors": 12, "midFloors": 24, "publicBuildings": true, "tourStaySeconds": 10, "tourTransitionSeconds": 2, "tourIdleSeconds": 20 }
 }

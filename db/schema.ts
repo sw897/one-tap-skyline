@@ -5,6 +5,7 @@ export const cities = sqliteTable('cities', {
   id: text('id').primaryKey(), epoch: text('epoch').notNull(), displayName: text('display_name').notNull(),
   rulesetId: text('ruleset_id').notNull(), isTest: integer('is_test').notNull().default(0),
   revision: integer('revision').notNull().default(0), nextPlot: integer('next_plot').notNull().default(0), capacity: integer('capacity').notNull().default(60),
+  layoutJson: text('layout_json').notNull().default(''),
 }, t => [check('city_capacity', sql`${t.nextPlot} >= 0 AND ${t.nextPlot} <= ${t.capacity}`)]);
 export const players = sqliteTable('players', {
   id: text('id').primaryKey(), publicId: text('public_id').notNull().unique(),
@@ -16,6 +17,7 @@ export const runs = sqliteTable('runs', {
   createdAt: integer('created_at').notNull(), expiresAt: integer('expires_at').notNull(), status: text('status').notNull().default('active'),
   requestHash: text('request_hash'), traceJson: text('trace_json'), towerJson: text('tower_json'), floors: integer('floors'),
   finalizeToken: text('finalize_token'), resultKind: text('result_kind'), previousJson: text('previous_json'), receiptJson: text('receipt_json'),
+  previousMaxFloors: integer('previous_max_floors').notNull().default(0),
 }, t => [
   uniqueIndex('run_start_key').on(t.cityId,t.playerId,t.startKey),
   uniqueIndex('one_active_run').on(t.cityId,t.playerId).where(sql`${t.status} = 'active'`),
@@ -29,6 +31,15 @@ export const buildings = sqliteTable('buildings', {
 export const rateLimits = sqliteTable('rate_limits', {
   bucket: text('bucket').primaryKey(), count: integer('count').notNull().default(0), expiresAt: integer('expires_at').notNull(),
 });
+
+export const cityEvents = sqliteTable('city_events', {
+  id: integer('id').primaryKey({autoIncrement:true}), cityId: text('city_id').notNull().references(() => cities.id),
+  epoch: text('epoch').notNull(), revision: integer('revision').notNull(),
+  runId: text('run_id').notNull().unique().references(() => runs.id), kind: text('kind').notNull(),
+  playerPublicId: text('player_public_id').notNull(), plotId: integer('plot_id').notNull(), name: text('name').notNull(),
+  previousFloors: integer('previous_floors').notNull().default(0), floors: integer('floors').notNull(),
+  globalRecord: integer('global_record').notNull().default(0), createdAt: integer('created_at').notNull(),
+}, t => [index('city_event_cursor').on(t.cityId,t.id)]);
 
 export const photoAssets = sqliteTable('photo_assets', {
   id: text('id').primaryKey(), cityId: text('city_id').notNull().references(() => cities.id),

@@ -82,7 +82,8 @@ test('first / unchanged / 22→26 best reuse identity and new-best complete geom
   const update = city.submit('local-player', '另一名字', best);
   assert.equal(update.kind, 'best');
   assert.deepEqual(update.building!.tower, best.tower);
-  for (const key of ['playerId', 'plotId', 'color', 'name'] as const) assert.equal(update.building![key], identity[key]);
+  for (const key of ['playerId', 'plotId', 'color'] as const) assert.equal(update.building![key], identity[key]);
+  assert.equal(update.building!.name,'另一名字');
   assert.ok(Math.abs(towerHeight(update.building!.tower) - towerHeight(identity.tower) - 4 * best.tower.layerHeight) < 1e-9);
   assert.equal(city.submit('local-player', '', best).kind, 'duplicate');
   assert.equal(city.submit('empty-player', '', run(0, 0)).kind, 'invalid');

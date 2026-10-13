@@ -22,7 +22,13 @@ export interface CityRepository {
   get(playerId: string): CityBuilding | undefined;
   submit(playerId: string, name: string, run: CompletedRun): CityUpdate;
 }
-export const cleanName = (value: string) => Array.from(value.replace(/[<>\u0000-\u001f]/gu, '').trim()).slice(0, 16).join('') || '我的小楼';
+export const cleanName = (value: string, fallback = '') => Array.from(value.replace(/[<>\u0000-\u001f]/gu, '').trim()).slice(0, 16).join('') || fallback;
+export function randomBuildingName(publicId: string) {
+  const heads=['晨光','晴湾','海风','云汀','青岚','星桥','暖日','松影','潮声','暮蓝','白帆','晴岸'];
+  const tails=['小筑','望阁','云舍','光庭','映楼','星台','溪楼','蓝苑','翠庭','天阁','听澜','晓居'];
+  let seed=2166136261;for(const char of publicId)seed=Math.imul(seed^char.charCodeAt(0),16777619)>>>0;
+  return heads[seed%heads.length]+tails[(seed>>>5)%tails.length]+String(11+(seed>>>13)%89);
+}
 
 export class MemoryCityRepository implements CityRepository {
   private buildings = new Map<string, CityBuilding>();
@@ -42,8 +48,8 @@ export class MemoryCityRepository implements CityRepository {
     this.submitted.add(run.runId);
     if (existing && run.tower.layers.length <= existing.tower.layers.length) return { kind: 'unchanged', building: existing, previous: existing };
     const building: CityBuilding = existing
-      ? { ...existing, tower: cloneTower(run.tower), bestRunId: run.runId }
-      : { playerId, plotId: 14, color: PALETTE[0], name: cleanName(name), tower: cloneTower(run.tower), bestRunId: run.runId, source: 'local-session' };
+      ? { ...existing, name:cleanName(name,existing.name), tower: cloneTower(run.tower), bestRunId: run.runId }
+      : { playerId, plotId: 14, color: PALETTE[0], name: cleanName(name,randomBuildingName(playerId)), tower: cloneTower(run.tower), bestRunId: run.runId, source: 'local-session' };
     this.buildings.set(playerId, building);
     return { kind: existing ? 'best' : 'first', building, previous: existing };
   }

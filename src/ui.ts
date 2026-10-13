@@ -34,7 +34,7 @@ export function mountUI(root: HTMLElement) {
       <aside class="glass result-panel">
         <div class="result-score"><div><span class="muted">本局作品</span><strong><span id="result-floors">0</span><small>层</small></strong></div><span class="score-cube">${cube}</span></div>
         <div class="performance" id="performance-summary"></div>
-        <label class="signature-label" for="signature">为这栋楼署名 <small>可选</small></label>
+        <label class="signature-label" for="signature">给作品起个名字 <small>首次 / 新最佳可改</small></label>
         <input id="signature" maxlength="16" autocomplete="off" placeholder="给你的小楼起个名字" />
         <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>照片贴纸 <span class="muted">可选</span></strong><small id="sticker-hint">贴在楼的正面，留下你的颜色</small></div><button class="subtle-button" id="choose-sticker">选择照片</button><button class="subtle-button" id="skip-sticker">跳过</button></div>
         <button class="primary-button" id="submit-button">模拟入城 <span aria-hidden="true">↗</span></button>
@@ -52,10 +52,12 @@ export function mountUI(root: HTMLElement) {
         <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟高度榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
         <p class="board-caption" id="city-count">12 栋样例建筑</p><ol id="city-ranking"></ol>
         <div id="personal-building" class="personal-building" hidden></div>
-        <div class="qr-placeholder"><span class="qr-symbol" aria-hidden="true">⌗</span><div><strong>入口占位</strong><small>不可扫码 · 使用实际测试链接</small></div></div>
+        <div class="city-search"><label for="district-select">查看街区</label><select id="district-select"></select><form id="building-search"><label for="building-query">找一栋楼</label><div><input id="building-query" maxlength="40" placeholder="楼名、地块号或街区名" /><button type="submit">查找</button></div></form><small id="search-note" role="status"></small></div>
+        <div class="city-feed"><h3>今日动态</h3><ol id="event-feed"></ol><p id="connection-status" role="status">正在读取今日城市…</p></div>
+        <div class="city-qr"><canvas id="entry-qr" aria-label="手机试玩入口二维码"></canvas><div><strong>扫码，盖进这座城</strong><a id="entry-link" target="_blank" rel="noopener">手机试玩入口</a><small id="qr-note">正在生成二维码</small></div></div>
         <p class="disclosure" id="city-disclosure">这里是视觉模拟。刷新会重置，<br>不是共享城市或真实排名。</p>
       </aside>
-      <div class="map-controls"><button aria-label="放大城市" id="zoom-in">＋</button><button aria-label="缩小城市" id="zoom-out">−</button><button aria-label="旋转城市" id="rotate-city">↻</button><button aria-label="城市全景" id="city-wide">▦</button><button id="find-building" class="find-button" hidden>找到我的楼</button></div>
+      <div class="map-controls"><button aria-label="放大城市" id="zoom-in">＋</button><button aria-label="缩小城市" id="zoom-out">−</button><button aria-label="旋转城市" id="rotate-city">↻</button><button aria-label="城市全景" id="city-wide">▦</button><button id="tour-toggle" class="find-button">暂停巡游</button><button id="find-building" class="find-button" hidden>找到我的楼</button><span id="tour-status">自动巡游</span></div>
       <div class="city-callout glass"><div><strong id="city-callout-title">让这座城市，多一栋你的楼。</strong><span id="city-callout-note">先玩一局，再为作品署名。</span></div><button class="primary-button" id="city-play">开始盖楼 →</button></div>
     </section>
 

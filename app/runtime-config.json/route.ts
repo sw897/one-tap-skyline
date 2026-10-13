@@ -1,4 +1,4 @@
 import { env } from 'cloudflare:workers';
-import { parseRuntimeConfig } from '../../src/config';
+import { serverRuntime } from '../../src/server/runtime';
 export const dynamic='force-dynamic';
-export function GET() {return Response.json(parseRuntimeConfig({cityDisplayName:env.CITY_DISPLAY_NAME}),{headers:{'Cache-Control':'no-store'}});}
+export function GET() {return Response.json(serverRuntime(env),{headers:{'Cache-Control':'no-store'}});}
