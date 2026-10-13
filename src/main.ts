@@ -92,7 +92,7 @@ $('shared-link').hidden=shared; $('practice-link').hidden=!shared;
 ($('practice-link') as HTMLAnchorElement).href='/?mode=practice';
 ($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
-$('board-title').textContent=shared?'高楼榜':'模拟高楼榜';
+$('board-title').textContent=shared?'排行榜':'模拟排行榜';
 $('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
 $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
 if(initialError)$('intro-direction').textContent=initialError+(displaySurface?'':' 当前进入练习。');
@@ -205,7 +205,7 @@ function refreshCityUI() {
     if (building.playerId === playerId) item.className = 'mine';
     const order = document.createElement('span'); order.className = 'rank-number'; order.textContent = String('rank' in building ? building.rank : index + 1).padStart(2, '0');
     const dot = document.createElement('span'); dot.className = 'color-dot'; dot.style.backgroundColor = building.color;
-    const name = document.createElement('span'); name.className = 'rank-name'; name.textContent = building.name;
+    const name = document.createElement('span'); name.className = 'rank-name'; name.textContent = building.name; name.title = building.name;
     const score = document.createElement('strong'); score.textContent = `${building.tower.layers.length} 层`;
     button.append(order, dot, name, score); button.onclick = () => focusCurrent(building.playerId);
     item.append(button); ranking.append(item);

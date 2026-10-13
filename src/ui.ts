@@ -51,7 +51,7 @@ export function mountUI(root: HTMLElement) {
       </div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside class="glass city-board">
-        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟高楼榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
+        <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟排行榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
         <p class="board-caption" id="city-count">12 栋样例建筑</p><ol id="city-ranking"></ol>
         <div id="personal-building" class="personal-building" hidden></div>
         <div class="city-search"><label for="district-select">查看街区</label><select id="district-select"></select><form id="building-search"><label for="building-query">找一栋楼</label><div><input id="building-query" maxlength="40" placeholder="楼名、地块号或街区名" /><button type="submit">查找</button></div></form><small id="search-note" role="status"></small></div>
