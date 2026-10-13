@@ -24,3 +24,15 @@ test('personal snapshot cache rejects whole-city coverage even with newer revisi
   assert.equal(city.apply({...snapshot(2,16),scope:'all'}),false);
   assert.equal(city.apply({...snapshot(2,16),scope:'own'}),true);assert.equal(city.all().length,1);
 });
+
+test('same-revision event tail preserves geometry; reconnect primes latest without replay',async()=>{
+  const initial={...snapshot(3,16),latestEventId:10};
+  const city=new SharedCityRepository(session(initial)),tower=city.get('public-player')!.tower;
+  const event={id:11,epoch:'test-epoch',revision:3,runId:'run-3',kind:'best' as const,playerId:'public-player',plotId:0,name:'测试楼',previousFloors:12,floors:16,globalRecord:true,createdAt:100};
+  const original=globalThis.fetch;const paths:string[]=[];
+  globalThis.fetch=async path=>{paths.push(String(path));return Response.json({...snapshot(3,16),events:[event],latestEventId:11});};
+  try{
+    assert.equal(await city.refresh(),true);assert.equal(city.get('public-player')!.tower,tower);assert.equal(city.takeEvents()[0].id,11);assert.match(paths[0],/after=10/);
+    city.silenceNextEvents();assert.equal(await city.refresh(),true);assert.equal(city.takeEvents().length,0);assert.doesNotMatch(paths[1],/after=|since=/);assert.equal(city.get('public-player')!.tower,tower);
+  }finally{globalThis.fetch=original;city.dispose();}
+});

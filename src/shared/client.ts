@@ -25,27 +25,29 @@ export class SharedCityRepository {
   private cursor=0;private pending:CityEvent[]=[];private skipEvents=false;
   constructor(session:SharedSession){this.cityId=session.snapshot.cityId;this.playerId=session.playerId;this.snapshot=session.snapshot;this.scope=session.snapshot.scope??'all';this.cursor=session.snapshot.latestEventId??0;}
   takeEvents(){return this.pending.splice(0);}
-  silenceNextEvents(){this.skipEvents=true;this.pending=[];}
+  silenceNextEvents(){this.skipEvents=true;this.pending=[];this.generation++;}
   prime(incoming:CitySnapshot){this.snapshot=incoming;this.cursor=incoming.latestEventId??0;this.pending=[];}
   all(){return this.snapshot.buildings;}
   get(playerId:string){return this.snapshot.buildings.find(b=>b.playerId===playerId);}
   apply(incoming:CitySnapshot):boolean {
-    if(this.disposed||incoming.cityId!==this.cityId||incoming.epoch!==this.snapshot.epoch||(incoming.scope??'all')!==this.scope||incoming.revision<this.snapshot.revision)return false;
+    if(this.disposed||incoming.cityId!==this.cityId||incoming.epoch!==this.snapshot.epoch||(incoming.scope??'all')!==this.scope||incoming.revision<=this.snapshot.revision)return false;
     const previous=new Map(this.snapshot.buildings.map(b=>[b.playerId,b]));
     incoming.buildings=incoming.buildings.map(b=>{const old=previous.get(b.playerId);return old&&old.bestRunId===b.bestRunId&&old.plotId===b.plotId&&old.color===b.color&&old.name===b.name?{...b,tower:old.tower}:b;});
     this.snapshot=incoming;return true;
   }
   async refresh(signal?:AbortSignal){
-    const generation=this.generation;
-    const incoming=await requestJson<CitySnapshot|{unchanged:true;writeOpen:boolean;name:string;latestEventId?:number}>(`/api/city?city=${this.cityId}&scope=${this.scope}&epoch=${encodeURIComponent(this.snapshot.epoch)}&since=${this.snapshot.revision}&after=${this.cursor}`,undefined,signal);
+    const generation=this.generation,resuming=this.skipEvents;
+    const path=`/api/city?city=${this.cityId}&scope=${this.scope}`+(resuming?'':`&epoch=${encodeURIComponent(this.snapshot.epoch)}&since=${this.snapshot.revision}&after=${this.cursor}`);
+    const incoming=await requestJson<CitySnapshot|{unchanged:true;writeOpen:boolean;name:string;latestEventId?:number}>(path,undefined,signal);
     if(generation!==this.generation||this.disposed)return false;
     if('epoch' in incoming&&incoming.epoch!==this.snapshot.epoch)throw new SharedError('city_reset');
     if('unchanged'in incoming){const changed=this.snapshot.name!==incoming.name;this.snapshot.writeOpen=incoming.writeOpen;this.snapshot.name=incoming.name;if(this.skipEvents){this.cursor=incoming.latestEventId??this.cursor;this.skipEvents=false;}return changed;}
     if(incoming.revision<this.snapshot.revision)return false;
-    if(incoming.eventGap||this.skipEvents){this.pending=[];this.cursor=incoming.latestEventId??this.cursor;this.skipEvents=false;}
+    if(incoming.eventGap||resuming){this.pending=[];this.cursor=incoming.latestEventId??this.cursor;this.skipEvents=false;incoming.eventGap=true;}
     else for(const event of incoming.events??[]){if(event.epoch===this.snapshot.epoch&&event.id>this.cursor){this.pending.push(event);this.cursor=event.id;}}
     // Coalesce pending notices per building; the renderer always uses the latest snapshot.
     this.pending=[...new Map(this.pending.map(e=>[e.playerId,e])).values()].slice(-20);
+    if(incoming.revision===this.snapshot.revision){this.snapshot.events=incoming.events;this.snapshot.latestEventId=incoming.latestEventId;this.snapshot.eventGap=incoming.eventGap;return !!incoming.eventGap||this.pending.length>0;}
     return this.apply(incoming);
   }
   async submit(_player:string,name:string,run:CompletedRun,trace:RunTrace):Promise<CityUpdate>{
