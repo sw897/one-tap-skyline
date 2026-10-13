@@ -1,5 +1,7 @@
 # P5 大屏二维码与表面修订记录
 
+本篇保留Sites11开发时的事实与缺项。用户随后反馈闪动已解决，设备/版本/步骤未提供；Sites12全屏与小字二维码修订见[后续记录](P5-fullscreen-record.md)，不覆盖旧观察或推断全面验收。
+
 2026-10-13，Asia/Shanghai，P5-04。应用3146dc9fdf5b38bdaad5b1b7338b5a4ab7a8cdaa / p5-event-screen-preview.3已保存并发布Sites11，终态succeeded；同一public受众、环境revision2、MCP与唯一原午夜任务保持。完整阶段验收未执行，P6未启动。文档整理另提交，不改变应用或部署。
 
 大屏查看（线上地址私存）。[海岛修订记录](P5-island-update-record.md)保留此前Sites10的事实与缺项。

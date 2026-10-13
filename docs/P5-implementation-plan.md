@@ -145,3 +145,5 @@
 当前应用14fd630 / p5-event-screen-preview.2 / Sites10；真实预览、发布和缺项见[海岛修订记录](P5-island-update-record.md)。
 
 后续用户反馈要求二维码位于左上角标题下方，独立于榜单；大屏无盖楼文字链接/按钮，榜名改高楼榜，并修正道路/河流表面深度冲突。已发布3146dc9 / p5-event-screen-preview.3 / Sites11，当前实际版本和开发预览见[大屏修订记录](P5-display-fix-record.md)。海岛与即时布局继续使用，真实设备持续闪动/扫码、完整验收仍待后续。
+
+最新反馈确认闪动已解决，并要求二维码说明改上下小字、三维画布铺满窗口。已发布44f589b / p5-event-screen-preview.4 / Sites12，当前开发检查、反馈范围和缺项见[全屏修订记录](P5-fullscreen-record.md)。用户手测反馈与完整硬件/阶段验收仍分开记录。
