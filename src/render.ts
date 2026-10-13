@@ -230,6 +230,7 @@ export class SkylineRenderer {
     const pullback = this.view === 'play' && view === 'result';
     if (view === 'play' && this.view !== 'play') { this.fragmentMesh.visible = false; this.fragment = undefined; this.cutGlow.visible = false; this.cutAge = 100; }
     this.view = view; this.solo.visible = view !== 'city'; this.city.visible = view === 'city';
+    this.scene.background=view==='city'?new T.Color('#b8e1e7'):null;this.scene.fog=view==='city'?new T.Fog('#b8e1e7',700,2100):null;
     this.cityCamera.setEnabled(view==='city');
     this.moving.visible = false; this.guide.visible = false;
     if (view !== 'city') this.focus = undefined;
@@ -247,7 +248,7 @@ export class SkylineRenderer {
       const previous = this.cityObjects.get(building.playerId);
       const thumbnail=this.cityCamera.selectedId()!==building.playerId;
       const rank='rank' in building?Number(building.rank):undefined;
-      if (previous?.userData.model === building.tower){applyFacade(previous,building.photo,thumbnail);decorateRank(previous,rank);continue;}
+      if (previous?.userData.model === building.tower){const p=plotLocation(building.plotId,this.layout);if(p){previous.position.set(p.x,.055,p.z);previous.rotation.y=p.rotation;}applyFacade(previous,building.photo,thumbnail);decorateRank(previous,rank);continue;}
       const oldFloors=previous?(previous.userData.model as TowerModel).layers.length:0;
       if (previous) releaseGroup(previous);
       this.growth.delete(building.playerId);

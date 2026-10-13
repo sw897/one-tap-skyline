@@ -107,3 +107,6 @@
  .crop-help{font-size:10px;gap:6px}.crop-help button{min-height:33px;padding:7px}.photo-dialog h2{font-size:18px;margin:4px 0 9px}
  .own-photo-actions{left:auto;right:18px;bottom:91px;width:245px;padding:12px}:root[data-surface=personal][data-view=city] #viewport{right:39%;bottom:24px}
 }
+
+:root[data-view=city]:not([data-surface=personal]) #app{background:#b8e1e7}
+:root[data-view=city]:not([data-surface=personal]) .sky-cloud{display:none}

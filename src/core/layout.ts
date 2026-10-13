@@ -14,8 +14,16 @@ export function waterfrontLayout(count = 6, capacities: number[] = DEFAULT_DISTR
 }
 export const legacyLayout = (capacity = 60): CityLayout => ({version:'legacy-grid', districtCount:1, capacities:[capacity]});
 export const layoutCapacity = (layout: CityLayout) => layout.capacities.slice(0, layout.districtCount).reduce((sum, n) => sum + n, 0);
+/** Never hide allocated buildings if a development config lowers capacity. */
+export function occupiedLayout(requested:CityLayout,allocated:number):CityLayout {
+  const layout=waterfrontLayout(requested.districtCount,requested.capacities);
+  while(layoutCapacity(layout)<allocated&&layout.districtCount<10)layout.districtCount++;
+  for(let i=0;layoutCapacity(layout)<allocated&&i<layout.districtCount;i++)layout.capacities[i]=Math.min(16,layout.capacities[i]+allocated-layoutCapacity(layout));
+  if(layoutCapacity(layout)<allocated)throw new Error('Allocated plots exceed supported layout');
+  return layout;
+}
 export function storedLayout(value: string, capacity: number): CityLayout {
-  try { const input = JSON.parse(value); if (input.version === WATERFRONT_VERSION && Number.isInteger(input.districtCount) && input.districtCount >= 1 && input.districtCount <= 10 && Array.isArray(input.capacities) && input.capacities.length === 10 && input.capacities.every((n:unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 10 && n <= 16)) {const layout = waterfrontLayout(input.districtCount,input.capacities); if (layoutCapacity(layout) === capacity) return layout;} } catch { /* Today's pre-P5 city keeps its original positions until daily reset. */ }
+  try { const input = JSON.parse(value); if (input.version === WATERFRONT_VERSION && Number.isInteger(input.districtCount) && input.districtCount >= 1 && input.districtCount <= 10 && Array.isArray(input.capacities) && input.capacities.length === 10 && input.capacities.every((n:unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 10 && n <= 16)) {const layout = waterfrontLayout(input.districtCount,input.capacities); if (layoutCapacity(layout) === capacity) return layout;} } catch { /* Safe fallback until the next city read applies the current development layout. */ }
   return legacyLayout(capacity);
 }
 export function districtsFor(layout: CityLayout): District[] {

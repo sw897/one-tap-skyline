@@ -5,7 +5,7 @@ import type { RunTrace } from '../core/trace.ts';
 import type { CitySnapshot, SharedCityId, StartReceipt, SubmissionReceipt } from '../shared/protocol.ts';
 import { ApiError, GEOMETRY_VERSION, OFFICIAL_RULES, RULESET_ID, RUN_TTL_MS, randomId } from './policy.ts';
 import { nextShanghaiMidnight } from '../core/photo.ts';
-import {waterfrontLayout,layoutCapacity,storedLayout,plotLocation,type CityLayout} from '../core/layout.ts';
+import {waterfrontLayout,layoutCapacity,storedLayout,plotLocation,occupiedLayout,type CityLayout} from '../core/layout.ts';
 import type {CityEvent} from '../shared/protocol.ts';
 
 export interface PlayerRow { id: string; public_id: string; credential_hash: string; expires_at: number }
@@ -23,7 +23,16 @@ export class CityStore {
   stmt(sql:string,...values:(string|number|null)[]) { return this.db.prepare(sql).bind(...values); }
   async ensureCity(city:SharedCityId,name:string,layout:CityLayout=waterfrontLayout()) {
     await this.stmt('INSERT OR IGNORE INTO cities(id,epoch,display_name,ruleset_id,is_test,capacity,layout_json) VALUES(?,?,?,?,?,?,?)',city,randomId(),name,RULESET_ID,city!=='public'?1:0,layoutCapacity(layout),JSON.stringify(layout)).run();
-    await this.stmt('UPDATE cities SET display_name=? WHERE id=? AND display_name<>?',name,city,name).run();
+    // Development iteration applies the current map immediately, without deleting game data.
+    for(let attempt=0;attempt<3;attempt++){
+      const row=await this.stmt('SELECT next_plot,capacity,layout_json,display_name FROM cities WHERE id=?',city).first<{next_plot:number;capacity:number;layout_json:string;display_name:string}>();
+      if(!row)throw new ApiError(404,'city_not_found');
+      const desired=occupiedLayout(layout,row.next_plot),capacity=layoutCapacity(desired),layoutJson=JSON.stringify(desired);
+      if(row.layout_json===layoutJson&&row.capacity===capacity&&row.display_name===name)return;
+      const updated=await this.stmt(`UPDATE cities SET display_name=?,layout_json=?,capacity=?,revision=revision+1 WHERE id=? AND next_plot<=? AND (layout_json<>? OR capacity<>? OR display_name<>?)`,name,layoutJson,capacity,city,capacity,layoutJson,capacity,name).run();
+      if(updated.meta.changes)return;
+    }
+    throw new ApiError(503,'service_unavailable');
   }
   async rateLimit(bucket:string,limit:number,now:number,windowMs:number) {
     const key=bucket+':'+Math.floor(now/windowMs);

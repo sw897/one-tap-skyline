@@ -39,7 +39,7 @@ npm run dev
 
 服务端读取 `CITY_DISPLAY_NAME`，通过同源 `/runtime-config.json` 返回白名单显示配置，不编译进默认资产。Sites 的值在平台运行时环境设置；环境修改须重新部署已保存版本。公开默认保持中性名称，秘密值不返回客户端。
 
-P5默认六区10/12/14/11/13/16，共76地块。`SKYLINE_OPEN_DISTRICTS`可设1–10；`SKYLINE_DISTRICT_CAPACITIES`为十项10–16的JSON数组。默认十区140，全16配置上限160，规模/性能待验证。城市创建时保存当天布局，已存在的P4城市保持当天坐标，正常午夜重置后启用六区；后续配置变更同样次日生效。`SKYLINE_VISUAL_CONFIG`可提供公开JSON白名单（lowFloors/midFloors/publicBuildings/tourStaySeconds/tourTransitionSeconds/tourIdleSeconds等），不包含秘密。
+P5默认六区10/12/14/11/13/16，共76地块。`SKYLINE_OPEN_DISTRICTS`可设1–10；`SKYLINE_DISTRICT_CAPACITIES`为十项10–16的JSON数组。默认十区140，全16配置上限160，规模/性能待验证。按最新开发反馈，读取城市时立即应用当前布局与容量，现有楼随新布局移动，保留成绩、楼体和照片；无需等待午夜。容量缩小时会在十区上限内容纳已有楼。`SKYLINE_VISUAL_CONFIG`可提供公开JSON白名单（lowFloors/midFloors/publicBuildings/tourStaySeconds/tourTransitionSeconds/tourIdleSeconds等），不包含秘密。
 
 开发时可用仓库外 `SKYLINE_ACTIVITY_CONFIG_PATH` 指定 JSON，结构见 [公开安全示例](public/runtime-config.example.json)。正式共享使用服务端固定规则；可调练习参数不会进入真实榜单。P1/P2 静态部署的环境能力和结果保留在各阶段记录中，不能从当前实现反推旧版本已支持。
 
