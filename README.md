@@ -2,7 +2,7 @@
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-P5滨水城市与只读大屏候选已实现，正在准备发布；当前已发布版本仍为P4/Sites7（b6eb322 / p4-photo-facade-preview.1）。正式验收按用户要求延期，先手工体验。每日北京时间00:00云任务已保存并启用，原生工具调用/日期读回已完成，首次定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存）。
+P5滨水城市与只读大屏候选已部署Sites9（a446ba5 / p5-event-screen-preview.1），正式验收按用户要求延期，先手工体验。实际版本、构建、4项缓存单元检查、失败及缺项见[P5记录](docs/P5-development-record.md)。每日北京时间00:00任务仍启用，首次定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3历史记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
 
 ## 本地运行
 
@@ -60,4 +60,4 @@ npm run db:import:local -- --file D:\private\city-export.json
 
 自动化、手机尺寸模拟和真实手机反馈分别记录；安卓暂不安排。Git 是唯一源码版本线，公开推送前检查待推提交、全历史、tag 与资产，规则见 [AGENTS.md](AGENTS.md)。
 
-阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已获准实施，候选准备中）、[后续记录模板](docs/development-record-template.md)。
+阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已实施，候选待手工体验）、[P5开发记录](docs/P5-development-record.md)、[后续记录模板](docs/development-record-template.md)。
