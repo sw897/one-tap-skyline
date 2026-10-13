@@ -109,8 +109,12 @@ test('both modes share exact slab geometry and facade positions in all three vie
         const layer = model.layers[i], matrix = new Matrix4(); slabs.getMatrixAt(i,matrix);
         const p = new Vector3().setFromMatrixPosition(matrix), scale = new Vector3().setFromMatrixScale(matrix);
         close(p.x,layer.x,1e-6); close(p.z,layer.z,1e-6); close(scale.x,layer.width,1e-6); close(scale.z,layer.depth,1e-6);
-        windows.getMatrixAt(i*3+1,matrix); const window = new Vector3().setFromMatrixPosition(matrix);
-        close(window.z,layer.z+layer.depth/2+0.009,1e-6);
+        // Center windows on all four faces; P5 replaced the old front-only layout.
+        for(let face=0;face<4;face++){
+          windows.getMatrixAt(i*12+4+face,matrix);const window=new Vector3().setFromMatrixPosition(matrix),sign=face%2===0?1:-1;
+          if(face<2){close(window.x,layer.x,1e-6);close(window.z,layer.z+sign*(layer.depth/2+.009),1e-6);}
+          else{close(window.z,layer.z,1e-6);close(window.x,layer.x+sign*(layer.width/2+.009),1e-6);}
+        }
         if (i<slots.count) { slots.getMatrixAt(i,matrix); const slot = new Vector3().setFromMatrixPosition(matrix);close(slot.z,layer.z+layer.depth/2+0.025,1e-6); }
       }
       assert.deepEqual(Array.from(slabs.instanceMatrix.array),Array.from(groups[0].userData.slabs.instanceMatrix.array));

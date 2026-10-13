@@ -1,5 +1,14 @@
 :root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#16385a;background:#d7edff;font-synthesis:none;--blue:#3177ef;--ink:#16385a;--muted:#6b859b;--line:rgba(95,138,179,.18)}
 *{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}button:disabled{cursor:default;opacity:.48}button:focus-visible,input:focus-visible{outline:3px solid #ffba6e;outline-offset:4px}[hidden]{display:none!important}
+/* Links inside the non-interactive introduction must remain real tap targets. */
+.intro-copy a{pointer-events:auto;touch-action:manipulation;display:inline-flex;align-items:center;min-height:40px;min-width:76px}
+:root[data-view=city] .building-label{font-size:10px;color:#fff;background:#244d65e8;border-color:#ffffffb3;padding:4px 7px;box-shadow:0 3px 9px #234c6430}
+:root[data-view=city] .building-label[data-rank="1"]{background:#806126ed}
+:root[data-view=city] .building-label[data-rank="2"]{background:#526a7aed}
+:root[data-view=city] .building-label[data-rank="3"]{background:#936244ed}
+:root[data-view=city] .building-label.selected-label{z-index:4;border-color:#fff;outline:2px solid #ffffff85}
+:root[data-view=city] .building-label{max-width:220px}
+:root[data-view=city] .building-label.scenery-label{pointer-events:none;font-size:9px;color:#416958;background:#f5fbecdf;border-color:#eaf5dd;border-bottom-color:#7eaa8d;box-shadow:none}
 #app{position:relative;width:100%;height:100dvh;min-height:560px;overflow:hidden;background:radial-gradient(ellipse at 60% 28%,#f2faff 0,transparent 55%),linear-gradient(165deg,#c2e0fc 0%,#dbefff 46%,#e7f3f4 100%)}
 .app-header{position:absolute;z-index:10;top:0;left:0;right:0;height:94px;padding:26px 42px;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .brand{display:flex;gap:10px;align-items:center;border:0;padding:0;background:none;color:var(--ink);text-align:left}.brand svg{width:35px;height:40px}.brand strong{display:block;font-size:21px;letter-spacing:.06em}.brand small{display:block;font-size:11px;letter-spacing:.14em;margin-top:2px;color:#5a7c9d}.header-actions{display:flex;gap:14px;align-items:center}.prototype-badge{font-size:11px;letter-spacing:.08em;color:#6687a5;background:#ffffff70;border:1px solid #fff9;padding:7px 11px;border-radius:999px}

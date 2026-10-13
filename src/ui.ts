@@ -36,7 +36,7 @@ export function mountUI(root: HTMLElement) {
         <div class="performance" id="performance-summary"></div>
         <label class="signature-label" for="signature">给作品起个名字 <small>首次 / 新最佳可改</small></label>
         <input id="signature" maxlength="16" autocomplete="off" placeholder="给你的小楼起个名字" />
-        <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>照片贴纸 <span class="muted">可选</span></strong><small id="sticker-hint">贴在楼的正面，留下你的颜色</small></div><button class="subtle-button" id="choose-sticker">选择照片</button><button class="subtle-button" id="skip-sticker">跳过</button></div>
+        <div class="sticker-row"><div class="sticker-placeholder" aria-hidden="true">▧</div><div><strong>照片幕墙 <span class="muted">可选</span></strong><small id="sticker-hint">铺满正面墙，随楼体轮廓裁切</small></div><button class="subtle-button" id="choose-sticker">选择照片</button><button class="subtle-button" id="skip-sticker">跳过</button></div>
         <button class="primary-button" id="submit-button">模拟入城 <span aria-hidden="true">↗</span></button>
         <p id="submit-note" class="disclosure">城市使用模拟数据，仅保留在本页。</p>
         <button class="outline-button replay-button" id="replay-button">再来一局 <span aria-hidden="true">↻</span></button>

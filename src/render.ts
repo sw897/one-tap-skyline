@@ -7,8 +7,9 @@ import type { CityBuilding, CityUpdate } from './core/city.ts';
 import { photoKey } from './core/photo.ts';
 import type { PhotoDecoration } from './core/photo.ts';
 import {waterfrontLayout,plotLocation,type CityLayout} from './core/layout.ts';
-import {createWaterfront,disposeLandscape} from './city-scene.ts';
+import {createWaterfront,disposeLandscape,type SceneryLabel} from './city-scene.ts';
 import {CityCamera} from './city-camera.ts';
+import {fullWallFacade} from './core/facade.ts';
 
 const unit = new T.BoxGeometry(1, 1, 1);
 const blockMaterial = new T.MeshStandardMaterial({ roughness: 0.64, metalness: 0.02 });
@@ -16,8 +17,12 @@ const foundationMaterial = new T.MeshStandardMaterial({ color: '#f4f5e8', roughn
 const glassMaterial = new T.MeshStandardMaterial({ color: '#dbf3fa', roughness: 0.3, metalness: 0.07 });
 const styleMaterials=[blockMaterial,new T.MeshStandardMaterial({roughness:.43,metalness:.13}),new T.MeshStandardMaterial({roughness:.3,metalness:.24})];
 const trimMaterial=new T.MeshStandardMaterial({color:'#f4f7ef',roughness:.45});
+const roofGreen=new T.MeshStandardMaterial({color:'#61ac86',roughness:.85});
+const roofWood=new T.MeshStandardMaterial({color:'#c89869',roughness:.65});
+const roofGlass=new T.MeshStandardMaterial({color:'#70bacb',roughness:.24,metalness:.23});
+const roofSteel=new T.MeshStandardMaterial({color:'#d5e9f1',roughness:.25,metalness:.48});
 const medalMaterials=['#e7bf63','#c0d5e3','#ca9277'].map(color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.55,emissive:color,emissiveIntensity:.15}));
-const medalRing=new T.TorusGeometry(1,.065,8,24),medalPeak=new T.OctahedronGeometry(.19,0);
+const medalRing=new T.TorusGeometry(1,.08,8,32),medalPeak=new T.OctahedronGeometry(1,0);
 const haloGeometry=new T.RingGeometry(1,1.06,48);
 const stickerMaterial = new T.MeshStandardMaterial({ color: '#fffaf1', roughness: 0.6 });
 const scratch = new T.Object3D();
@@ -33,16 +38,43 @@ function instance(mesh: T.InstancedMesh, index: number, x: number, y: number, z:
   scratch.updateMatrix(); mesh.setMatrixAt(index, scratch.matrix);
 }
 
-function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh, windows: T.InstancedMesh, slots: T.InstancedMesh, offset = 0,trim?:T.InstancedMesh) {
+function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh, windows: T.InstancedMesh, slots: T.InstancedMesh, offset = 0,trim?:T.InstancedMesh,tier=0) {
   const layer = model.layers[index], y = (index + 0.5) * model.layerHeight + offset;
   instance(slabs, index, layer.x, y, layer.z, layer.width, model.layerHeight, layer.depth);
   for (let j = 0; j < 3; j++)for(let face=0;face<4;face++){
     const front=face<2,sign=face%2===0?1:-1;
-    instance(windows,index*12+j*4+face,layer.x+(front?(j-1)*layer.width*.26:sign*(layer.width/2+.009)),y,layer.z+(front?sign*(layer.depth/2+.009):(j-1)*layer.depth*.26),front?layer.width*.17:.018,model.layerHeight*.53,front?.018:layer.depth*.17);
+    const windowWidth=tier===0?.18:tier===1?.25:.29,windowHeight=tier===0?.54:tier===1?.7:.82;
+    instance(windows,index*12+j*4+face,layer.x+(front?(j-1)*layer.width*.29:sign*(layer.width/2+.009)),y,layer.z+(front?sign*(layer.depth/2+.009):(j-1)*layer.depth*.29),front?layer.width*windowWidth:.018,model.layerHeight*windowHeight,front?.018:layer.depth*windowWidth);
   }
   if(trim)for(let j=0;j<4;j++){const sx=j%2===0?1:-1,sz=j<2?1:-1;instance(trim,index*4+j,layer.x+sx*layer.width*.47,y,layer.z+sz*layer.depth*.47,Math.min(.025,layer.width*.04),model.layerHeight*.95,Math.min(.025,layer.depth*.04));}
   // Each placeholder panel follows its actual facade; no plane bridges a Z setback.
   if (index < slots.count) instance(slots, index, layer.x, y, layer.z + layer.depth / 2 + 0.025, layer.width * 0.3, model.layerHeight * 0.78, 0.025);
+}
+
+function styledRoof(model:TowerModel,tier:number){
+  const root=new T.Group(),top=topLayer(model);
+  root.position.set(top.x,towerHeight(model)+.012,top.z);
+  if(!model.layers.length)return root;
+  const part=(material:T.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>{
+    const mesh=new T.Mesh(unit,material);mesh.position.set(x,y,z);mesh.scale.set(w,h,d);root.add(mesh);return mesh;
+  };
+  const w=top.width,d=top.depth,small=Math.min(w,d);
+  if(tier===0){
+    // Low-rise garden and open pergola, contained in the actual last floor.
+    part(roofGreen,0,.025,0,w*.86,.04,d*.82);
+    if(small>.5){for(const x of [-w*.29,w*.29])for(const z of [-d*.26,d*.26])part(roofWood,x,.10,z,.035,.18,.035);
+      for(let i=0;i<4;i++)part(roofWood,0,.19,(i-1.5)*d*.17,w*.66,.025,d*.045);}
+  }else if(tier===1){
+    part(roofGlass,0,.09,0,w*.58,.16,d*.54);
+    part(trimMaterial,0,.18,0,w*.69,.025,d*.64);
+    part(roofSteel,-w*.3,.032,0,w*.1,.045,d*.74);
+    part(roofSteel,w*.3,.032,0,w*.1,.045,d*.74);
+  }else{
+    part(roofSteel,0,.035,0,w*.86,.06,d*.84);
+    part(roofGlass,0,.105,0,w*.62,.09,d*.54);
+    for(let i=0;i<3;i++)part(roofSteel,(i-1)*w*.2,.19,0,w*.06,.17,d*.64);
+  }
+  root.userData.style=['garden','glass-pavilion','skyline-fins'][tier];return root;
 }
 
 /** The only tower generator: all three views use these exact layer records. */
@@ -62,25 +94,39 @@ export function buildTower(model: TowerModel, color: string,photo?:PhotoDecorati
   const slots = new T.InstancedMesh(unit, stickerMaterial, Math.max(1, Math.min(3, model.layers.length)));
   slots.count = Math.min(3, model.layers.length);
   model.layers.forEach((layer, index) => {
-    positionFloor(model, index, slabs, windows, slots,0,trim);
+    positionFloor(model, index, slabs, windows, slots,0,trim,tier);
     layerTint(color, index, tint);
     slabs.setColorAt(index, tint);
-    for(let j=0;j<12;j++)windows.setColorAt(index*12+j,new T.Color(tier===0?'#fff1cf':tier===1?index%3?'#c0e4ea':'#e5efe8':'#95cdda'));
+    for(let j=0;j<12;j++)windows.setColorAt(index*12+j,new T.Color(tier===0?'#ffebbd':tier===1?index%3?'#76b8c7':'#b2d9e0':'#438fac'));
   });
   floors.add(slabs, windows, slots,trim);
   const photoHolder=new T.Group();floors.add(photoHolder);
-  root.userData = { model, floors, slabs, windows, slots,trim,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color,tier };
+  const roof=styledRoof(model,tier);root.add(roof);
+  root.userData = { model, floors, slabs, windows, slots,trim,roof,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color,tier };
   applyFacade(root,photo,thumbnail);
   return root;
 }
-function decorateRank(root:T.Group,rank?:number){
-  const medal=rank&&rank>=1&&rank<=3?rank:0;if(root.userData.medal===medal)return;
-  root.userData.crown?.removeFromParent();root.userData.crown=undefined;root.userData.medal=medal;
+export function decorateRank(root:T.Group,rank?:number){
+  const medal=rank&&Number.isInteger(rank)&&rank>=1&&rank<=3?rank:0;if(root.userData.medal===medal)return;
+  root.userData.crown?.removeFromParent();root.userData.crown=undefined;root.userData.medal=medal;root.userData.decorationHeight=0;
   if(!medal)return;
   const model=root.userData.model as TowerModel,top=topLayer(model),size=Math.min(top.width,top.depth);
-  const crown=new T.Group(),ring=new T.Mesh(medalRing,medalMaterials[medal-1]);ring.rotation.x=Math.PI/2;ring.scale.set(top.width*.3,top.depth*.3,size*.3);crown.add(ring);
-  const peak=new T.Mesh(medalPeak,medalMaterials[medal-1]);peak.scale.setScalar(Math.min(1,size*.65));peak.position.y=Math.min(.22,size*.18);crown.add(peak);
-  crown.position.set(top.x,towerHeight(model)+.02,top.z);root.add(crown);root.userData.crown=crown;
+  if(!model.layers.length)return;
+  const crown=new T.Group(),material=medalMaterials[medal-1];
+  const part=(x:number,y:number,z:number,w:number,h:number,d:number)=>{const mesh=new T.Mesh(unit,material);mesh.position.set(x,y,z);mesh.scale.set(w,h,d);crown.add(mesh);};
+  const ring=new T.Mesh(medalRing,material);ring.rotation.x=Math.PI/2;ring.scale.set(top.width*.38,top.depth*.38,size*.38);
+  ring.position.y=medal===1?.65:.3;crown.add(ring);
+  if(size<.3){part(0,.4,0,size*.28,.8,size*.28);}
+  else if(medal===1){
+    part(0,.5,0,size*.075,1,size*.075);
+    const star=new T.Mesh(medalPeak,material);star.scale.set(size*.22,.34,size*.22);star.position.y=1.08;crown.add(star);
+  }else if(medal===2){
+    for(const x of [-top.width*.18,top.width*.18]){part(x,.37,0,size*.1,.74,size*.1);part(x,.78,0,size*.19,.07,size*.19);}
+  }else{
+    for(let i=0;i<3;i++)part((i-1)*top.width*.2,.18+i*.08,0,top.width*.13,.36+i*.16,top.depth*.3);
+  }
+  crown.position.set(top.x,towerHeight(model)+.25,top.z);root.add(crown);root.userData.crown=crown;
+  root.userData.decorationHeight=size<.3?1.05:medal===1?1.67:medal===2?1.07:.94;
 }
 
 interface TextureEntry { texture:T.Texture; refs:number; loaded:boolean; listeners:Set<()=>void> }
@@ -111,17 +157,7 @@ function applyFacade(root:T.Group,photo?:PhotoDecoration|null,thumbnail=false){
  const model=root.userData.model as TowerModel,slots=root.userData.slots as T.InstancedMesh;
  slots.count=Math.min(3,model.layers.length);
  if(!key||!photo||!model.layers.length)return;
- const count=Math.min(3,model.layers.length),height=count*model.layerHeight;
- const center=model.layers[0].x,width=Math.min(model.layers[0].width*.32,height*2/3),left=center-width/2;
- const positions:number[]=[],uvs:number[]=[];
- for(let i=0;i<count;i++){
-  const layer=model.layers[i],x0=Math.max(left,layer.x-layer.width*.45),x1=Math.min(left+width,layer.x+layer.width*.45);
-  if(x1<=x0)continue;
-  const y0=(i+.06)*model.layerHeight,y1=(i+.94)*model.layerHeight,z=layer.z+layer.depth/2+.043;
-  positions.push(x0,y0,z,x1,y0,z,x1,y1,z,x0,y0,z,x1,y1,z,x0,y1,z);
-  const u0=(x0-left)/width,u1=(x1-left)/width,v0=y0/height,v1=y1/height;
-  uvs.push(u0,v0,u1,v0,u1,v1,u0,v0,u1,v1,u0,v1);
- }
+ const {positions,uvs}=fullWallFacade(model);
  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));geometry.computeVertexNormals();
  holder.visible=false;
  const acquired=acquirePhoto(thumbnail?photo.thumbnailUrl:photo.imageUrl,()=>{
@@ -178,7 +214,7 @@ export class SkylineRenderer {
   private soloColor='#75aaff';
   private nextPhotoCheck=0;
 
-  constructor(container: HTMLElement, config: RuntimeConfig, layout=waterfrontLayout(config.city.openDistricts,config.city.capacities),citySurface=true) {
+  constructor(container: HTMLElement, config: RuntimeConfig, layout=waterfrontLayout(config.city.openDistricts,config.city.capacities),citySurface=true,displaySurface=false) {
     this.layout=layout;
     this.container = container;
     this.config = config;
@@ -191,7 +227,7 @@ export class SkylineRenderer {
     this.renderer.domElement.setAttribute('aria-label', '三维楼体画面');
     this.renderer.domElement.style.opacity = '0';
     container.prepend(this.renderer.domElement);
-    this.cityCamera=new CityCamera(this.renderer.domElement,layout,config);
+    this.cityCamera=new CityCamera(this.renderer.domElement,layout,config,displaySurface);
     this.scene.add(new T.HemisphereLight('#f8fcff', '#bdd1bd', 1.9));
     const sun = new T.DirectionalLight('#fff7e4', 2.6); sun.position.set(-5, 14, 9); this.scene.add(sun);
     this.scene.add(this.solo, this.city);
@@ -224,12 +260,15 @@ export class SkylineRenderer {
     this.soloColor=color;
     if (this.soloTower) releaseGroup(this.soloTower);
     this.soloModel = model;
-    this.soloTower = buildTower(model, color,photo,false,this.config.visual);decorateRank(this.soloTower,rank); this.solo.add(this.soloTower);
+    this.soloTower = buildTower(model, color,photo,false,this.config.visual);decorateRank(this.soloTower,rank);
+    this.soloTower.userData.roof.visible=this.view!=='play';this.solo.add(this.soloTower);
   }
   setView(view: View) {
     const pullback = this.view === 'play' && view === 'result';
     if (view === 'play' && this.view !== 'play') { this.fragmentMesh.visible = false; this.fragment = undefined; this.cutGlow.visible = false; this.cutAge = 100; }
     this.view = view; this.solo.visible = view !== 'city'; this.city.visible = view === 'city';
+    this.renderer.toneMappingExposure=view==='city'?.85:1.1;
+    if(this.soloTower)this.soloTower.userData.roof.visible=view!=='play';
     this.scene.background=view==='city'?new T.Color('#b8e1e7'):null;this.scene.fog=view==='city'?new T.Fog('#b8e1e7',700,2100):null;
     this.cityCamera.setEnabled(view==='city');
     this.moving.visible = false; this.guide.visible = false;
@@ -262,6 +301,7 @@ export class SkylineRenderer {
         const from = (update?.building?.playerId===building.playerId?update.previous?.tower.layers.length:oldFloors)??0;
         const ratio=Math.max(.05,from/building.tower.layers.length);
         group.userData.floors.scale.y = ratio;
+        group.userData.roof.position.y=building.tower.baseHeight+building.tower.layers.length*building.tower.layerHeight*ratio+.012;
         this.growth.set(building.playerId,{ group, from:ratio, elapsed: 0 });
       }
     }
@@ -298,11 +338,16 @@ export class SkylineRenderer {
   }
   zoomCity(amount: number) {this.cityCamera.zoom(amount);}
   rotateCity(direction: number) {this.cityCamera.rotate(direction);}
+  sceneryLabels():SceneryLabel[]{return this.landscape?.userData.labels??[];}
+  projectSceneryLabel(label:SceneryLabel){
+    const p=new T.Vector3(label.x,label.height+.45,label.z).project(this.cityCamera.camera);
+    return {x:(p.x+1)*this.width/2,y:(1-p.y)*this.height/2,visible:p.z<1&&p.z>-1&&Math.abs(p.x)<.94&&Math.abs(p.y)<.92};
+  }
   projectLabel(building: CityBuilding) {
     const group = this.cityObjects.get(building.playerId);if(!group)return {x:0,y:0,visible:false};
     const height = building.tower.baseHeight + building.tower.layers.length * building.tower.layerHeight * (group?.userData.floors.scale.y ?? 1);
     const top = topLayer(building.tower);
-    const v = group.localToWorld(new T.Vector3(top.x,height+.8,top.z)).project(this.cityCamera.camera);
+    const v = group.localToWorld(new T.Vector3(top.x,height+(group.userData.decorationHeight||.29)+.45,top.z)).project(this.cityCamera.camera);
     return { x: (v.x + 1) * this.width / 2, y: (1 - v.y) * this.height / 2, visible: v.z<1&&v.z>-1&&Math.abs(v.x) < .94 && Math.abs(v.y) < .92 };
   }
   cityGeometry(playerId: string) {
@@ -353,7 +398,9 @@ export class SkylineRenderer {
       growth.elapsed+=Math.min(seconds,.1);
       const t=Math.min(1,growth.elapsed/this.config.visual.growthSeconds),eased=1-(1-t)**3;
       growth.group.userData.floors.scale.y=T.MathUtils.lerp(growth.from,1,eased);
-      if(growth.group.userData.crown){const m=growth.group.userData.model as TowerModel;growth.group.userData.crown.position.y=m.baseHeight+m.layers.length*m.layerHeight*growth.group.userData.floors.scale.y+.02;}
+      const m=growth.group.userData.model as TowerModel,h=m.baseHeight+m.layers.length*m.layerHeight*growth.group.userData.floors.scale.y;
+      growth.group.userData.roof.position.y=h+.012;
+      if(growth.group.userData.crown)growth.group.userData.crown.position.y=h+.25;
       if(t===1)this.growth.delete(id);
     }
     this.updateCamera(seconds);
@@ -361,11 +408,11 @@ export class SkylineRenderer {
   }
   private updateCamera(seconds: number, snap = false) {
     if(this.view==='city'){this.cityCamera.update(seconds,snap);this.cameraReady=true;
-      const selected=this.cityCamera.selectedId();for(const [id,group] of this.cityObjects){applyFacade(group,group.userData.photo,id!==selected);const distance=this.cityCamera.camera.position.distanceTo(group.position);group.userData.windows.visible=distance<115||id===selected;group.userData.trim.visible=group.userData.tier>0&&(distance<75||id===selected);}
+      const selected=this.cityCamera.selectedId();for(const [id,group] of this.cityObjects){applyFacade(group,group.userData.photo,id!==selected);const distance=this.cityCamera.camera.position.distanceTo(group.position);group.userData.windows.visible=distance<220||id===selected;group.userData.trim.visible=group.userData.tier>0&&(distance<140||id===selected);}
       return;
     }
     const model = this.soloModel;
-    const height = model ? towerHeight(model) : 3, aspect = this.width / this.height;
+    const height = model ? towerHeight(model)+(this.view==='play'?0:Math.max(.29,this.soloTower?.userData.decorationHeight||0)) : 3, aspect = this.width / this.height;
     let span: number;
     {
       this.aim.set(model ? topLayer(model).x * 0.3 : 0, this.view === 'play' ? Math.max(2.3, height - 1.6) : height * 0.46, model ? topLayer(model).z * 0.3 : 0);
@@ -403,7 +450,7 @@ export class SkylineRenderer {
     const index = model.layers.length - 1;
     const slabs = this.soloTower.userData.slabs as T.InstancedMesh, windows = this.soloTower.userData.windows as T.InstancedMesh, slots = this.soloTower.userData.slots as T.InstancedMesh;
     const trim=this.soloTower.userData.trim as T.InstancedMesh;
-    positionFloor(model, index, slabs, windows, slots, offset,trim);
+    positionFloor(model, index, slabs, windows, slots, offset,trim,this.soloTower.userData.tier);
     for (const mesh of [slabs, windows, slots,trim]) { mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); }
   }
 }

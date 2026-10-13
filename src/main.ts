@@ -61,9 +61,10 @@ let eventQueue:CityEvent[]=[],lastNotice=0,selectedId:string|undefined;
 let recentEvents:CityEvent[]=city instanceof SharedCityRepository?(city.snapshot.events??[]).slice(-6):[];
 let lastSync=Date.now(),connectionError=!!initialError;
 let labelNodes: Array<{ building: ReturnType<typeof city.all>[number]; node: HTMLButtonElement }> = [];
+let sceneryNodes:Array<{label:ReturnType<SkylineRenderer['sceneryLabels']>[number];node:HTMLSpanElement}>=[];
 let viewer: SkylineRenderer;
 
-try { viewer = new SkylineRenderer($('viewport'), config,currentLayout(),!personalSurface); }
+try { viewer = new SkylineRenderer($('viewport'), config,currentLayout(),!personalSurface,displaySurface); }
 catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
   throw new Error('WebGL2 renderer unavailable');
@@ -195,7 +196,7 @@ function refreshCityUI() {
     $('city-callout-title').textContent=own?'看看你的最高作品。':'先盖出属于你的小楼。';
     $('city-callout-note').textContent=shared?'署名、成绩与楼体会在大屏城市公开展示。':'这是本页模拟，刷新后重置。';
     $('city-play').textContent=game?.phase==='paused'?'继续盖楼 →':own?'再盖一局 →':'开始盖楼 →';
-    labelNodes=[];return;
+    labelNodes=[];sceneryNodes=[];return;
   }
   $('city-count').textContent = shared?`${buildings.length} 栋${cityId!=='public'?'共享测试':'玩家'}建筑`:`12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
   const ranking = $('city-ranking'); ranking.replaceChildren();
@@ -223,13 +224,21 @@ function refreshCityUI() {
 function focusCurrent(id:string){const building=city.get(id);if(!building)return;selectedId=id;viewer.focusBuilding(building);const p=plotLocation(building.plotId,currentLayout());$('search-note').textContent=`${building.name} · ${building.tower.layers.length} 层 · ${p?.districtName??''} · 地块 ${building.plotId+1}`;refreshLabels();}
 function refreshLabels(){
   $('building-labels').replaceChildren();
-  const buildings=city.all(),recentIds=new Set(recentEvents.slice(-2).map(e=>e.playerId));
-  labelNodes = buildings.filter((building,index)=>building.playerId===selectedId||building.playerId===playerId||recentIds.has(building.playerId)||index<3).slice(0,6).map(building => {
+  const buildings=city.all();
+  labelNodes = buildings.map(building => {
     const node = document.createElement('button'); node.className = 'building-label' + (building.playerId === playerId ? ' own-label' : '');
     node.style.setProperty('--building-color', building.color);
-    node.textContent = building.playerId === playerId ? `${building.name} · ${building.tower.layers.length} 层` : building.name;
+    node.textContent=building.name;
+    node.dataset.playerId=building.playerId;
+    if(building.rank&&building.rank<=3){node.dataset.rank=String(building.rank);node.textContent=`TOP${building.rank} · ${building.name}`;}
+    node.classList.toggle('selected-label',building.playerId===selectedId);
+    node.title=`${building.name} · ${building.tower.layers.length} 层`;
     node.onclick = () => focusCurrent(building.playerId);
     $('building-labels').append(node); return { building, node };
+  });
+  sceneryNodes=viewer.sceneryLabels().map(label=>{
+    const node=document.createElement('span');node.className='building-label scenery-label';node.textContent=label.name;
+    node.title='公共景观 · 不计成绩';$('building-labels').append(node);return {label,node};
   });
 }
 function refreshFeed(){
@@ -386,6 +395,7 @@ function frame(now: number) {
   viewer.update(seconds, game);
   if(view==='city'&&!personalSurface){playNotice(now);const tour=viewer.tourStatus();$('tour-status').textContent=tour.paused?'巡游已暂停':tour.automatic?`自动巡游 · ${tour.label}`:'手动查看 · 空闲后恢复巡游';if(tour.selectedId!==selectedId){selectedId=tour.selectedId;refreshLabels();}}
   if (view === 'city') for (const { building, node } of labelNodes) { const p = viewer.projectLabel(building); node.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`; node.hidden = !p.visible; }
+  if(view==='city')for(const {label,node} of sceneryNodes){const p=viewer.projectSceneryLabel(label);node.style.transform=`translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`;node.hidden=!p.visible;}
   if (feedbackUntil && now > feedbackUntil) { $('placement-feedback').classList.remove('visible'); feedbackUntil = 0; }
   if (eventUntil && now > eventUntil) { $('city-event').hidden = true; eventUntil = 0; }
   if(!disposed)animationFrame=requestAnimationFrame(frame);

@@ -15,6 +15,7 @@ export interface CityBuilding {
   readonly source: 'fixture' | 'local-session' | 'shared';
   readonly photo?: PhotoDecoration | null;
   readonly appearanceVersion?: number;
+  readonly rank?: number;
 }
 export type CityUpdate = { kind: 'first' | 'unchanged' | 'best' | 'duplicate' | 'invalid'; building?: CityBuilding; previous?: CityBuilding };
 export interface CityRepository {
@@ -39,8 +40,11 @@ export class MemoryCityRepository implements CityRepository {
       this.buildings.set(id, { playerId: id, plotId: index, color: PALETTE[index % PALETTE.length], name: ['晴空', '薄荷', '杏子', '暮云', '花间', '暖阳'][index % 6] + ` ${String(index + 1).padStart(2, '0')}`, tower: fixtureTower(floors, index, mode), bestRunId: `fixture-${index}`, source: 'fixture' });
     });
   }
-  all() { return [...this.buildings.values()].sort((a, b) => b.tower.layers.length - a.tower.layers.length); }
-  get(playerId: string) { return this.buildings.get(playerId); }
+  all() {
+    const ordered=[...this.buildings.values()].sort((a,b)=>b.tower.layers.length-a.tower.layers.length);
+    return ordered.map(b=>({...b,rank:1+ordered.filter(other=>other.tower.layers.length>b.tower.layers.length).length}));
+  }
+  get(playerId: string) { return this.all().find(b=>b.playerId===playerId); }
   submit(playerId: string, name: string, run: CompletedRun): CityUpdate {
     if (!playerId || run.ended !== true || !run.runId || run.tower.layers.length === 0 || !validateTower(run.tower)) return { kind: 'invalid' };
     const existing = this.get(playerId);
@@ -51,6 +55,6 @@ export class MemoryCityRepository implements CityRepository {
       ? { ...existing, name:cleanName(name,existing.name), tower: cloneTower(run.tower), bestRunId: run.runId }
       : { playerId, plotId: 14, color: PALETTE[0], name: cleanName(name,randomBuildingName(playerId)), tower: cloneTower(run.tower), bestRunId: run.runId, source: 'local-session' };
     this.buildings.set(playerId, building);
-    return { kind: existing ? 'best' : 'first', building, previous: existing };
+    return { kind: existing ? 'best' : 'first', building: this.get(playerId), previous: existing };
   }
 }
