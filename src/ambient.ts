@@ -4,14 +4,18 @@ import type {CityLayout} from './core/layout.ts';
 import {islandPlan,shorePoint} from './core/island.ts';
 export function createAmbient(layout:CityLayout){
  const root=new T.Group(),network=waterfrontRoads(layout),island=islandPlan(layout),motions:Array<{object:T.Group;a:T.Vector3;b:T.Vector3;phase:number;boat:boolean}>=[];
- const geometry=new T.BoxGeometry(1,1,1),body=new T.MeshStandardMaterial({color:'#f7dfae',roughness:.7}),glass=new T.MeshStandardMaterial({color:'#7bafbe',roughness:.35});
- function vehicle(a:T.Vector3,b:T.Vector3,boat:boolean,phase:number){const group=new T.Group(),base=new T.Mesh(geometry,body),roof=new T.Mesh(geometry,glass);base.scale.set(boat?1:.48,boat?.24:.24,boat?2.4:1.05);roof.scale.set(boat?.65:.38,.18,boat?1.1:.55);roof.position.y=.2;group.add(base,roof);group.position.copy(a);root.add(group);motions.push({object:group,a,b,phase,boat});}
- const segments=network.roads.filter(r=>r.id==='avenue'||r.id==='island-loop').flatMap(r=>r.points.slice(1).map((b,i)=>({a:r.points[i],b})));
- for(const {a,b} of segments){if(motions.length>=3)break;const length=Math.hypot(b.x-a.x,b.z-a.z);if(length<9)continue;
-  // Entire segment must stay well away from every bridge, not merely its ends.
-  if(network.bridges.some(p=>{const t=T.MathUtils.clamp(((p.x-a.x)*(b.x-a.x)+(p.z-a.z)*(b.z-a.z))/(length*length),0,1);return Math.hypot(p.x-a.x-t*(b.x-a.x),p.z-a.z-t*(b.z-a.z))<p.length/2+4;}))continue;
-  const av=new T.Vector3(a.x,.23,a.z),bv=new T.Vector3(b.x,.23,b.z),direction=bv.clone().sub(av).normalize();av.addScaledVector(direction,1.3);bv.addScaledVector(direction,-1.3);vehicle(av,bv,false,motions.length*1.8);
- }
+ const staticCars:T.Group[]=[];
+ const geometry=new T.BoxGeometry(1,1,1),bodies=['#f5ce86','#e59880','#8caed6'].map(color=>new T.MeshStandardMaterial({color,roughness:.7})),glass=new T.MeshStandardMaterial({color:'#7bafbe',roughness:.35});
+ function vehicle(a:T.Vector3,b:T.Vector3,boat:boolean,phase:number,moving=true){const group=new T.Group(),base=new T.Mesh(geometry,bodies[Math.floor(phase)%3]),roof=new T.Mesh(geometry,glass);base.scale.set(boat?1:.72,boat?.24:.34,boat?2.4:1.55);roof.scale.set(boat?.65:.57,boat?.18:.24,boat?1.1:.82);roof.position.y=boat?.2:.26;group.add(base,roof);group.position.copy(a);group.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);root.add(group);if(moving)motions.push({object:group,a,b,phase,boat});else staticCars.push(group);}
+ const segments=network.roads.filter(r=>r.id==='avenue').flatMap(r=>r.points.slice(1).map((b,i)=>({a:r.points[i],b})));
+ const safeSegments=segments.filter(({a,b})=>{const length=Math.hypot(b.x-a.x,b.z-a.z);return length>=4&&!network.bridges.some(p=>{const t=T.MathUtils.clamp(((p.x-a.x)*(b.x-a.x)+(p.z-a.z)*(b.z-a.z))/(length*length),0,1);return Math.hypot(p.x-a.x-t*(b.x-a.x),p.z-a.z-t*(b.z-a.z))<p.length/2+4;});});
+ const long=safeSegments.filter(({a,b})=>Math.hypot(b.x-a.x,b.z-a.z)>=9);
+ // Spread the moving cars across the avenue, rather than taking its first three western segments.
+ const selected=[...new Set([0,Math.floor((long.length-1)/2),long.length-1])].filter(i=>i>=0&&i<long.length);
+ for(const index of selected){const {a,b}=long[index],av=new T.Vector3(a.x,.32,a.z),bv=new T.Vector3(b.x,.32,b.z),direction=bv.clone().sub(av).normalize(),side=new T.Vector3(direction.z,0,-direction.x).multiplyScalar(.65);av.add(side).addScaledVector(direction,1.3);bv.add(side).addScaledVector(direction,-1.3);vehicle(av,bv,false,motions.length*1.8);}
+ // Six visible stationary vehicles remain when ambient movement is disabled.
+ for(let i=0;i<safeSegments.length&&staticCars.length<6;i++){const index=Math.floor(i*safeSegments.length/Math.min(6,safeSegments.length));if(index>=safeSegments.length)break;const {a,b}=safeSegments[index],av=new T.Vector3(a.x,.32,a.z),bv=new T.Vector3(b.x,.32,b.z),direction=bv.clone().sub(av).normalize(),position=av.clone().lerp(bv,.5).add(new T.Vector3(-direction.z,0,direction.x).multiplyScalar(.65));if(staticCars.some(c=>c.position.distanceTo(position)<3))continue;vehicle(position,position.clone().add(direction),false,staticCars.length,false);}
+ root.userData.staticCars=staticCars;
  for(const angle of [0,Math.PI]){const a=shorePoint(island,angle,1.28),b=shorePoint(island,angle+.12,1.28);vehicle(new T.Vector3(a.x,-.15,a.z),new T.Vector3(b.x,-.15,b.z),true,angle);}
  root.userData.motions=motions;root.userData.elapsed=0;stepAmbient(root,0,false);return root;
 }

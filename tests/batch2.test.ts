@@ -27,3 +27,10 @@ test('ambient routes remain in water or on flat real road segments and freeze wh
  stepAmbient(root,.04,true);const time=root.userData.elapsed,positions=root.children.map(c=>c.position.toArray());stepAmbient(root,10,false);assert.equal(root.userData.elapsed,time);assert.deepEqual(root.children.map(c=>c.position.toArray()),positions);
  stepAmbient(root,100,true);assert.ok(root.userData.elapsed-time<=.0500001);
 });
+
+test('main avenue retains six visible cars and spreads three moving cars across the city',()=>{
+ const root=createAmbient(waterfrontLayout()),moving=root.userData.motions.filter((m:any)=>!m.boat),parked=root.userData.staticCars;
+ assert.equal(parked.length,6);assert.equal(moving.length,3);const xs=moving.map((m:any)=>(m.a.x+m.b.x)/2);assert.ok(Math.max(...xs)-Math.min(...xs)>40);
+ for(const c of [...parked,...moving.map((m:any)=>m.object)]){assert.ok(c.children[0].scale.x>=.7);assert.ok(c.position.y-.17>.04);}
+ const before=parked.map((c:any)=>c.position.toArray());stepAmbient(root,.05,true);stepAmbient(root,10,false);assert.deepEqual(parked.map((c:any)=>c.position.toArray()),before);
+});
