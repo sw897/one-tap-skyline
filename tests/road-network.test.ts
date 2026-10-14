@@ -11,7 +11,8 @@ for(const layout of [waterfrontLayout(),waterfrontLayout(10,Array(10).fill(16))]
   for(const d of districtsFor(layout)){
     const street=network.roads.find(r=>r.id===`district-${d.id}`)!;
     for(const side of [0,1]){const link=network.roads.find(r=>r.id===`district-${d.id}-link-${side}`)!;
-      assert.deepEqual(link.points[0],side?street.points.at(-1):street.points[0]);
+      if(d.id===4&&side===0&&layout.districtCount>=5)assert.ok(street.points.some(p=>p.x===link.points[0].x&&p.z===link.points[0].z));
+      else assert.deepEqual(link.points[0],side?street.points.at(-1):street.points[0]);
       const targets=d.id===5&&side===1?[network.roads.find(r=>r.id==='district-4')!]:[ring,avenue];
       assert.ok(targets.flatMap(r=>r.points).some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
     }
@@ -31,6 +32,9 @@ for(const layout of [waterfrontLayout(),waterfrontLayout(10,Array(10).fill(16))]
   assert.ok(!insideIsland(island,network.canal.at(-1)!.x,network.canal.at(-1)!.z));
   assert.ok(network.bridges.length>0);
   for(const bridge of network.bridges){assert.ok(Number.isFinite(bridge.length)&&bridge.length>5.5);assert.ok(network.roads.some(r=>r.id===bridge.roadId));
+    if(bridge.roadId==='district-5-link-1')for(const p of bridge.landings){
+      assert.ok(Math.abs((p.x-bridge.x)*Math.cos(bridge.rotation)-(p.z-bridge.z)*Math.sin(bridge.rotation))<1e-6,'both bridge approaches must share the deck axis');
+    }
     for(const [index,sign] of [-1,1].entries()){
       const end=bridge.landings[index],start={x:bridge.x+Math.sin(bridge.rotation)*sign*bridge.length/2,z:bridge.z+Math.cos(bridge.rotation)*sign*bridge.length/2};
       const roadDistance=Math.min(...network.roads.flatMap(r=>r.points.slice(1).map((b,i)=>{

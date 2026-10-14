@@ -90,6 +90,17 @@ export function waterfrontRoads(layout:CityLayout){
       roads.push({id:`district-${d.id}-link-${side}`,points:connect(crossing?[end,crossing,anchor]:[end,anchor],targets),width:2.5,shoulder:3.9});
     }
   }
+  // One straight approach across both banks; turn only beyond the bridge ramps.
+  const west=roads.find(r=>r.id==='district-5'),east=roads.find(r=>r.id==='district-4');
+  if(west&&east){
+    const crossing=roads.find(r=>r.id==='district-5-link-1')!;
+    west.points=rounded([...west.points.filter(p=>p.x<10),{x:11.5,z:20.075},{x:16,z:21.2}],3.9);
+    east.points=routed([{x:24,z:23.2},...east.points.filter(p=>p.x>27)],3.9);
+    crossing.points=[west.points.at(-1)!,east.points[0]];
+    const south=roads.find(r=>r.id==='district-4-link-0')!;
+    const junction=east.points.reduce((best,p)=>Math.abs(p.x-31)<Math.abs(best.x-31)?p:best,east.points[0]);
+    south.points=connect([junction,south.points.at(-1)!],[avenue,ring]);
+  }
   // Starts inside the central lake and ends beyond the shore, so water is continuous.
   const outlet=shorePoint(island,Math.PI*.45,1.045);
   const canal:GroundPoint[]=[{x:6,z:0},{x:16,z:4},{x:18,z:15},{x:18,z:31},{x:9,z:48},outlet];
