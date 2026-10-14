@@ -1,8 +1,10 @@
 # 一指盖楼：城市天际线
 
+当前线上按用户要求回退至Sites16（38c459f / p5-event-screen-preview.8）；源码保留最新aba685a / p5-event-screen-preview.11候选，尚未上线。候选包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；31项定向检查、构建及本地Worker检查通过，真机/真实午夜仍未验证。见[当前实际记录](docs/P5-cache-entry-and-rollback-record.md)；新候选先保存供确认。
+
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-当前候选为38c459f / p5-event-screen-preview.8 / Sites16：落层/Perfect音画反馈、完整新楼即时显示、镜头优先级、聚合楼名与多结果搜索。36项定向开发检查、构建及局部尺寸预览通过，真实手机/音效/多人过场与正式验收仍待执行；第二批按用户手工反馈后推进，见[第一批记录](docs/P5-experience-batch1-record.md)和[批准计划](docs/P5-experience-enhancement-plan.md)。
+历史第一批候选为38c459f / p5-event-screen-preview.8 / Sites16：落层/Perfect音画反馈、完整新楼即时显示、镜头优先级、聚合楼名与多结果搜索。36项定向开发检查、构建及局部尺寸预览通过，真实手机/音效/多人过场与正式验收仍待执行；第二批按用户手工反馈后推进，见[第一批记录](docs/P5-experience-batch1-record.md)和[批准计划](docs/P5-experience-enhancement-plan.md)。
 
 上一轮候选为dfa5446 / p5-event-screen-preview.7 / Sites15：移除公开练习入口，扫码明确共享；新楼随机空地块、首次/严格新高可选六色。27项开发回归/本地隔离同步通过，HTTP线上隔离脚本403受阻，新截图/颜色UI/真机及正式验收未完成，见[当前记录](docs/P5-shared-entry-and-colors-record.md)。上一轮可读性6a383a6 / tag.6 / Sites14的榜名“排行榜”、1080p楼名21px/成绩22px、深色浮层保持，历史见[可读性记录](docs/P5-display-readability-record.md)。以下Sites13是更早完善的历史事实。
 
