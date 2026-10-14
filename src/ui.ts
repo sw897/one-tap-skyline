@@ -4,7 +4,7 @@ export function mountUI(root: HTMLElement) {
     <div class="sky-cloud cloud-a"></div><div class="sky-cloud cloud-b"></div><div class="sky-cloud cloud-c"></div>
     <header class="app-header">
       <button class="brand" id="home-button" aria-label="一指盖楼：城市天际线 首页">${cube}<span><strong>一指盖楼</strong><small>城市天际线</small></span></button>
-      <div class="header-actions"><button class="text-button" id="sound-toggle" aria-label="关闭音效" aria-pressed="false">音效 开</button><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
+      <div class="header-actions"><button class="text-button" id="sound-toggle" aria-label="关闭音效" aria-pressed="false">音效 开</button><button class="text-button" id="sound-preview" aria-label="试听普通落层与Perfect音效">♪</button><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
     </header>
     <div id="viewport"><div id="building-labels"></div><span id="scene-data-mark" hidden>共享测试数据</span></div>
 

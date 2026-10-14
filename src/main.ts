@@ -15,7 +15,7 @@ import { SharedCityRepository, DisplayCityRepository,loadDisplay, SharedError, l
 import type { SharedSession, SharedCityId,CitySnapshot,CityEvent } from './shared/protocol.ts';
 import { requestJson } from './shared/client.ts';
 import { PhotoEditor } from './ui/photo-editor.ts';
-import {GameAudio} from './ui/game-audio.ts';
+import {GameAudio,landingHaptic} from './ui/game-audio.ts';
 import {CityLabels} from './ui/city-labels.ts';
 import {NoticeQueue} from './core/presentation.ts';
 import type { PhotoDraft } from './core/photo.ts';
@@ -74,9 +74,10 @@ catch {
   throw new Error('WebGL2 renderer unavailable');
 }
 const audio=new GameAudio();
-const labels=new CityLabels($('building-labels'),focusCurrent,ids=>showBuildingList(ids,'这片街区的小楼'));
+const labels=new CityLabels($('building-labels'),focusCurrent);
 const soundUI=()=>{$('sound-toggle').textContent=audio.muted?'音效 关':'音效 开';$('sound-toggle').setAttribute('aria-pressed',String(audio.muted));$('sound-toggle').setAttribute('aria-label',audio.muted?'开启音效':'关闭音效');};
 soundUI();$('sound-toggle').onclick=()=>{audio.toggle();soundUI();};$('sound-toggle').hidden=displaySurface;
+$('sound-preview').hidden=displaySurface;$('sound-preview').onclick=()=>audio.preview();
 viewer.setSolo(fixtureTower(10, 0, config.game.cutMode),buildingColor);
 const photoEditor=new PhotoEditor(root,(photo,context)=>{
   if(context==='result'&&(view!=='result'||!completed)){photoEditor.clear();return;}
@@ -167,14 +168,15 @@ function place() {
   if (view !== 'play' || !game) return;
   const placed = clock?.place(clockNow());
   if (!placed) return;
+  audio.landed(placed.kind,game.combo,game.config.comboMilestone);landingHaptic(placed.kind);
+  const button=$('drop-button');button.classList.remove('landed-tap');void button.offsetWidth;button.classList.add('landed-tap');
   if (placed.kind !== 'miss') {
     viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined, placed.axis,placed.kind==='perfect',game.combo);
-    audio.landed(placed.kind==='perfect',game.combo,game.config.comboMilestone);
     const floors=game.tower.layers.length;if(floors===13||floors===25){$('tier-feedback').textContent=floors===13?'13层 · 玻璃办公楼':'25层 · 城市地标';$('tier-feedback').hidden=false;tierUntil=performance.now()+800;}
     const feedback = $('placement-feedback');
     feedback.textContent = placed.kind === 'perfect' ? `Perfect${game.combo >= game.config.comboMilestone ? ` · ${game.combo} 连击！` : '！'}` : '接住了！';
     feedback.className = 'visible ' + (placed.kind === 'perfect' ? 'perfect' : 'trimmed');
-    feedbackUntil = performance.now() + 900;
+    feedbackUntil = performance.now() + 950;
   }
   updateHUD();
 }

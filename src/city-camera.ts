@@ -13,8 +13,8 @@ export class CityCamera {
   private layout:CityLayout;private config:RuntimeConfig;private buildings:CityBuilding[]=[];
   private island:IslandPlan;private displaySurface:boolean;
   private control=new CameraControl();
-  private goal?:Goal;private path:T.Vector3[]=[];private fromTarget=new T.Vector3();
-  private transition=0;private dwell=0;private step=0;private ready=false;private enabled=false;
+  private goal?:Goal;private path:T.Vector3[]=[];private travel?:T.CubicBezierCurve3;private fromTarget=new T.Vector3();
+  private transition=0;private dwell=0;private arcElapsed=0;private step=0;private ready=false;private enabled=false;
   private selected?:string;private label='城市全景';
   private arcOrigin?:T.Vector3;private arcTarget=new T.Vector3();private allowArc=false;
   private tourBuilding=0;private lastTourId?:string;
@@ -89,10 +89,15 @@ export class CityCamera {
       goal=this.fullGoal();goal.position.y=Math.max(height,goal.position.y);goal.arc=false;this.allowArc=false;this.selected=undefined;this.label='高位海岛全景';
       over.copy(goal.position);over.y=Math.max(height,start.y,goal.position.y);this.path=[start,up,over,goal.position.clone()];
     }
+    this.travel=new T.CubicBezierCurve3(...this.path as [T.Vector3,T.Vector3,T.Vector3,T.Vector3]);
+    if(this.travel.getPoints(40).slice(1).some((p,i,points)=>boxes.some(b=>intersectsBox(i?points[i-1]:this.path[0],p,b)))){
+      const safe=this.fullGoal();safe.position.y=Math.max(height,safe.position.y);safe.arc=false;goal=safe;this.selected=undefined;this.label='海岛全景';this.allowArc=false;
+      const highStart=start.clone(),highEnd=safe.position.clone();highStart.y=highEnd.y=Math.max(height,start.y,safe.position.y)+12;this.travel=new T.CubicBezierCurve3(start,highStart,highEnd,safe.position);
+    }
     this.goal=goal;this.transition=0;
     if(snap||!this.ready||this.reduced.matches){this.controls.target.copy(goal.target);this.camera.position.copy(goal.position);this.controls.update();this.goal=undefined;this.ready=true;this.beginArc();}
   }
-  private beginArc(){this.arcOrigin=this.camera.position.clone();this.arcTarget.copy(this.controls.target);}
+  private beginArc(){this.arcOrigin=this.camera.position.clone();this.arcTarget.copy(this.controls.target);this.arcElapsed=0;}
   takeover(){this.control.manual(performance.now(),this.config.visual.tourIdleSeconds*1000);this.cancelMotion();this.label='手动查看';}
   focus(b?:CityBuilding){this.takeover();this.move(b?this.buildingGoal(b):this.fullGoal());}
   district(id:number){this.takeover();this.move(this.districtGoal(id));}
@@ -118,13 +123,13 @@ export class CityCamera {
     if(snap&&this.automatic()&&!this.control.busy(performance.now()))this.move(this.fullGoal(),true);
     const dt=Math.min(seconds,.1);
     if(this.goal){
-      this.transition+=dt;const t=Math.min(1,this.transition/this.config.visual.tourTransitionSeconds),e=t*t*(3-2*t),scaled=t*3,index=Math.min(2,Math.floor(scaled)),local=Math.min(1,scaled-index),ease=local*local*(3-2*local);
-      this.controls.target.lerpVectors(this.fromTarget,this.goal.target,e);this.camera.position.lerpVectors(this.path[index],this.path[index+1],ease);
+      this.transition+=dt;const t=Math.min(1,this.transition/this.config.visual.tourTransitionSeconds),e=t*t*t*(t*(t*6-15)+10);
+      this.controls.target.lerpVectors(this.fromTarget,this.goal.target,e);this.camera.position.copy(this.travel!.getPoint(e));
       if(t===1){this.goal=undefined;this.beginArc();}
     }else if(this.automatic()){
       this.dwell+=dt;
       if(this.arcOrigin&&this.allowArc&&!this.reduced.matches&&!this.control.busy(performance.now())){
-        const angle=T.MathUtils.degToRad(this.config.visual.tourArcDegrees)*Math.min(1,this.dwell/this.config.visual.tourStaySeconds);
+        this.arcElapsed+=dt;const angle=T.MathUtils.degToRad(this.config.visual.tourArcDegrees)*Math.min(1,this.arcElapsed/this.config.visual.tourStaySeconds);
         const next=this.arcOrigin.clone().sub(this.arcTarget).applyAxisAngle(new T.Vector3(0,1,0),angle).add(this.arcTarget);
         if(this.boxes().some(b=>intersectsBox(this.camera.position,next,b)||b.id!==this.selected&&intersectsBox(next,this.arcTarget,b,.3)))this.allowArc=false;
         else this.camera.position.copy(next);

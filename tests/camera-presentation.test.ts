@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Group} from 'three';
+import {Group,PerspectiveCamera} from 'three';
 import {CityCamera} from '../src/city-camera.ts';
-import {SkylineRenderer} from '../src/render.ts';
+import {SkylineRenderer,buildTower} from '../src/render.ts';
 import {DEFAULT_CONFIG} from '../src/config.ts';
 import {waterfrontLayout} from '../src/core/layout.ts';
 import {fixtureTower,towerHeight} from '../src/core/tower.ts';
@@ -30,4 +30,10 @@ test('setCity immediately renders a full latest tower at scale 1 without stretch
   renderer.setCity([b(12)]);renderer.setCity([b(25)],{kind:'best',building:b(25),previous:b(12)});
   const geometry=renderer.cityGeometry('synthetic')!;
   assert.equal(geometry.displayedHeight,towerHeight(b(25).tower));assert.equal(geometry.logicalHeight,geometry.displayedHeight);assert.equal(geometry.model.layers.length,25);
+});
+test('near-level tower keeps its name when roof and base lie outside the view but its wall crosses it',()=>{
+  const building=b(60),group=buildTower(building.tower,building.color);group.updateMatrixWorld(true);
+  const camera=new PerspectiveCamera(44,1,1,2500);camera.position.set(0,5,4);camera.lookAt(0,5,0);camera.updateMatrixWorld(true);
+  const renderer=Object.create(SkylineRenderer.prototype) as SkylineRenderer;Object.assign(renderer,{width:700,height:700,cityCamera:{camera},cityObjects:new Map([[building.playerId,group]])});
+  const label=renderer.projectLabel(building);assert.equal(label.visible,true);assert.ok(label.y>=40&&label.y<=680);
 });
