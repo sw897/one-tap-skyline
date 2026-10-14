@@ -15,7 +15,7 @@
 - 起点：`2db295ae5a73c9cfa725805a990a99fd78b940d7`；原线上Sites19应用`aba685a0bf5cacae0a6f703239878c96453119ba` / `p5-event-screen-preview.11`。
 - 本轮应用提交：`dc8220c3bae21c803be31bea1fc02bafff84322f` / `p5-event-screen-preview.12`，已推送GitHub。提交前19项检查/构建及局部预览关联此提交；本次补录只改文档，不新增应用部署。
 - Sites20保存并实际发布`succeeded`：版本`appgprj_6acb8ee731c48191a67b860cd9a426ec~appgver_adca522f72a88191aa3f4796a2c67342`；部署`appgdep_6acf17489c5881918157f16b743f0677`。原public受众、环境revision2及午夜任务保持。
-- 实际入口：满城模拟预览（线上地址私存）（版本参数：build-1bf79e032986）。同一站点的显式模拟视图，没有新增共享城市或运营环境。
+- 实际入口：满城模拟预览（线上地址私存）。同一站点的显式模拟视图，没有新增共享城市或运营环境。
 - 候选构建标识：`build-1bf79e032986`。文档补录不改变应用构建。
 
 ## 实际检查与观察

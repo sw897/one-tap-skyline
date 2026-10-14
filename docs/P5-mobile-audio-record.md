@@ -14,7 +14,7 @@
 
 - 应用提交：`e5f7f5a150bc69307d4b852d4240a205e9447cae`；独立候选tag `p5-mobile-audio-preview`；构建 `build-7426f2dd921c`。旧tag未移动。
 - 原Sites项目保存版本23：`appgprj_6acb8ee731c48191a67b860cd9a426ec~appgver_40bcd5b298e48191b2f43c902d34dc02`。
-- 部署 `appgdep_6acf70a1b6f08191b0912d272972130a` 从pending到succeeded，环境revision2；真实大屏与当日扫码（线上地址私存）（版本参数：build-7426f2dd921c）。参与页继续保留原当日扫码URL刷新或安全更新；无entry的首页仍不是参与入口。
+- 部署 `appgdep_6acf70a1b6f08191b0912d272972130a` 从pending到succeeded，环境revision2；真实大屏与当日扫码（线上地址私存）。参与页继续保留原当日扫码URL刷新或安全更新；无entry的首页仍不是参与入口。
 - 保存/部署源码SHA与构建包一致；77文件归档安全审查通过，现有9个迁移文件与源码字节一致。没有新SQL、清库或模拟数据上传。回读public/owner及既有每日任务启用状态，ID未变。
 - 本记录及README仅为发布后文档整理，文档提交由本文件Git历史及私有台账关联，未再次部署。
 
