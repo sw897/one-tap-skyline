@@ -74,4 +74,4 @@ export class DisplayCityRepository extends SharedCityRepository {
 }
 export const loadDisplay=(city:SharedCityId,signal?:AbortSignal)=>requestJson<CitySnapshot>(`/api/city?city=${city}&scope=all`,undefined,signal);
 export const loadSession=(city:SharedCityId,signal?:AbortSignal,scope:SnapshotScope='all',entry?:string)=>requestJson<SharedSession>(`/api/session?city=${city}&scope=${scope}`+(entry?'&entry='+encodeURIComponent(entry):''),undefined,signal?AbortSignal.any([signal,AbortSignal.timeout(12_000)]):AbortSignal.timeout(12_000));
-export const startSharedRun=(city:SharedCityId,startKey:string,replaceRunId:string|null)=>requestJson<StartReceipt>('/api/runs',{city,startKey,replaceRunId});
+export const startSharedRun=(city:SharedCityId,startKey:string,replaceRunId:string|null,entry?:string)=>requestJson<StartReceipt>('/api/runs'+(entry?'?entry='+encodeURIComponent(entry):''),{city,startKey,replaceRunId});

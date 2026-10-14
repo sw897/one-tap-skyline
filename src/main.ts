@@ -158,7 +158,7 @@ async function start() {
     let runId: string | undefined;
     if(shared) {
       pendingStartKey ??= temporaryId();
-      const began=await startSharedRun(cityId,pendingStartKey,activeServerRun);
+      const began=await startSharedRun(cityId,pendingStartKey,activeServerRun,search.get('entry')??undefined);
       runId=began.runId;activeServerRun=runId;pendingStartKey=undefined;
       if(disposed||navigation!==navigationVersion)return;
       config={...config,game:began.rules};

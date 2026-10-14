@@ -14,7 +14,7 @@ import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
 
 export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; now?: () => number }
-const COOKIE='skyline_player',ENTRY_COOKIE='skyline_entry';
+const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
 const keys=(body:Record<string,unknown>,allowed:string[])=>{if(Object.keys(body).some(k=>!allowed.includes(k)))throw new ApiError(400,'unexpected_field');};
@@ -42,7 +42,6 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const store=new CityStore(context.db),url=new URL(request.url),now=(context.now??Date.now)();
     const name=parseRuntimeConfig({cityDisplayName:context.cityName}).cityDisplayName;
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
-    const grant=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(ENTRY_COOKIE+'='))?.slice(ENTRY_COOKIE.length+1);
     let player:PlayerRow|null=null;
     if(token&&/^[a-f0-9]{64}$/.test(token))player=await store.player(await hashText(token),now);
     const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name,context.layout??waterfrontLayout());};
@@ -61,13 +60,10 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined,after);view.resetAt=day.resetAt;view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
     if(request.method==='GET'&&url.pathname==='/api/session') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
-      let cookie:string|undefined,entryCookie:string|undefined;
+      let cookie:string|undefined;
       if(city==='public'){
         const current=await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>();
-        if(grant!==current!.epoch){
-          if(url.searchParams.get('entry')!==current!.epoch)throw new ApiError(403,'entry_expired');
-          entryCookie=ENTRY_COOKIE+'='+current!.epoch+'; HttpOnly; SameSite=Lax; Path=/; Max-Age='+Math.max(1,Math.floor((day.resetAt-now)/1000))+(url.protocol==='https:'?'; Secure':'');
-        }
+        if(url.searchParams.get('entry')!==current!.epoch)throw new ApiError(403,'entry_expired');
       }
       if(!player){
         const address=request.headers.get('cf-connecting-ip')??'loopback';
@@ -77,7 +73,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
       }
       const view=await snapshot(city),active=await store.activeRun(city,player.id,now);
       const session:SharedSession={playerId:player.public_id,color:playerColor(player.public_id),snapshot:view,rules:{...OFFICIAL_RULES},rulesetId:RULESET_ID,activeRunId:active?.id??null};
-      const response=json(session,200,cookie);if(entryCookie)response.headers.append('Set-Cookie',entryCookie);return response;
+      return json(session,200,cookie);
     }
     if(request.method==='GET'&&url.pathname==='/api/city') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
@@ -88,7 +84,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     if(request.method==='POST'&&url.pathname==='/api/runs') {
       const body=await readBody(request);keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
       if(!writeOpen(city))throw new ApiError(403,'city_write_closed');await getCity(city);
-      if(city==='public'&&(await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>())?.epoch!==grant)throw new ApiError(403,'entry_expired');
+      if(city==='public'&&(await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>())?.epoch!==url.searchParams.get('entry'))throw new ApiError(403,'entry_expired');
       await store.rateLimit('start:'+owner.id,30,now,60_000);
       return json(await store.start(city,owner.id,uuid(body.startKey),body.replaceRunId?uuid(body.replaceRunId):null,now));
     }
