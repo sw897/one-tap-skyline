@@ -173,7 +173,6 @@ function releaseGroup(group: T.Group) {
   group.traverse(object => { if (object instanceof T.InstancedMesh) object.dispose(); });
   group.removeFromParent();
 }
-interface Growth { group: T.Group; from: number; elapsed: number }
 interface Fragment { mesh: T.Mesh; age: number; direction: number; axis: Axis; origin: T.Vector3 }
 
 export class SkylineRenderer {
@@ -188,10 +187,15 @@ export class SkylineRenderer {
   private guide = new T.LineSegments(new T.EdgesGeometry(unit), new T.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.65 }));
   private fragmentMesh = new T.Mesh(unit, new T.MeshStandardMaterial({ roughness: 0.64, metalness: 0.02 }));
   private cutGlow = new T.Mesh(unit, new T.MeshBasicMaterial({ color: '#fff5ce', transparent: true, opacity: 0 }));
+  private landingPulse=new T.LineSegments(new T.EdgesGeometry(unit),new T.LineBasicMaterial({color:'#fff3b5',transparent:true,opacity:0}));
+  private pulseAge=100;
+  private pulsePerfect=false;
+  private pulseOrigin=new T.Vector3();
+  private pulseSize=new T.Vector3();
+  private reduced=matchMedia('(prefers-reduced-motion: reduce)');
   private cutAge = 100;
   private cutOriginY = 0;
   private cityObjects = new Map<string, T.Group>();
-  private growth=new Map<string,Growth>();
   private layout:CityLayout;
   private landscape?:T.Group;
   private cityCamera:CityCamera;
@@ -233,7 +237,8 @@ export class SkylineRenderer {
     this.scene.add(this.solo, this.city);
     this.city.visible = false;
     this.fragmentMesh.visible = false; this.cutGlow.visible = false;
-    this.solo.add(this.moving, this.guide, this.fragmentMesh, this.cutGlow);
+    this.landingPulse.visible=false;
+    this.solo.add(this.moving, this.guide, this.fragmentMesh, this.cutGlow,this.landingPulse);
     const island = new T.Mesh(new T.CylinderGeometry(6.4, 6.55, 0.28, 60), new T.MeshStandardMaterial({ color: '#d3e8d9', roughness: 1 }));
     island.position.y = -0.18; this.solo.add(island);
     const ring = new T.Mesh(new T.TorusGeometry(6.46, 0.055, 8, 70), new T.MeshBasicMaterial({ color: '#f4fbff' }));
@@ -282,32 +287,27 @@ export class SkylineRenderer {
     this.cityCamera.setBuildings(buildings);
     this.maxCityHeight=Math.max(0,...buildings.map(b=>towerHeight(b.tower)));
     const present=new Set(buildings.map(b=>b.playerId));
-    for(const [id,group] of this.cityObjects)if(!present.has(id)){releaseGroup(group);this.cityObjects.delete(id);this.growth.delete(id);}
+    for(const [id,group] of this.cityObjects)if(!present.has(id)){releaseGroup(group);this.cityObjects.delete(id);}
     for (const building of buildings) {
       const previous = this.cityObjects.get(building.playerId);
       const thumbnail=this.cityCamera.selectedId()!==building.playerId;
       const rank='rank' in building?Number(building.rank):undefined;
       if (previous?.userData.model === building.tower){const p=plotLocation(building.plotId,this.layout);if(p){previous.position.set(p.x,.055,p.z);previous.rotation.y=p.rotation;}applyFacade(previous,building.photo,thumbnail);decorateRank(previous,rank);continue;}
-      const oldFloors=previous?(previous.userData.model as TowerModel).layers.length:0;
       if (previous) releaseGroup(previous);
-      this.growth.delete(building.playerId);
       const p=plotLocation(building.plotId,this.layout);if(!p)continue;
       const group = buildTower(building.tower, building.color,building.photo,thumbnail,this.config.visual);
       decorateRank(group,rank);group.rotation.y=p.rotation;
       group.position.set(p.x, 0.055, p.z);
       group.userData.playerId = building.playerId;
       this.city.add(group); this.cityObjects.set(building.playerId, group);
-      if (oldFloors>0&&building.tower.layers.length>oldFloors||update?.building?.playerId === building.playerId && ['first', 'best'].includes(update.kind)) {
-        const from = (update?.building?.playerId===building.playerId?update.previous?.tower.layers.length:oldFloors)??0;
-        const ratio=Math.max(.05,from/building.tower.layers.length);
-        group.userData.floors.scale.y = ratio;
-        group.userData.roof.position.y=building.tower.baseHeight+building.tower.layers.length*building.tower.layerHeight*ratio+.012;
-        this.growth.set(building.playerId,{ group, from:ratio, elapsed: 0 });
-      }
+      if(update?.building?.playerId===building.playerId&&['first','best'].includes(update.kind))this.highlightBuilding(building.playerId);
     }
   }
-  landed(model: TowerModel, cut?: Layer, axis: Axis = 'x') {
+  landed(model: TowerModel, cut?: Layer, axis: Axis = 'x',perfect=false,combo=0) {
     this.setSolo(model); this.landingAge = 0;
+    const settled=topLayer(model);this.pulsePerfect=perfect;this.pulseAge=0;
+    this.pulseOrigin.set(settled.x,towerHeight(model)+.018,settled.z);this.pulseSize.set(settled.width,.008,settled.depth);
+    this.landingPulse.material.color.set(perfect?combo>=this.config.game.comboMilestone?'#ffe385':'#fff5be':'#c8eff4');this.landingPulse.visible=true;
     if (cut && cut.width > 1e-8 && cut.depth > 1e-8) {
       const top = topLayer(model), mesh = this.fragmentMesh, direction = cut[axis] >= top[axis] ? 1 : -1;
       mesh.visible = true; mesh.rotation.set(0, 0, 0);
@@ -326,12 +326,8 @@ export class SkylineRenderer {
   focusDistrict(id:number){this.cityCamera.district(id);}
   toggleTour(){return this.cityCamera.toggle();}
   tourStatus(){return this.cityCamera.status();}
-  recordNotice(building:CityBuilding){this.cityCamera.notice(building);}
-  animateCityBuilding(id:string,previousFloors:number){
-    const group=this.cityObjects.get(id);if(!group||this.growth.has(id))return;
-    const model=group.userData.model as TowerModel,from=Math.max(.05,previousFloors/Math.max(1,model.layers.length));
-    group.userData.floors.scale.y=from;if(group.userData.crown)group.userData.crown.position.y=model.baseHeight+model.layers.length*model.layerHeight*from+.02;this.growth.set(id,{group,from,elapsed:0});
-  }
+  recordNotice(building:CityBuilding){return this.cityCamera.notice(building);}
+  cancelCityNotice(){this.cityCamera.clearNotice();}
   highlightBuilding(id:string){const group=this.cityObjects.get(id);if(!group)return;
     if(!group.userData.halo){const halo=new T.Mesh(haloGeometry,new T.MeshBasicMaterial({color:'#ffc969',transparent:true,opacity:.8,side:T.DoubleSide,depthWrite:false}));halo.rotation.x=-Math.PI/2;halo.position.y=.04;halo.scale.setScalar(2.05);group.add(halo);group.userData.halo=halo;}
     group.userData.highlightUntil=performance.now()+4300;
@@ -380,6 +376,12 @@ export class SkylineRenderer {
       else if (this.soloTower) this.animateLanding(game.tower, 0);
     }
     const effectSeconds = this.view === 'play' && game?.phase === 'paused' ? 0 : seconds;
+    if(this.landingPulse.visible){
+      this.pulseAge+=effectSeconds;const t=this.pulseAge/this.config.visual.landingGlowSeconds;
+      this.landingPulse.position.copy(this.pulseOrigin);this.landingPulse.material.opacity=Math.max(0,(this.pulsePerfect?1:.45)*(1-t));
+      this.landingPulse.scale.copy(this.pulseSize).multiplyScalar(this.pulsePerfect&&!this.reduced.matches?1+t*.12:1);
+      if(t>=1||this.view!=='play')this.landingPulse.visible=false;
+    }
     if (this.fragment) {
       this.fragment.age += effectSeconds;
       const f = this.fragment;
@@ -393,15 +395,6 @@ export class SkylineRenderer {
       this.cutGlow.position.y = this.cutOriginY + Math.max(0, 1 - this.cutAge / this.config.game.dropSeconds) ** 2 * 1.1;
       this.cutGlow.material.opacity = Math.max(0, 0.85 * (1 - this.cutAge / 0.4));
       if (this.cutAge >= 0.4) this.cutGlow.visible = false;
-    }
-    for(const [id,growth] of this.growth){
-      growth.elapsed+=Math.min(seconds,.1);
-      const t=Math.min(1,growth.elapsed/this.config.visual.growthSeconds),eased=1-(1-t)**3;
-      growth.group.userData.floors.scale.y=T.MathUtils.lerp(growth.from,1,eased);
-      const m=growth.group.userData.model as TowerModel,h=m.baseHeight+m.layers.length*m.layerHeight*growth.group.userData.floors.scale.y;
-      growth.group.userData.roof.position.y=h+.012;
-      if(growth.group.userData.crown)growth.group.userData.crown.position.y=h+.25;
-      if(t===1)this.growth.delete(id);
     }
     this.updateCamera(seconds);
     this.draw();
@@ -436,7 +429,7 @@ export class SkylineRenderer {
   }
   dispose() {
     this.observer.disconnect();
-    this.cityCamera.dispose();if(this.landscape)disposeLandscape(this.landscape);this.growth.clear();
+    this.cityCamera.dispose();if(this.landscape)disposeLandscape(this.landscape);
     if(this.soloTower)releaseGroup(this.soloTower);for(const group of this.cityObjects.values())releaseGroup(group);
     this.scene.traverse(object=>{if(object instanceof T.InstancedMesh)object.dispose();});
     this.renderer.dispose();this.renderer.forceContextLoss();this.renderer.domElement.remove();

@@ -4,7 +4,7 @@ export function mountUI(root: HTMLElement) {
     <div class="sky-cloud cloud-a"></div><div class="sky-cloud cloud-b"></div><div class="sky-cloud cloud-c"></div>
     <header class="app-header">
       <button class="brand" id="home-button" aria-label="一指盖楼：城市天际线 首页">${cube}<span><strong>一指盖楼</strong><small>城市天际线</small></span></button>
-      <div class="header-actions"><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
+      <div class="header-actions"><button class="text-button" id="sound-toggle" aria-label="关闭音效" aria-pressed="false">音效 开</button><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
     </header>
     <div id="viewport"><div id="building-labels"></div><span id="scene-data-mark" hidden>共享测试数据</span></div>
 
@@ -25,6 +25,7 @@ export function mountUI(root: HTMLElement) {
       <button class="round-button pause-button" id="pause-button" aria-label="暂停游戏">Ⅱ</button>
       <div class="play-caption">接住这一层<span id="move-direction">本层左右移动 ↔</span><span>超出部分会裁掉 · 对齐就是 Perfect</span></div>
       <div id="placement-feedback" role="status" aria-live="polite"></div>
+      <div id="tier-feedback" role="status" hidden></div>
       <button id="drop-button" class="drop-button"><span class="tap-icon" aria-hidden="true">↓</span><strong>点击落层</strong><small>也可以轻点楼体画面</small></button>
       <div id="pause-overlay" hidden><div class="glass pause-panel"><span class="eyebrow">歇一小会儿</span><h2>楼还在这里。</h2><p>时间和楼块已暂停，准备好再继续。</p><button class="primary-button" id="resume-button">继续盖楼</button></div></div>
     </section>
@@ -51,6 +52,7 @@ export function mountUI(root: HTMLElement) {
         <div class="city-qr glass"><canvas id="entry-qr" aria-label="手机试玩入口二维码"></canvas><div><strong>扫码，盖进这座城</strong><a id="entry-link" target="_blank" rel="noopener">手机试玩入口</a><small id="qr-note">正在生成二维码</small></div></div>
       </div>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
+      <aside id="building-results" class="glass building-results" hidden><div class="dialog-heading"><h3 id="results-title">找到这些楼</h3><button id="results-close" class="text-button" aria-label="关闭楼名列表">×</button></div><p id="results-note"></p><ul id="results-list"></ul></aside>
       <aside class="glass city-board">
         <div class="board-heading"><div><span class="eyebrow">一起盖出的风景</span><h2 id="board-title">模拟排行榜</h2></div><span class="board-icon" aria-hidden="true">▥</span></div>
         <p class="board-caption" id="city-count">12 栋样例建筑</p><ol id="city-ranking"></ol>

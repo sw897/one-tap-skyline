@@ -15,6 +15,9 @@ import { SharedCityRepository, DisplayCityRepository,loadDisplay, SharedError, l
 import type { SharedSession, SharedCityId,CitySnapshot,CityEvent } from './shared/protocol.ts';
 import { requestJson } from './shared/client.ts';
 import { PhotoEditor } from './ui/photo-editor.ts';
+import {GameAudio} from './ui/game-audio.ts';
+import {CityLabels} from './ui/city-labels.ts';
+import {NoticeQueue} from './core/presentation.ts';
 import type { PhotoDraft } from './core/photo.ts';
 import { nextShanghaiMidnight } from './core/photo.ts';
 
@@ -58,10 +61,10 @@ let eventUntil = 0;
 let stickerSkipped = false;
 let photoBusy=false;
 let photoFeedback='';
-let eventQueue:CityEvent[]=[],lastNotice=0,selectedId:string|undefined;
+const noticeQueue=new NoticeQueue();let activeNotice:CityEvent|undefined,selectedId:string|undefined;
+let tierUntil=0,resultIds:string[]=[];
 let recentEvents:CityEvent[]=city instanceof SharedCityRepository?(city.snapshot.events??[]).slice(-6):[];
 let lastSync=Date.now(),connectionError=!!initialError;
-let labelNodes: Array<{ building: ReturnType<typeof city.all>[number]; node: HTMLButtonElement }> = [];
 let sceneryNodes:Array<{label:ReturnType<SkylineRenderer['sceneryLabels']>[number];node:HTMLSpanElement}>=[];
 let viewer: SkylineRenderer;
 
@@ -70,6 +73,10 @@ catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
   throw new Error('WebGL2 renderer unavailable');
 }
+const audio=new GameAudio();
+const labels=new CityLabels($('building-labels'),focusCurrent,ids=>showBuildingList(ids,'这片街区的小楼'));
+const soundUI=()=>{$('sound-toggle').textContent=audio.muted?'音效 关':'音效 开';$('sound-toggle').setAttribute('aria-pressed',String(audio.muted));$('sound-toggle').setAttribute('aria-label',audio.muted?'开启音效':'关闭音效');};
+soundUI();$('sound-toggle').onclick=()=>{audio.toggle();soundUI();};$('sound-toggle').hidden=displaySurface;
 viewer.setSolo(fixtureTower(10, 0, config.game.cutMode),buildingColor);
 const photoEditor=new PhotoEditor(root,(photo,context)=>{
   if(context==='result'&&(view!=='result'||!completed)){photoEditor.clear();return;}
@@ -94,8 +101,8 @@ function updateColorChoices(){
   $('building-colors').hidden=!canEdit;
   colorButtons.forEach((button,index)=>{button.setAttribute('aria-pressed',String(PALETTE[index]===selectedColor));button.disabled=!canEdit||submitting||frozenColor!==undefined;});
 }
-const pauseGame = () => { if (clock && game?.phase !== 'ended') clock.pause(clockNow()); };
-const resumeGame = () => { if (clock) clock.resume(clockNow()); };
+const pauseGame = () => { audio.stop();if (clock && game?.phase !== 'ended') clock.pause(clockNow()); };
+const resumeGame = () => { audio.unlock();if (clock) clock.resume(clockNow()); };
 $('prototype-badge').textContent=shared?'共享试玩':'练习 · 本页模拟';
 $('overview-button').firstChild!.textContent=personalSurface?'我的楼 ':'城市总览 ';
 $('scene-data-mark').hidden=!(shared&&cityId!=='public');
@@ -129,6 +136,7 @@ function show(next: View) {
 }
 async function start() {
   if(displaySurface||starting||submitting||photoBusy||disposed)return;
+  audio.unlock(); // Initialize within the user gesture, before the server await.
   const navigation=navigationVersion;
   starting=true;
   try {
@@ -147,7 +155,7 @@ async function start() {
     ($('signature') as HTMLInputElement).value=city.get(playerId)?.name??randomBuildingName(playerId);
   photoEditor.clear();photoNote('贴在楼的正面，留下你的颜色');
   stickerSkipped = false; $('skip-sticker').textContent = '跳过'; ($('skip-sticker') as HTMLButtonElement).disabled = false;
-  feedbackUntil = 0; $('placement-feedback').classList.remove('visible');
+  feedbackUntil = 0;tierUntil=0;$('tier-feedback').hidden=true; $('placement-feedback').classList.remove('visible');
   viewer.setSolo(game.tower,buildingColor); show('play'); updateHUD();
   } catch(error) {
     if(error instanceof SharedError&&['start_key_finished','run_expired_or_cancelled'].includes(error.code)){pendingStartKey=undefined;activeServerRun=null;}
@@ -160,7 +168,9 @@ function place() {
   const placed = clock?.place(clockNow());
   if (!placed) return;
   if (placed.kind !== 'miss') {
-    viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined, placed.axis);
+    viewer.landed(game.tower, placed.kind === 'trimmed' ? placed.cut : undefined, placed.axis,placed.kind==='perfect',game.combo);
+    audio.landed(placed.kind==='perfect',game.combo,game.config.comboMilestone);
+    const floors=game.tower.layers.length;if(floors===13||floors===25){$('tier-feedback').textContent=floors===13?'13层 · 玻璃办公楼':'25层 · 城市地标';$('tier-feedback').hidden=false;tierUntil=performance.now()+800;}
     const feedback = $('placement-feedback');
     feedback.textContent = placed.kind === 'perfect' ? `Perfect${game.combo >= game.config.comboMilestone ? ` · ${game.combo} 连击！` : '！'}` : '接住了！';
     feedback.className = 'visible ' + (placed.kind === 'perfect' ? 'perfect' : 'trimmed');
@@ -210,7 +220,7 @@ function refreshCityUI() {
     $('city-callout-title').textContent=own?'看看你的最高作品。':'先盖出属于你的小楼。';
     $('city-callout-note').textContent=shared?'署名、成绩与楼体会在大屏城市公开展示。':'这是本页模拟，刷新后重置。';
     $('city-play').textContent=game?.phase==='paused'?'继续盖楼 →':own?'再盖一局 →':'开始盖楼 →';
-    labelNodes=[];sceneryNodes=[];return;
+    labels.clear();sceneryNodes=[];return;
   }
   $('city-count').textContent = shared?`${buildings.length} 栋${cityId!=='public'?'共享测试':'玩家'}建筑`:`12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
   const ranking = $('city-ranking'); ranking.replaceChildren();
@@ -237,39 +247,47 @@ function refreshCityUI() {
 }
 function focusCurrent(id:string){const building=city.get(id);if(!building)return;selectedId=id;viewer.focusBuilding(building);const p=plotLocation(building.plotId,currentLayout());$('search-note').textContent=`${building.name} · ${building.tower.layers.length} 层 · ${p?.districtName??''} · 地块 ${building.plotId+1}`;refreshLabels();}
 function refreshLabels(){
-  $('building-labels').replaceChildren();
-  const buildings=city.all();
-  labelNodes = buildings.map(building => {
-    const node = document.createElement('button'); node.className = 'building-label' + (building.playerId === playerId ? ' own-label' : '');
-    node.style.setProperty('--building-color', building.color);
-    node.textContent=building.name;
-    node.dataset.playerId=building.playerId;
-    if(building.rank&&building.rank<=3){node.dataset.rank=String(building.rank);node.textContent=`TOP${building.rank} · ${building.name}`;}
-    node.classList.toggle('selected-label',building.playerId===selectedId);
-    node.title=`${building.name} · ${building.tower.layers.length} 层`;
-    node.onclick = () => focusCurrent(building.playerId);
-    $('building-labels').append(node); return { building, node };
-  });
+  labels.set(city.all(),selectedId);
+  for(const {node} of sceneryNodes)node.remove();
   sceneryNodes=viewer.sceneryLabels().map(label=>{
     const node=document.createElement('span');node.className='building-label scenery-label';node.textContent=label.name;
     node.title='公共景观 · 不计成绩';$('building-labels').append(node);return {label,node};
   });
+  if(!$('building-results').hidden)renderBuildingList();
+}
+function showBuildingList(ids:string[],title:string){
+  resultIds=ids;$('results-title').textContent=title;$('building-results').hidden=false;renderBuildingList();
+}
+function renderBuildingList(){
+  const list=$('results-list');list.replaceChildren();resultIds=resultIds.filter(id=>!!city.get(id));
+  for(const id of resultIds){const building=city.get(id)!;const item=document.createElement('li'),button=document.createElement('button');button.textContent=building.name+' · '+building.tower.layers.length+' 层 · 地块 '+(building.plotId+1);button.onclick=()=>focusCurrent(id);item.append(button);list.append(item);}
+  $('results-note').textContent=resultIds.length?'共 '+resultIds.length+' 栋，点击名称定位；新结果可重新查找。':'这些楼已不在当前城市。';
+}
+function clearNotices(){noticeQueue.clear();activeNotice=undefined;eventUntil=0;$('city-event').hidden=true;viewer.cancelCityNotice();}
+function showNotice(event:CityEvent){
+  const box=$('city-event');box.replaceChildren();const title=document.createElement('strong'),note=document.createElement('span');title.textContent=event.globalRecord?'全城新纪录！':event.kind==='first'?'新邻居，欢迎入城！':'个人新高，原地更新！';note.textContent=event.name+' · '+(event.kind==='best'?event.previousFloors+' → ':'')+event.floors+' 层';box.append(title,note);box.hidden=false;box.dataset.kind=event.kind;
 }
 function refreshFeed(){
   const feed=$('event-feed');feed.replaceChildren();for(const event of [...recentEvents].reverse().slice(0,6)){const item=document.createElement('li'),button=document.createElement('button');button.textContent=`${event.globalRecord?'全城新纪录':event.kind==='first'?'首次入城':'个人新高'} · ${event.name} · ${event.floors} 层`;const time=document.createElement('small');time.textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(event.createdAt);button.append(time);button.onclick=()=>focusCurrent(event.playerId);item.append(button);feed.append(item);}
   if(!recentEvents.length){const item=document.createElement('li');item.textContent=shared?'今天还没有入城动态':'模拟数据 · 练习不发布动态';feed.append(item);}
   $('connection-status').textContent=connectionError?'连接暂时中断，自动重试；保留上次有效城市':`已更新 ${new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(lastSync)} · 每 3 秒同步`;
 }
-function collectEvents(){if(!(city instanceof SharedCityRepository))return;if(city.snapshot.eventGap){eventQueue=[];recentEvents=(city.snapshot.events??[]).slice(-6);}const events=city.takeEvents();
-  for(const event of events){const building=city.get(event.playerId);if(building?.bestRunId===event.runId)viewer.animateCityBuilding(building.playerId,event.previousFloors);recentEvents=[...recentEvents.filter(e=>e.id!==event.id),event].slice(-6);eventQueue=eventQueue.filter(e=>e.playerId!==event.playerId);eventQueue.push(event);}
-  eventQueue=eventQueue.slice(-20).sort((a,b)=>Number(b.globalRecord)-Number(a.globalRecord)||a.id-b.id);refreshFeed();}
+function collectEvents(){
+  if(!(city instanceof SharedCityRepository))return;
+  if(city.snapshot.eventGap){clearNotices();recentEvents=(city.snapshot.events??[]).slice(-6);}
+  for(const event of city.takeEvents()){
+    const building=city.get(event.playerId);if(building?.bestRunId!==event.runId)continue;
+    viewer.highlightBuilding(building.playerId);recentEvents=[...recentEvents.filter(e=>e.id!==event.id),event].slice(-6);
+    if(activeNotice?.playerId===event.playerId){activeNotice=event;showNotice(event);}else noticeQueue.push(event,performance.now());
+  }
+  refreshFeed();
+}
 function playNotice(now:number){
-  if(!eventQueue.length||now-lastNotice<4500||view!=='city'||personalSurface)return;
-  const event=eventQueue.shift()!,building=city.get(event.playerId);
-  if(!(city instanceof SharedCityRepository)||event.epoch!==city.snapshot.epoch||!building||building.bestRunId!==event.runId)return;
-  viewer.highlightBuilding(building.playerId);
-  if(event.globalRecord)viewer.recordNotice(building);
-  const box=$('city-event');box.replaceChildren();const title=document.createElement('strong'),note=document.createElement('span');title.textContent=event.globalRecord?'全城新纪录！':event.kind==='first'?'新邻居，欢迎入城！':'个人新高，原地长高！';note.textContent=`${event.name} · ${event.kind==='best'?event.previousFloors+' → ':''}${event.floors} 层`;box.append(title,note);box.hidden=false;box.dataset.kind=event.kind;eventUntil=now+4200;lastNotice=now;
+  if(eventUntil&&now<eventUntil||view!=='city'||personalSurface)return;
+  const event=noticeQueue.take(now,event=>city instanceof SharedCityRepository&&event.epoch===city.snapshot.epoch&&city.get(event.playerId)?.bestRunId===event.runId);
+  if(!event)return;
+  const building=city.get(event.playerId)!;activeNotice=event;viewer.highlightBuilding(building.playerId);
+  const duration=viewer.recordNotice(building);eventUntil=now+(duration||4200);showNotice(event);
 }
 async function overview() {
   const navigation=navigationVersion;
@@ -371,14 +389,22 @@ $('skip-sticker').onclick = () => { photoEditor.clear();if(completed)viewer.setS
 $('submit-button').onclick = submit;
 $('zoom-in').onclick = () => viewer.zoomCity(-0.12); $('zoom-out').onclick = () => viewer.zoomCity(0.12);
 $('rotate-city').onclick = () => viewer.rotateCity(1); $('city-wide').onclick = () => viewer.focusBuilding();
-$('find-building').onclick = () => viewer.focusBuilding(city.get(playerId));
+$('find-building').onclick = () => focusCurrent(playerId);
 $('tour-toggle').onclick=()=>{$('tour-toggle').textContent=viewer.toggleTour()?'恢复巡游':'暂停巡游';};
 $('district-select').onchange=()=>{selectedId=undefined;viewer.focusDistrict(Number($<HTMLSelectElement>('district-select').value));refreshLabels();};
-$('building-search').onsubmit=event=>{event.preventDefault();const query=$<HTMLInputElement>('building-query').value.trim();if(!query)return;const b=city.all().find(b=>b.name.includes(query)||String(b.plotId+1)===query);if(b){focusCurrent(b.playerId);return;}const d=districtsFor(currentLayout()).find(d=>d.name.includes(query)||`区${d.id}`===query);if(d){viewer.focusDistrict(d.id);$('search-note').textContent=d.name;return;}$('search-note').textContent='暂未找到，试试楼名或地块号。';};
-const visibilityHandler=()=>{if(document.hidden){pauseGame();updateHUD();eventQueue=[];if(city instanceof SharedCityRepository)city.silenceNextEvents();}else if(view==='city')void pollCity();};
+$('results-close').onclick=()=>{resultIds=[];$('building-results').hidden=true;};
+$('building-search').onsubmit=event=>{
+  event.preventDefault();const query=$<HTMLInputElement>('building-query').value.trim();if(!query)return;
+  const matches=city.all().filter(b=>b.name.includes(query)||String(b.plotId+1)===query);
+  if(matches.length){showBuildingList(matches.map(b=>b.playerId),'找到 '+matches.length+' 栋楼');$('search-note').textContent='选择列表中的楼名定位。';return;}
+  const d=districtsFor(currentLayout()).find(d=>d.name.includes(query)||'区'+d.id===query);
+  if(d){viewer.focusDistrict(d.id);$('search-note').textContent=d.name;return;}$('search-note').textContent='暂未找到，试试楼名或地块号。';
+};
+const visibilityHandler=()=>{if(document.hidden){pauseGame();updateHUD();clearNotices();if(city instanceof SharedCityRepository)city.silenceNextEvents();}else if(view==='city')void pollCity();};
 document.addEventListener('visibilitychange', visibilityHandler);
 const keyHandler=(event:KeyboardEvent)=>{
-  if (event.code === 'Space' && !event.repeat && view === 'play' && !(event.target instanceof HTMLInputElement) && !($('settings-dialog') as HTMLDialogElement).open) { event.preventDefault(); place(); }
+  const control=event.target instanceof Element?event.target.closest('button,input,select,textarea'):null;
+  if (event.code === 'Space' && !event.repeat && view === 'play' && (!control||control.id==='drop-button') && !($('settings-dialog') as HTMLDialogElement).open) { event.preventDefault(); place(); }
 };
 document.addEventListener('keydown',keyHandler);
 const dialog = $('settings-dialog') as HTMLDialogElement;
@@ -410,24 +436,25 @@ function frame(now: number) {
   if (view === 'play' && game) { clock?.sync(clockNow()); finish(); if (now - lastHUD > 90) { updateHUD(); lastHUD = now; } }
   viewer.update(seconds, game);
   if(view==='city'&&!personalSurface){playNotice(now);const tour=viewer.tourStatus();$('tour-status').textContent=tour.paused?'巡游已暂停':tour.automatic?`自动巡游 · ${tour.label}`:'手动查看 · 空闲后恢复巡游';if(tour.selectedId!==selectedId){selectedId=tour.selectedId;refreshLabels();}}
-  if (view === 'city') for (const { building, node } of labelNodes) { const p = viewer.projectLabel(building); node.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`; node.hidden = !p.visible; }
+  if(view==='city'&&!personalSurface)labels.update(now,b=>viewer.projectLabel(b),selectedId,activeNotice?.playerId);
   if(view==='city')for(const {label,node} of sceneryNodes){const p=viewer.projectSceneryLabel(label);node.style.transform=`translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`;node.hidden=!p.visible;}
   if (feedbackUntil && now > feedbackUntil) { $('placement-feedback').classList.remove('visible'); feedbackUntil = 0; }
-  if (eventUntil && now > eventUntil) { $('city-event').hidden = true; eventUntil = 0; }
+  if(eventUntil&&now>eventUntil){$('city-event').hidden=true;eventUntil=0;activeNotice=undefined;}
+  if(tierUntil&&now>tierUntil){$('tier-feedback').hidden=true;tierUntil=0;}
   if(!disposed)animationFrame=requestAnimationFrame(frame);
 }
 async function pollCity(){
   if(personalSurface||!(city instanceof SharedCityRepository)||pollBusy||disposed||resettingDay||view!=='city'||document.hidden)return;
   pollBusy=true;
   try{const changed=await city.refresh(pollAbort.signal);if(!disposed&&!resettingDay&&view==='city'){connectionError=false;lastSync=Date.now();if(changed){viewer.setCity(city.all(),undefined,currentLayout());refreshCityUI();}collectEvents();}}
-  catch(error){if(error instanceof SharedError&&error.code==='city_reset'){eventQueue=[];recentEvents=[];viewer.setCity([]);location.reload();return;}if(!disposed&&!pollAbort.signal.aborted){connectionError=true;eventQueue=[];city.silenceNextEvents();refreshFeed();$('city-callout-note').textContent=sharedMessage(error)+' 正在显示上次已共享的城市。';}}
+  catch(error){if(error instanceof SharedError&&error.code==='city_reset'){clearNotices();recentEvents=[];viewer.setCity([]);location.reload();return;}if(!disposed&&!pollAbort.signal.aborted){connectionError=true;clearNotices();city.silenceNextEvents();refreshFeed();$('city-callout-note').textContent=sharedMessage(error)+' 正在显示上次已共享的城市。';}}
   finally{pollBusy=false;}
 }
 const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
-const resetTimer=setInterval(()=>{if(Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;eventQueue=[];recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labelNodes=[];$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
+const resetTimer=setInterval(()=>{if(Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
 animationFrame=requestAnimationFrame(frame);
-return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);pollAbort.abort();photoEditor.dispose();
+return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
   root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);
   document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
   if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();

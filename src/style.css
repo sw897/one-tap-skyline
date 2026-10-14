@@ -166,3 +166,16 @@
   :root[data-surface=display][data-view=city] #city-event span{font-size:16px;color:#52604b}
   :root[data-surface=display][data-view=city] .app-footer{font-size:12px;color:#365968}
 }
+
+/* Bounded feedback and readable, discoverable city names. */
+#sound-toggle{font-size:12px;white-space:nowrap;padding:8px;min-height:36px}
+#tier-feedback{position:absolute;left:50%;bottom:24%;transform:translateX(-50%);font-size:13px;color:#284958;background:#fff9e5ed;padding:7px 15px;border-radius:16px;pointer-events:none;z-index:4;white-space:nowrap}
+.label-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.label-lines line{stroke:#466e86aa;stroke-width:1}
+.label-cluster{background:#254e71f0!important;color:#fff!important;border:1px solid #fff9;font-weight:650}
+.building-results{position:absolute;pointer-events:auto;z-index:7;left:36px;bottom:100px;width:min(430px,calc(100vw - 52px));padding:18px 20px;background:#fffffff5;color:#244659;border-radius:18px;box-shadow:0 10px 35px #264c6620}
+.building-results h3{margin:0;font-size:18px}.building-results p{font-size:12px;line-height:1.5;margin:7px 0}
+#results-list{list-style:none;padding:0;margin:0;max-height:260px;overflow:auto}
+#results-list button{width:100%;background:transparent;border:0;border-bottom:1px solid #dce8ef;padding:12px 4px;text-align:left;font-size:16px;line-height:1.5;color:#244659;cursor:pointer}
+#results-list button:focus-visible,.label-cluster:focus-visible{outline:3px solid #679dc5;outline-offset:2px}
+@media(max-width:760px){#sound-toggle{font-size:10px;padding:5px}.header-actions{gap:6px}}
