@@ -1,5 +1,7 @@
 # 一指盖楼：城市天际线
 
+最新[本地桥头修订](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-282df7d178eb)：地块55旁坡道接到实际道路中心线，17项定向检查及构建通过，三维效果待复测；未上传Sites，见[记录与扩区说明](docs/P5-bridge-landing-record.md)。下述为上一轮历史候选，旧v参数不会加载旧构建。
+
 当前大屏[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-1864246899fd)进一步整理运河侧连接：就近接入路段、绕行首次接路即结束、共用运河侧街口；排行榜楼名17px、层数18px。33项定向检查与构建通过，三维视觉待用户复测，见[接路修订记录](docs/P5-road-junctions-record.md)。仅本机可用，未上传Sites，线上仍为Sites21。上一版本获用户“明显改进”的局部反馈，保留[历史记录](docs/P5-road-style-refinement-record.md)。
 
 Sites21已发布满城反馈修复（线上地址私存）（版本参数：build-f2ca47025e2c）：连续环岛路/街区接路、湖泊到海岸运河及实际交点桥、12px屋顶楼名、满城街区定位保留目标。ac462a6 / p5-event-screen-preview.13；33项定向检查与构建、局部1080p预览完成；线上初始DOM可见，后续自动截图/字体读回受阻，真实手工复测待执行，见[修复记录](docs/P5-streets-and-district-fix-record.md)。

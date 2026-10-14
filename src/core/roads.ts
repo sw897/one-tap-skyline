@@ -3,7 +3,7 @@ import {islandPlan,shoreLoop,shorePoint} from './island.ts';
 import {routeStreet,pointPlotDistance,type GroundPoint} from './ground.ts';
 
 export interface Road {id:string;points:GroundPoint[];width:number;shoulder:number}
-export interface RoadBridge {roadId:string;x:number;z:number;rotation:number;length:number;width:number}
+export interface RoadBridge {roadId:string;x:number;z:number;rotation:number;length:number;width:number;landings:GroundPoint[]}
 const distance=(a:GroundPoint,b:GroundPoint)=>Math.hypot(a.x-b.x,a.z-b.z);
 const cross=(a:GroundPoint,b:GroundPoint)=>a.x*b.z-a.z*b.x;
 
@@ -101,7 +101,23 @@ export function waterfrontRoads(layout:CityLayout){
     if(t<0||t>1||u<0||u>1)continue;
     const x=a.x+t*r.x,z=a.z+t*r.z;if(bridges.some(bridge=>Math.hypot(x-bridge.x,z-bridge.z)<2))continue;
     const sine=Math.abs(determinant)/(Math.hypot(r.x,r.z)*Math.hypot(s.x,s.z));
-    bridges.push({roadId:road.id,x,z,rotation:Math.atan2(r.x,r.z),length:5.5/sine+2,width:road.width+.35});
+    const rotation=Math.atan2(r.x,r.z),length=5.5/sine+2;
+    // A bridge can start on a connector whose endpoint is already inside the canal.
+    // Include adjoining streets when placing each ramp on the actual road surface.
+    const ends=[road.points[0],road.points.at(-1)!];
+    const approaches=roads.filter(q=>q===road||q.points.some(p=>ends.some(end=>distance(p,end)<1e-5)));
+    const landings=[-1,1].map(sign=>{
+      const target={x:x+Math.sin(rotation)*sign*(length/2+1.8),z:z+Math.cos(rotation)*sign*(length/2+1.8)};
+      let closest=target,best=Infinity;
+      for(const approach of approaches)for(let k=1;k<approach.points.length;k++){
+        const a=approach.points[k-1],b=approach.points[k],dx=b.x-a.x,dz=b.z-a.z;
+        const t=Math.max(0,Math.min(1,((target.x-a.x)*dx+(target.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+        const p={x:a.x+t*dx,z:a.z+t*dz},gap=distance(p,target);
+        if(gap<best){best=gap;closest=p;}
+      }
+      return closest;
+    });
+    bridges.push({roadId:road.id,x,z,rotation,length,width:road.width+.35,landings});
   }
   return {roads,canal,bridges};
 }

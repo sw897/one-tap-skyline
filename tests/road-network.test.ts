@@ -31,6 +31,17 @@ for(const layout of [waterfrontLayout(),waterfrontLayout(10,Array(10).fill(16))]
   assert.ok(!insideIsland(island,network.canal.at(-1)!.x,network.canal.at(-1)!.z));
   assert.ok(network.bridges.length>0);
   for(const bridge of network.bridges){assert.ok(Number.isFinite(bridge.length)&&bridge.length>5.5);assert.ok(network.roads.some(r=>r.id===bridge.roadId));
+    for(const [index,sign] of [-1,1].entries()){
+      const end=bridge.landings[index],start={x:bridge.x+Math.sin(bridge.rotation)*sign*bridge.length/2,z:bridge.z+Math.cos(bridge.rotation)*sign*bridge.length/2};
+      const roadDistance=Math.min(...network.roads.flatMap(r=>r.points.slice(1).map((b,i)=>{
+        const a=r.points[i],dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((end.x-a.x)*dx+(end.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+        return Math.hypot(end.x-a.x-t*dx,end.z-a.z-t*dz);
+      })));
+      assert.ok(roadDistance<1e-6,'ramp must land on a road centerline');
+      for(let j=0;j<=30;j++){const p={x:start.x+(end.x-start.x)*j/30,z:start.z+(end.z-start.z)*j/30};
+        for(const plot of plots)assert.ok(pointPlotDistance(p,plot)>=bridge.width/2+.15,'curved approach must clear plots');
+      }
+    }
     for(let i=0;i<=100;i++){const along=(i/100-.5)*(bridge.length+3.6),p={x:bridge.x+Math.sin(bridge.rotation)*along,z:bridge.z+Math.cos(bridge.rotation)*along};
       for(const plot of plots)assert.ok(pointPlotDistance(p,plot)>=bridge.width/2+.15,`bridge on ${bridge.roadId} crosses plot ${plot.id+1}`);
     }

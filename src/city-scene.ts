@@ -87,9 +87,11 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     for(const bridge of network.bridges){
       const {x,z,rotation,length,width}=bridge;
       box(x,.23,z,width,.25,length,'#e9e3d3',rotation);box(x,.365,z,width-.15,.025,length,'#788f92',rotation);
-      for(const sign of [-1,1]){
-        const position:number[]=[],z0=sign*length/2,z1=sign*(length/2+1.8);
-        for(const q of [[-width/2,.378,z0],[width/2,.378,z0],[-width/2,.015,z1],[width/2,.378,z0],[width/2,.015,z1],[-width/2,.015,z1]])position.push(...q);
+      for(const [index,sign] of [-1,1].entries()){
+        const landing=bridge.landings[index],dx=landing.x-x,dz=landing.z-z;
+        const x1=Math.cos(rotation)*dx-Math.sin(rotation)*dz,z1=Math.sin(rotation)*dx+Math.cos(rotation)*dz;
+        const position:number[]=[],z0=sign*length/2;
+        for(const q of [[-width/2,.378,z0],[width/2,.378,z0],[x1-width/2,.045,z1],[width/2,.378,z0],[x1+width/2,.045,z1],[x1-width/2,.045,z1]])position.push(...q);
         const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(position,3));geometry.computeVertexNormals();
         const ramp=new T.Mesh(geometry,new T.MeshStandardMaterial({color:'#788f92',roughness:.9,side:T.DoubleSide}));ramp.position.set(x,0,z);ramp.rotation.y=rotation;root.add(ramp);
       }
