@@ -2,7 +2,9 @@
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 
-当前候选为dfa5446 / p5-event-screen-preview.7 / Sites15：移除公开练习入口，扫码明确共享；新楼随机空地块、首次/严格新高可选六色。27项开发回归/本地隔离同步通过，HTTP线上隔离脚本403受阻，新截图/颜色UI/真机及正式验收未完成，见[当前记录](docs/P5-shared-entry-and-colors-record.md)。上一轮可读性6a383a6 / tag.6 / Sites14的榜名“排行榜”、1080p楼名21px/成绩22px、深色浮层保持，历史见[可读性记录](docs/P5-display-readability-record.md)。以下Sites13是更早完善的历史事实。
+当前候选为38c459f / p5-event-screen-preview.8 / Sites16：落层/Perfect音画反馈、完整新楼即时显示、镜头优先级、聚合楼名与多结果搜索。36项定向开发检查、构建及局部尺寸预览通过，真实手机/音效/多人过场与正式验收仍待执行；第二批按用户手工反馈后推进，见[第一批记录](docs/P5-experience-batch1-record.md)和[批准计划](docs/P5-experience-enhancement-plan.md)。
+
+上一轮候选为dfa5446 / p5-event-screen-preview.7 / Sites15：移除公开练习入口，扫码明确共享；新楼随机空地块、首次/严格新高可选六色。27项开发回归/本地隔离同步通过，HTTP线上隔离脚本403受阻，新截图/颜色UI/真机及正式验收未完成，见[当前记录](docs/P5-shared-entry-and-colors-record.md)。上一轮可读性6a383a6 / tag.6 / Sites14的榜名“排行榜”、1080p楼名21px/成绩22px、深色浮层保持，历史见[可读性记录](docs/P5-display-readability-record.md)。以下Sites13是更早完善的历史事实。
 
 P5完善候选已部署Sites13（8444bf5 / p5-event-screen-preview.5）：练习入口、整墙照片、可见前三名顶饰、全楼名称、三档楼体与滨水场景；41项开发检查/构建/局部模拟预览及真实失败、缺项见[完善记录](docs/P5-refinement-record.md)。正式验收仍按用户要求延期，先手工体验；此前用户反馈闪动已解决，历史[全屏记录](docs/P5-fullscreen-record.md)、[表面记录](docs/P5-display-fix-record.md)、[海岛记录](docs/P5-island-update-record.md)保留。每日北京时间00:00任务仍启用，实际定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
 
