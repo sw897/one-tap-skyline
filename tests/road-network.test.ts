@@ -12,7 +12,8 @@ for(const layout of [waterfrontLayout(),waterfrontLayout(10,Array(10).fill(16))]
     const street=network.roads.find(r=>r.id===`district-${d.id}`)!;
     for(const side of [0,1]){const link=network.roads.find(r=>r.id===`district-${d.id}-link-${side}`)!;
       assert.deepEqual(link.points[0],side?street.points.at(-1):street.points[0]);
-      assert.ok([...ring.points,...avenue.points].some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
+      const targets=d.id===5&&side===1?[network.roads.find(r=>r.id==='district-4')!]:[ring,avenue];
+      assert.ok(targets.flatMap(r=>r.points).some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
     }
   }
   for(const side of [0,1]){const link=network.roads.find(r=>r.id===`avenue-coast-${side}`)!;

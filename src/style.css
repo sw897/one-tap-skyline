@@ -130,16 +130,16 @@
   :root[data-surface=display][data-view=city] .city-title h1{font-size:40px;letter-spacing:-.025em;color:#183c50;text-shadow:0 1px 3px #ffffffc0}
   :root[data-surface=display][data-view=city] .simulation-badge{font-size:14px;font-weight:600;color:#785615;background:#fff8e8f5}
   :root[data-surface=display][data-view=city] .city-board{display:flex;flex-direction:column;background:#ffffffef;color:#244659;padding:22px 25px;overflow:hidden}
-  :root[data-surface=display][data-view=city] .board-heading h2{font-size:28px;line-height:1.25;margin:5px 0 3px;color:#183c50}
+  :root[data-surface=display][data-view=city] .board-heading h2{font-size:24px;line-height:1.25;margin:5px 0 3px;color:#183c50}
   :root[data-surface=display][data-view=city] .board-heading .eyebrow{font-size:13px;color:#466575}
   :root[data-surface=display][data-view=city] .board-icon{font-size:32px;color:#628799}
   :root[data-surface=display][data-view=city] .city-board .board-caption{font-size:14px;line-height:1.5;margin:8px 0 12px;color:#466575}
   :root[data-surface=display][data-view=city] #city-ranking{flex-shrink:0}
-  :root[data-surface=display][data-view=city] #city-ranking li button{min-height:48px;line-height:1.35;padding:7px 1px;gap:10px}
-  :root[data-surface=display][data-view=city] .rank-number{font-size:18px;font-weight:650;width:30px;flex-shrink:0;color:#587281;font-variant-numeric:tabular-nums}
+  :root[data-surface=display][data-view=city] #city-ranking li button{min-height:40px;line-height:1.35;padding:5px 1px;gap:8px}
+  :root[data-surface=display][data-view=city] .rank-number{font-size:16px;font-weight:650;width:26px;flex-shrink:0;color:#587281;font-variant-numeric:tabular-nums}
   :root[data-surface=display][data-view=city] .color-dot{width:11px;height:11px}
-  :root[data-surface=display][data-view=city] .rank-name{font-size:21px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#244659}
-  :root[data-surface=display][data-view=city] #city-ranking li strong{font-size:22px;font-weight:700;white-space:nowrap;color:#244659;font-variant-numeric:tabular-nums}
+  :root[data-surface=display][data-view=city] .rank-name{font-size:17px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#244659}
+  :root[data-surface=display][data-view=city] #city-ranking li strong{font-size:18px;font-weight:700;white-space:nowrap;color:#244659;font-variant-numeric:tabular-nums}
   :root[data-surface=display][data-view=city] .personal-building{font-size:14px;line-height:1.4;margin-top:10px;padding:8px}
   :root[data-surface=display][data-view=city] .city-search{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center;margin-top:12px;padding-top:12px;flex-shrink:0}
   :root[data-surface=display][data-view=city] .city-search label{font-size:14px;font-weight:600;color:#365968;margin:0}

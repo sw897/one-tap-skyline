@@ -42,9 +42,37 @@ export function waterfrontRoads(layout:CityLayout){
   const roads:Road[]=[ring];
   const original=[[-52,46],[-22,41],[-16,19],[-19,-4],[4,-8],[30,0],[54,19],[55,48]];
   const avenue:Road={id:'avenue',points:routed(original.map(([x,z])=>safeNode({x,z},3.9)),3.9),width:3.25,shoulder:3.9};roads.push(avenue);
-  const nearest=(points:GroundPoint[],p:GroundPoint)=>points.reduce((best,q)=>distance(q,p)<distance(best,p)?q:best,points[0]);
+  // Join the nearest segment, not a sparse authored vertex that creates long diagonals.
+  const nearest=(targets:Road[],p:GroundPoint)=>{
+    let best={road:targets[0],index:1,point:targets[0].points[0],distance:Infinity};
+    for(const road of targets)for(let i=1;i<road.points.length;i++){
+      const a=road.points[i-1],b=road.points[i],dx=b.x-a.x,dz=b.z-a.z;
+      const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+      const point={x:a.x+t*dx,z:a.z+t*dz},length=distance(point,p);
+      if(length<best.distance&&clear(point,3.9))best={road,index:i,point,distance:length};
+    }
+    // Explicit junction node keeps the graph connected without changing its shape.
+    best.road.points.splice(best.index,0,best.point);return best.point;
+  };
+  const connect=(points:GroundPoint[],targets:Road[])=>{
+    const path=routed(points,3.9);
+    // A detour may meet the receiving road before its chosen anchor. Stop there.
+    for(let i=1;i<path.length;i++){
+      const a=path[i-1],b=path[i],r={x:b.x-a.x,z:b.z-a.z};
+      let hit:{road:Road;index:number;point:GroundPoint;t:number}|undefined;
+      for(const road of targets)for(let j=1;j<road.points.length;j++){
+        const c=road.points[j-1],d=road.points[j],s={x:d.x-c.x,z:d.z-c.z},den=cross(r,s);
+        if(Math.abs(den)<1e-8)continue;
+        const ca={x:c.x-a.x,z:c.z-a.z},t=cross(ca,s)/den,u=cross(ca,r)/den;
+        if(t<0||t>1||u<0||u>1||i===1&&t<1e-5)continue;
+        if(!hit||t<hit.t)hit={road,index:j,point:{x:a.x+t*r.x,z:a.z+t*r.z},t};
+      }
+      if(hit){hit.road.points.splice(hit.index,0,hit.point);return [...path.slice(0,i),hit.point];}
+    }
+    return path;
+  };
   for(const [side,end] of [[0,avenue.points[0]],[1,avenue.points.at(-1)!]] as const){
-    roads.push({id:`avenue-coast-${side}`,points:routed([end,nearest(ring.points,end)],3.9),width:2.5,shoulder:3.9});
+    roads.push({id:`avenue-coast-${side}`,points:routed([end,nearest([ring],end)],3.9),width:2.5,shoulder:3.9});
   }
   for(const d of districtsFor(layout)){
     const reach=16;
@@ -55,9 +83,11 @@ export function waterfrontRoads(layout:CityLayout){
     const points=Array.from({length:9},(_,i)=>{const x=left+(right-left)*i/8;return districtPoint(d,x,streetCurve(x));});
     const street:Road={id:`district-${d.id}`,points:routed(points,3.9),width:2.5,shoulder:3.9};roads.push(street);
     for(const [side,end] of [[0,street.points[0]],[1,street.points.at(-1)!]] as const){
-      const anchor=nearest([...avenue.points,...ring.points],end);
       const crossing=d.id===5&&side===1?safeNode({x:24,z:end.z},3.9):undefined;
-      roads.push({id:`district-${d.id}-link-${side}`,points:routed(crossing?[end,crossing,anchor]:[end,anchor],3.9),width:2.5,shoulder:3.9});
+      // Share the canal-side street junction instead of adding a parallel diagonal.
+      const targets=crossing?[roads.find(r=>r.id==='district-4')!]:[avenue,ring];
+      const anchor=nearest(targets,crossing??end);
+      roads.push({id:`district-${d.id}-link-${side}`,points:connect(crossing?[end,crossing,anchor]:[end,anchor],targets),width:2.5,shoulder:3.9});
     }
   }
   // Starts inside the central lake and ends beyond the shore, so water is continuous.
