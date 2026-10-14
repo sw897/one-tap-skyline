@@ -1,16 +1,18 @@
 # 一指盖楼：城市天际线
 
-当前为[固定六区景观本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-d47e8b59af1d)：新增游乐园、商场、水岸集市和书屋；76个展示位按最佳层数竞争，同分先到先得，个人作品及照片保留。见[测试入口及真实记录](docs/P5-six-district-display-slots-record.md)。编译和本地竞争接口通过；101项回归100通过，旧迁移工具1项缺口保留；三维观感待手工体验。未上传Sites，线上仍21；以下均为历史候选记录，旧v不会加载历史部署。
+当前已发布 **Sites22**：真实大屏与扫码参与（线上地址私存）（版本参数：build-3e06755df8c9）、六区满城模拟（线上地址私存）（版本参数：build-3e06755df8c9）。应用1b3560f / p5-sites22：固定76展示位、照片墙形预览、最新展馆景观、摩天轮及9辆慢行车。部署成功及无凭据HTTP读取通过，真实手机/视觉/性能和统一验收仍待完成，见[发布记录](docs/P5-sites22-release-record.md)。以下为各次历史状态，旧URL的v参数不能选择历史部署。
 
-最新[同轴过桥本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-773fb4d6392b)：两岸引道与桥面共线，移除桥头三路尖角。17项检查/构建通过，视觉待复测，未上传Sites；见[记录](docs/P5-straight-bridge-record.md)。以下链接为历史记录，v不选择旧构建。
+历史[固定六区景观本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-d47e8b59af1d)：新增游乐园、商场、水岸集市和书屋；76个展示位按最佳层数竞争，同分先到先得，个人作品及照片保留。见[测试入口及真实记录](docs/P5-six-district-display-slots-record.md)。编译和本地竞争接口通过；101项回归100通过，旧迁移工具1项缺口保留；三维观感待手工体验。未上传Sites，线上仍21；以下均为历史候选记录，旧v不会加载历史部署。
 
-最新[本地桥头修订](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-282df7d178eb)：地块55旁坡道接到实际道路中心线，17项定向检查及构建通过，三维效果待复测；未上传Sites，见[记录与扩区说明](docs/P5-bridge-landing-record.md)。下述为上一轮历史候选，旧v参数不会加载旧构建。
+历史[同轴过桥本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-773fb4d6392b)：两岸引道与桥面共线，移除桥头三路尖角。17项检查/构建通过，视觉待复测，未上传Sites；见[记录](docs/P5-straight-bridge-record.md)。以下链接为历史记录，v不选择旧构建。
 
-当前大屏[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-1864246899fd)进一步整理运河侧连接：就近接入路段、绕行首次接路即结束、共用运河侧街口；排行榜楼名17px、层数18px。33项定向检查与构建通过，三维视觉待用户复测，见[接路修订记录](docs/P5-road-junctions-record.md)。仅本机可用，未上传Sites，线上仍为Sites21。上一版本获用户“明显改进”的局部反馈，保留[历史记录](docs/P5-road-style-refinement-record.md)。
+历史[本地桥头修订](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-282df7d178eb)：地块55旁坡道接到实际道路中心线，17项定向检查及构建通过，三维效果待复测；未上传Sites，见[记录与扩区说明](docs/P5-bridge-landing-record.md)。下述为上一轮历史候选，旧v参数不会加载旧构建。
+
+历史大屏[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-1864246899fd)进一步整理运河侧连接：就近接入路段、绕行首次接路即结束、共用运河侧街口；排行榜楼名17px、层数18px。33项定向检查与构建通过，三维视觉待用户复测，见[接路修订记录](docs/P5-road-junctions-record.md)。仅本机可用，未上传Sites，线上仍为Sites21。上一版本获用户“明显改进”的局部反馈，保留[历史记录](docs/P5-road-style-refinement-record.md)。
 
 Sites21已发布满城反馈修复（线上地址私存）（版本参数：build-f2ca47025e2c）：连续环岛路/街区接路、湖泊到海岸运河及实际交点桥、12px屋顶楼名、满城街区定位保留目标。ac462a6 / p5-event-screen-preview.13；33项定向检查与构建、局部1080p预览完成；线上初始DOM可见，后续自动截图/字体读回受阻，真实手工复测待执行，见[修复记录](docs/P5-streets-and-district-fix-record.md)。
 
-历史Sites20首次上线满城模拟入口（线上地址私存）（版本参数：build-1bf79e032986）：默认六区76个地块全部生成模拟楼，沿用大屏交互，明确标模拟且不写共享数据、不提供参与二维码。dc8220c / p5-event-screen-preview.12；发布事实与局部检查见[满城预览记录](docs/P5-full-city-preview-record.md)。旧v参数不会选择历史部署，当前均加载Sites21。
+历史Sites20首次上线满城模拟入口（线上地址私存）（版本参数：build-1bf79e032986）：默认六区76个地块全部生成模拟楼，沿用大屏交互，明确标模拟且不写共享数据、不提供参与二维码。dc8220c / p5-event-screen-preview.12；发布事实与局部检查见[满城预览记录](docs/P5-full-city-preview-record.md)。旧v参数不会选择历史部署；当时线上为Sites21。
 
 此前已按用户“上线测试”要求发布Sites19（aba685a / p5-event-screen-preview.11）；后续保留这些行为。包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；沿用上一轮31项定向检查、构建与本地Worker证据，本次未重新运行，真实手机/午夜仍未验证。见[发布记录](docs/P5-sites19-release-record.md)及[实现与回退历史](docs/P5-cache-entry-and-rollback-record.md)。
 
