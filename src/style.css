@@ -188,3 +188,9 @@
 @media(prefers-reduced-motion:reduce){.drop-button.landed-tap{animation:none}}
 
 /* Every building keeps its own label; no count-marker replacement. */
+
+/* Simple rooftop names use the public-scenery label treatment. */
+:root[data-view=city] .building-label.rooftop-label{font-size:9px;color:#416958;background:#f5fbecdf;border-color:#eaf5dd;border-bottom-color:#7eaa8d;box-shadow:none;max-width:220px}
+:root[data-surface=display][data-view=city] .building-label.rooftop-label{font-size:18px;padding:6px 10px;max-width:340px}
+.release-update{position:fixed;z-index:30;left:50%;top:80px;transform:translateX(-50%);max-width:calc(100vw - 28px);padding:12px 16px;border-radius:12px;background:#fff7d9;color:#465443;box-shadow:0 4px 22px #264c6630;display:flex;align-items:center;gap:12px;font-size:14px}
+.release-update[hidden]{display:none}

@@ -4,6 +4,9 @@ import type { CompletedRun } from './core/game.ts';
 import { MemoryCityRepository,cleanName,randomBuildingName,PALETTE,type CityBuilding } from './core/city.ts';
 import {waterfrontLayout,districtsFor,plotLocation} from './core/layout.ts';
 import QRCode from 'qrcode';
+import {RELEASE_ID} from './release.ts';
+import {mobileEntryUrl} from './shared/entry.ts';
+import {ReleaseUpdate} from './ui/release-update.ts';
 import { temporaryId } from './core/session-id.ts';
 import { fixtureTower, towerHeight, emptyTower } from './core/tower.ts';
 import { SkylineRenderer } from './render.ts';
@@ -30,7 +33,7 @@ const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':se
 const shared = displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut');
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
-  try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all'); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
+  try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all',search.get('entry')??undefined); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
   catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); if(!displaySurface) return mountSharedUnavailable(root,initialError); }
 }
 if (signal?.aborted) return () => {};
@@ -118,9 +121,19 @@ $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 
 if(initialError)$('intro-direction').textContent=initialError;
 if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link'])$(id).hidden=true;
   $('prototype-badge').textContent='今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
-const mobileEntry=new URL('/?mode=shared',location.origin);($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;($('entry-link')).textContent=mobileEntry.host;
+root.dataset.release=RELEASE_ID;
+let qrUrl='',qrGeneration=0;
 $('entry-link').hidden=displaySurface;
-void QRCode.toCanvas($<HTMLCanvasElement>('entry-qr'),mobileEntry.href,{width:240,margin:4,errorCorrectionLevel:'M',color:{dark:'#213e54',light:'#ffffff'}}).then(()=>{if(!disposed)$('qr-note').textContent='手机相机扫码参与 · 每日 00:00 重置';}).catch(()=>{if(!disposed)$('qr-note').textContent=displaySurface?'二维码暂未生成，请刷新重试':'二维码暂未生成，可点击入口链接';});
+$('entry-qr').hidden=true;
+const updates=shared?new ReleaseUpdate(root,cityId,()=>({starting,submitting,photoBusy,playing:!!game&&game.phase!=='ended',unsaved:!!completed&&!!activeServerRun,photoPending:!!photoEditor.selected||($('photo-dialog') as HTMLDialogElement).open}),info=>{
+  const mobileEntry=mobileEntryUrl(location.origin,info,cityId);if(qrUrl===mobileEntry.href)return;
+  qrUrl=mobileEntry.href;const generation=++qrGeneration;
+  ($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;$('entry-link').textContent=mobileEntry.host;
+  const qrCanvas=document.createElement('canvas');
+  void QRCode.toCanvas(qrCanvas,mobileEntry.href,{width:240,margin:4,errorCorrectionLevel:'M',color:{dark:'#213e54',light:'#ffffff'}}).then(()=>{if(!disposed&&generation===qrGeneration){const target=$<HTMLCanvasElement>('entry-qr');target.width=qrCanvas.width;target.height=qrCanvas.height;target.getContext('2d')!.drawImage(qrCanvas,0,0);$('entry-qr').hidden=false;$('qr-note').textContent='手机扫码参与 · 每日 00:00 更新';}}).catch(()=>{if(!disposed&&generation===qrGeneration)$('qr-note').textContent='二维码暂未生成，请刷新重试';});
+}):undefined;
+if(!shared){$('qr-note').textContent='模拟数据 · 练习不生成参与二维码';$('entry-link').hidden=true;}
+void updates?.check();
 
 function show(next: View) {
   navigationVersion++;
@@ -141,6 +154,7 @@ async function start() {
   const navigation=navigationVersion;
   starting=true;
   try {
+    if(updates&&!await updates.check())return;
     let runId: string | undefined;
     if(shared) {
       pendingStartKey ??= temporaryId();
@@ -436,7 +450,7 @@ let previousTime = performance.now(), lastHUD = 0;
 function frame(now: number) {
   const seconds = Math.max(0, (now - previousTime) / 1000); previousTime = now;
   if (view === 'play' && game) { clock?.sync(clockNow()); finish(); if (now - lastHUD > 90) { updateHUD(); lastHUD = now; } }
-  viewer.update(seconds, game);
+  viewer.update(seconds, game);updates?.paint();
   if(view==='city'&&!personalSurface){playNotice(now);const tour=viewer.tourStatus();$('tour-status').textContent=tour.paused?'巡游已暂停':tour.automatic?`自动巡游 · ${tour.label}`:'手动查看 · 空闲后恢复巡游';if(tour.selectedId!==selectedId){selectedId=tour.selectedId;refreshLabels();}}
   if(view==='city'&&!personalSurface)labels.update(now,b=>viewer.projectLabel(b),selectedId,activeNotice?.playerId);
   if(view==='city')for(const {label,node} of sceneryNodes){const p=viewer.projectSceneryLabel(label);node.style.transform=`translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`;node.hidden=!p.visible;}
@@ -456,7 +470,7 @@ const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
 const resetTimer=setInterval(()=>{if(Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
 animationFrame=requestAnimationFrame(frame);
-return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
+return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
   root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);
   document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
   if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();

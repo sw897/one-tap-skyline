@@ -31,9 +31,15 @@ test('setCity immediately renders a full latest tower at scale 1 without stretch
   const geometry=renderer.cityGeometry('synthetic')!;
   assert.equal(geometry.displayedHeight,towerHeight(b(25).tower));assert.equal(geometry.logicalHeight,geometry.displayedHeight);assert.equal(geometry.model.layers.length,25);
 });
-test('near-level tower keeps its name when roof and base lie outside the view but its wall crosses it',()=>{
+test('rooftop-only name hides when its roof is outside view, then returns when framed',()=>{
   const building=b(60),group=buildTower(building.tower,building.color);group.updateMatrixWorld(true);
   const camera=new PerspectiveCamera(44,1,1,2500);camera.position.set(0,5,4);camera.lookAt(0,5,0);camera.updateMatrixWorld(true);
   const renderer=Object.create(SkylineRenderer.prototype) as SkylineRenderer;Object.assign(renderer,{width:700,height:700,cityCamera:{camera},cityObjects:new Map([[building.playerId,group]])});
-  const label=renderer.projectLabel(building);assert.equal(label.visible,true);assert.ok(label.y>=40&&label.y<=680);
+  const label=renderer.projectLabel(building);assert.equal(label.visible,false);
+  camera.position.set(0,40,75);camera.lookAt(0,10,0);camera.updateMatrixWorld(true);
+  assert.equal(renderer.projectLabel(building).visible,true);
+});
+
+test('manual click focus finishes in configured2.5 seconds while automatic transition stays7 seconds',()=>{
+ const c=camera();c.setBuildings([b(12)]);c.focus(b(12));for(let i=0;i<25;i++)c.update(.1);const target=c.camera.position.toArray();c.update(.1);assert.deepEqual(c.camera.position.toArray(),target);assert.equal(DEFAULT_CONFIG.visual.tourTransitionSeconds,7);c.dispose();
 });

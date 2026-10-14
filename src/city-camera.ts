@@ -14,6 +14,7 @@ export class CityCamera {
   private island:IslandPlan;private displaySurface:boolean;
   private control=new CameraControl();
   private goal?:Goal;private path:T.Vector3[]=[];private travel?:T.CubicBezierCurve3;private fromTarget=new T.Vector3();
+  private travelSeconds=7;
   private transition=0;private dwell=0;private arcElapsed=0;private step=0;private ready=false;private enabled=false;
   private selected?:string;private label='城市全景';
   private arcOrigin?:T.Vector3;private arcTarget=new T.Vector3();private allowArc=false;
@@ -75,7 +76,8 @@ export class CityCamera {
     return {...this.fit(p.x,h*.46,p.z,4.8,4.8,h+1.5,b.name,p.rotation),playerId:b.playerId,arc:true};
   }
   private cancelMotion(){this.goal=undefined;this.arcOrigin=undefined;this.allowArc=false;}
-  private move(requested:Goal,snap=false){
+  private move(requested:Goal,snap=false,manual=false){
+    this.travelSeconds=manual?this.config.visual.focusTransitionSeconds:this.config.visual.tourTransitionSeconds;
     const boxes=this.boxes(),height=Math.max(6,...boxes.map(b=>b.maxY+6));
     let goal=requested;
     const blocked=boxes.some(b=>intersectsBox(goal.position,goal.position,b)||b.id!==goal.playerId&&intersectsBox(goal.position,goal.target,b,.3));
@@ -99,8 +101,8 @@ export class CityCamera {
   }
   private beginArc(){this.arcOrigin=this.camera.position.clone();this.arcTarget.copy(this.controls.target);this.arcElapsed=0;}
   takeover(){this.control.manual(performance.now(),this.config.visual.tourIdleSeconds*1000);this.cancelMotion();this.label='手动查看';}
-  focus(b?:CityBuilding){this.takeover();this.move(b?this.buildingGoal(b):this.fullGoal());}
-  district(id:number){this.takeover();this.move(this.districtGoal(id));}
+  focus(b?:CityBuilding){this.takeover();this.move(b?this.buildingGoal(b):this.fullGoal(),false,true);}
+  district(id:number){this.takeover();this.move(this.districtGoal(id),false,true);}
   zoom(amount:number){this.takeover();const offset=this.camera.position.clone().sub(this.controls.target).multiplyScalar(1+amount);offset.setLength(T.MathUtils.clamp(offset.length(),5,850));this.camera.position.copy(this.controls.target).add(offset);this.controls.update();}
   rotate(direction:number){this.takeover();const offset=this.camera.position.clone().sub(this.controls.target).applyAxisAngle(new T.Vector3(0,1,0),direction*Math.PI/12);this.camera.position.copy(this.controls.target).add(offset);this.controls.update();}
   toggle(){this.cancelMotion();if(!this.control.toggle()){this.step=0;this.move(this.fullGoal());}return this.control.paused;}
@@ -123,7 +125,7 @@ export class CityCamera {
     if(snap&&this.automatic()&&!this.control.busy(performance.now()))this.move(this.fullGoal(),true);
     const dt=Math.min(seconds,.1);
     if(this.goal){
-      this.transition+=dt;const t=Math.min(1,this.transition/this.config.visual.tourTransitionSeconds),e=t*t*t*(t*(t*6-15)+10);
+      this.transition+=dt;const t=Math.min(1,this.transition/this.travelSeconds),e=t*t*t*(t*(t*6-15)+10);
       this.controls.target.lerpVectors(this.fromTarget,this.goal.target,e);this.camera.position.copy(this.travel!.getPoint(e));
       if(t===1){this.goal=undefined;this.beginArc();}
     }else if(this.automatic()){

@@ -352,13 +352,7 @@ export class SkylineRenderer {
     const height = building.tower.baseHeight + building.tower.layers.length * building.tower.layerHeight * (group?.userData.floors.scale.y ?? 1);
     const top = topLayer(building.tower);
     const roof=group.localToWorld(new T.Vector3(top.x,height+(group.userData.decorationHeight||.29)+.45,top.z)).project(this.cityCamera.camera);
-    const middle=group.localToWorld(new T.Vector3(top.x,height*.5,top.z)).project(this.cityCamera.camera);
-    const base=group.localToWorld(new T.Vector3(0,.25,0)).project(this.cityCamera.camera);
-    const inside=(p:T.Vector3)=>p.z<1&&p.z>-1&&Math.abs(p.x)<=1&&Math.abs(p.y)<=1;
-    const crossing=roof.z>-1&&roof.z<1&&base.z>-1&&base.z<1&&Math.abs(middle.x)<=1&&Math.max(roof.y,base.y)>=-1&&Math.min(roof.y,base.y)<=1;
-    const visible=inside(roof)||inside(middle)||inside(base)||crossing;
-    // Keep a name for a visible tower even if its roof is above a near-level view.
-    return {x:Math.max(25,Math.min(this.width-25,(roof.x+1)*this.width/2)),y:Math.max(40,Math.min(this.height-20,(1-roof.y)*this.height/2)),visible};
+    return {x:(roof.x+1)*this.width/2,y:(1-roof.y)*this.height/2,visible:roof.z<1&&roof.z>-1&&Math.abs(roof.x)<.94&&Math.abs(roof.y)<.92};
   }
   cityGeometry(playerId: string) {
     const group = this.cityObjects.get(playerId);
