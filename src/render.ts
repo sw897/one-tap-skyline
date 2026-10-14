@@ -14,7 +14,7 @@ import {fullWallFacade} from './core/facade.ts';
 const unit = new T.BoxGeometry(1, 1, 1);
 const blockMaterial = new T.MeshStandardMaterial({ roughness: 0.64, metalness: 0.02 });
 const foundationMaterial = new T.MeshStandardMaterial({ color: '#f4f5e8', roughness: 0.85 });
-const glassMaterial = new T.MeshStandardMaterial({ color: '#dbf3fa', roughness: 0.3, metalness: 0.07 });
+const glassMaterial = new T.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3, metalness: 0.07 });
 const styleMaterials=[blockMaterial,new T.MeshStandardMaterial({roughness:.43,metalness:.13}),new T.MeshStandardMaterial({roughness:.3,metalness:.24})];
 const trimMaterial=new T.MeshStandardMaterial({color:'#f4f7ef',roughness:.45});
 const roofGreen=new T.MeshStandardMaterial({color:'#61ac86',roughness:.85});
@@ -51,11 +51,18 @@ function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh,
   if (index < slots.count) instance(slots, index, layer.x, y, layer.z + layer.depth / 2 + 0.025, layer.width * 0.3, model.layerHeight * 0.78, 0.025);
 }
 
-function styledRoof(model:TowerModel,tier:number){
+export function facadeWindowColor(color:string,tier:number,index:number){
+  if(tier===0)return new T.Color('#ffebbd');
+  return new T.Color(color).lerp(new T.Color(tier===1?'#f1f9ff':'#142c42'),tier===1?.38+(index%3)*.035:.12+(index%3)*.025);
+}
+function styledRoof(model:TowerModel,tier:number,color:string){
   const root=new T.Group(),top=topLayer(model);
   root.position.set(top.x,towerHeight(model)+.012,top.z);
   if(!model.layers.length)return root;
+  const tintedGlass=roofGlass.clone();tintedGlass.color.copy(facadeWindowColor(color,Math.max(1,tier),0));
+  root.userData.ownedMaterials=[tintedGlass];
   const part=(material:T.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>{
+    if(material===roofGlass)material=tintedGlass;
     const mesh=new T.Mesh(unit,material);mesh.position.set(x,y,z);mesh.scale.set(w,h,d);root.add(mesh);return mesh;
   };
   const w=top.width,d=top.depth,small=Math.min(w,d);
@@ -97,11 +104,11 @@ export function buildTower(model: TowerModel, color: string,photo?:PhotoDecorati
     positionFloor(model, index, slabs, windows, slots,0,trim,tier);
     layerTint(color, index, tint);
     slabs.setColorAt(index, tint);
-    for(let j=0;j<12;j++)windows.setColorAt(index*12+j,new T.Color(tier===0?'#ffebbd':tier===1?index%3?'#76b8c7':'#b2d9e0':'#438fac'));
+    for(let j=0;j<12;j++)windows.setColorAt(index*12+j,facadeWindowColor(color,tier,index));
   });
   floors.add(slabs, windows, slots,trim);
   const photoHolder=new T.Group();floors.add(photoHolder);
-  const roof=styledRoof(model,tier);root.add(roof);
+  const roof=styledRoof(model,tier,color);root.add(roof);
   root.userData = { model, floors, slabs, windows, slots,trim,roof,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color,tier };
   applyFacade(root,photo,thumbnail);
   return root;
@@ -168,6 +175,7 @@ function applyFacade(root:T.Group,photo?:PhotoDecoration|null,thumbnail=false){
 }
 
 function releaseGroup(group: T.Group) {
+  for(const material of group.userData.roof?.userData.ownedMaterials??[])material.dispose();
   applyFacade(group,undefined);
   if(group.userData.halo){group.userData.halo.material.dispose();group.userData.halo.removeFromParent();}
   group.traverse(object => { if (object instanceof T.InstancedMesh) object.dispose(); });
@@ -187,7 +195,7 @@ export class SkylineRenderer {
   private guide = new T.LineSegments(new T.EdgesGeometry(unit), new T.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.65 }));
   private fragmentMesh = new T.Mesh(unit, new T.MeshStandardMaterial({ roughness: 0.64, metalness: 0.02 }));
   private cutGlow = new T.Mesh(unit, new T.MeshBasicMaterial({ color: '#fff5ce', transparent: true, opacity: 0 }));
-  private landingPulse=new T.LineSegments(new T.EdgesGeometry(unit),new T.LineBasicMaterial({color:'#fff3b5',transparent:true,opacity:0}));
+  private landingPulse=new T.Mesh(unit,new T.MeshBasicMaterial({color:'#fff3b5',transparent:true,opacity:0,depthWrite:false}));
   private pulseAge=100;
   private pulsePerfect=false;
   private pulseOrigin=new T.Vector3();
@@ -306,7 +314,7 @@ export class SkylineRenderer {
   landed(model: TowerModel, cut?: Layer, axis: Axis = 'x',perfect=false,combo=0) {
     this.setSolo(model); this.landingAge = 0;
     const settled=topLayer(model);this.pulsePerfect=perfect;this.pulseAge=0;
-    this.pulseOrigin.set(settled.x,towerHeight(model)+.018,settled.z);this.pulseSize.set(settled.width,.008,settled.depth);
+    this.pulseOrigin.set(settled.x,towerHeight(model)+.018,settled.z);this.pulseSize.set(settled.width,.012,settled.depth);
     this.landingPulse.material.color.set(perfect?combo>=this.config.game.comboMilestone?'#ffe385':'#fff5be':'#c8eff4');this.landingPulse.visible=true;
     if (cut && cut.width > 1e-8 && cut.depth > 1e-8) {
       const top = topLayer(model), mesh = this.fragmentMesh, direction = cut[axis] >= top[axis] ? 1 : -1;
@@ -330,7 +338,7 @@ export class SkylineRenderer {
   cancelCityNotice(){this.cityCamera.clearNotice();}
   highlightBuilding(id:string){const group=this.cityObjects.get(id);if(!group)return;
     if(!group.userData.halo){const halo=new T.Mesh(haloGeometry,new T.MeshBasicMaterial({color:'#ffc969',transparent:true,opacity:.8,side:T.DoubleSide,depthWrite:false}));halo.rotation.x=-Math.PI/2;halo.position.y=.04;halo.scale.setScalar(2.05);group.add(halo);group.userData.halo=halo;}
-    group.userData.highlightUntil=performance.now()+4300;
+    group.userData.highlightUntil=performance.now()+(this.config.visual.tourTransitionSeconds+this.config.visual.noticeStaySeconds)*1000;
   }
   zoomCity(amount: number) {this.cityCamera.zoom(amount);}
   rotateCity(direction: number) {this.cityCamera.rotate(direction);}
@@ -343,8 +351,8 @@ export class SkylineRenderer {
     const group = this.cityObjects.get(building.playerId);if(!group)return {x:0,y:0,visible:false};
     const height = building.tower.baseHeight + building.tower.layers.length * building.tower.layerHeight * (group?.userData.floors.scale.y ?? 1);
     const top = topLayer(building.tower);
-    const v = group.localToWorld(new T.Vector3(top.x,height+(group.userData.decorationHeight||.29)+.45,top.z)).project(this.cityCamera.camera);
-    return { x: (v.x + 1) * this.width / 2, y: (1 - v.y) * this.height / 2, visible: v.z<1&&v.z>-1&&Math.abs(v.x) < .94 && Math.abs(v.y) < .92 };
+    const roof=group.localToWorld(new T.Vector3(top.x,height+(group.userData.decorationHeight||.29)+.45,top.z)).project(this.cityCamera.camera);
+    return {x:(roof.x+1)*this.width/2,y:(1-roof.y)*this.height/2,visible:roof.z<1&&roof.z>-1&&Math.abs(roof.x)<.94&&Math.abs(roof.y)<.92};
   }
   cityGeometry(playerId: string) {
     const group = this.cityObjects.get(playerId);
@@ -359,7 +367,7 @@ export class SkylineRenderer {
   }
   update(seconds: number, game?: GameSession) {
     if(Date.now()>=this.nextPhotoCheck){this.nextPhotoCheck=Date.now()+500;for(const root of [...this.cityObjects.values(),...(this.soloTower?[this.soloTower]:[])])if(root.userData.photo&&root.userData.photo.expiresAt<=Date.now())applyFacade(root,undefined);}
-    for(const group of this.cityObjects.values())if(group.userData.halo){const left=group.userData.highlightUntil-performance.now();if(left<=0){group.userData.halo.material.dispose();group.userData.halo.removeFromParent();group.userData.halo=undefined;}else group.userData.halo.material.opacity=.35+.35*Math.sin(left*.004)**2;}
+    for(const group of this.cityObjects.values())if(group.userData.halo){const left=group.userData.highlightUntil-performance.now();if(left<=0){group.userData.halo.material.dispose();group.userData.halo.removeFromParent();group.userData.halo=undefined;}else group.userData.halo.material.opacity=.35+.35*Math.sin(left*.0015)**2;}
     if (this.view === 'play' && game) {
       this.setSolo(game.tower);
       const top = topLayer(game.tower);
@@ -378,8 +386,8 @@ export class SkylineRenderer {
     const effectSeconds = this.view === 'play' && game?.phase === 'paused' ? 0 : seconds;
     if(this.landingPulse.visible){
       this.pulseAge+=effectSeconds;const t=this.pulseAge/this.config.visual.landingGlowSeconds;
-      this.landingPulse.position.copy(this.pulseOrigin);this.landingPulse.material.opacity=Math.max(0,(this.pulsePerfect?1:.45)*(1-t));
-      this.landingPulse.scale.copy(this.pulseSize).multiplyScalar(this.pulsePerfect&&!this.reduced.matches?1+t*.12:1);
+      this.landingPulse.position.copy(this.pulseOrigin);this.landingPulse.position.y+=Math.max(0,1-this.landingAge/this.config.game.dropSeconds)**2*1.1;this.landingPulse.material.opacity=Math.max(0,(this.pulsePerfect?.8:.58)*(1-t));
+      this.landingPulse.scale.copy(this.pulseSize).multiplyScalar(this.pulsePerfect&&!this.reduced.matches?1+t*.08:1);
       if(t>=1||this.view!=='play')this.landingPulse.visible=false;
     }
     if (this.fragment) {

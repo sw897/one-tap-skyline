@@ -4,7 +4,7 @@ import type { CompletedRun } from '../core/game.ts';
 import type { RunTrace } from '../core/trace.ts';
 import type { CitySnapshot, SharedCityId, StartReceipt, SubmissionReceipt } from '../shared/protocol.ts';
 import { ApiError, GEOMETRY_VERSION, OFFICIAL_RULES, RULESET_ID, RUN_TTL_MS, randomId } from './policy.ts';
-import { nextShanghaiMidnight } from '../core/photo.ts';
+import { nextShanghaiMidnight,shanghaiMidnight } from '../core/photo.ts';
 import {waterfrontLayout,layoutCapacity,storedLayout,plotLocation,occupiedLayout,type CityLayout} from '../core/layout.ts';
 import type {CityEvent} from '../shared/protocol.ts';
 
@@ -78,7 +78,7 @@ export class CityStore {
       this.stmt("UPDATE runs SET status='cancelled' WHERE id=? AND city_id=? AND player_id=? AND status='active' AND NOT EXISTS(SELECT 1 FROM runs WHERE city_id=? AND player_id=? AND start_key=?)",replace,city,player,city,player,startKey),
       this.stmt(`INSERT INTO runs(id,city_id,player_id,start_key,ruleset_id,rules_json,geometry_version,created_at,expires_at)
         SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM runs WHERE city_id=? AND player_id=? AND start_key=?)
-        AND NOT EXISTS(SELECT 1 FROM runs WHERE city_id=? AND player_id=? AND status='active')`,id,city,player,startKey,RULESET_ID,JSON.stringify(OFFICIAL_RULES),GEOMETRY_VERSION,now,now+RUN_TTL_MS,city,player,startKey,city,player),
+        AND NOT EXISTS(SELECT 1 FROM runs WHERE city_id=? AND player_id=? AND status='active')`,id,city,player,startKey,RULESET_ID,JSON.stringify(OFFICIAL_RULES),GEOMETRY_VERSION,now,Math.min(now+RUN_TTL_MS,nextShanghaiMidnight(now)),city,player,startKey,city,player),
       this.stmt('SELECT * FROM runs WHERE city_id=? AND player_id=? AND start_key=?',city,player,startKey),
     ]);
     const run=rows[3].results[0] as unknown as RunRow|undefined;
@@ -95,6 +95,7 @@ export class CityStore {
     await this.stmt("UPDATE runs SET status='cancelled' WHERE id=? AND player_id=? AND status='active'",id,player).run();
   }
   async submit(run:RunRow,player:PlayerRow,name:string,trace:RunTrace,completed:CompletedRun,hash:string,now:number,color?:string):Promise<{receipt:SubmissionReceipt;duplicate:boolean}> {
+    if(run.created_at<shanghaiMidnight(now))throw new ApiError(410,'city_reset');
     const token=randomId(),floors=completed.tower.layers.length,tower=JSON.stringify(completed.tower),id=randomId();
     const owner=player.id,city=run.city_id;
     const currentBuilding=`SELECT ${buildingJson()} FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=runs.city_id AND b.player_id=runs.player_id`;

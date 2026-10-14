@@ -13,13 +13,13 @@ export interface RuntimeConfig {
   cityDisplayName: string;
   city: { openDistricts: number; capacities: number[] };
   game: GameConfig;
-  visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number; lowFloors: number; midFloors: number; publicBuildings: boolean; tourStaySeconds: number; tourTransitionSeconds: number; tourIdleSeconds: number; landingGlowSeconds:number; noticeStaySeconds:number; tourArcDegrees:number };
+  visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number; lowFloors: number; midFloors: number; publicBuildings: boolean; tourStaySeconds: number; tourTransitionSeconds: number; focusTransitionSeconds:number; tourIdleSeconds: number; landingGlowSeconds:number; noticeStaySeconds:number; tourArcDegrees:number };
 }
 export const DEFAULT_CONFIG: RuntimeConfig = {
   cityDisplayName: '城市天际线',
   city: {openDistricts:6, capacities:[...DEFAULT_DISTRICT_CAPACITIES]},
   game: { cutMode: 'alternate-xz', roundSeconds: 60, baseSpeed: 2.7, speedStep: 0.035, perfectRatio: 0.035, comboMilestone: 3, dropSeconds: 0.24 },
-  visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75, lowFloors:12, midFloors:24, publicBuildings:true, tourStaySeconds:10, tourTransitionSeconds:2, tourIdleSeconds:20,landingGlowSeconds:.3,noticeStaySeconds:2.5,tourArcDegrees:8 },
+  visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75, lowFloors:12, midFloors:24, publicBuildings:true, tourStaySeconds:18, tourTransitionSeconds:7,focusTransitionSeconds:2.5, tourIdleSeconds:20,landingGlowSeconds:.55,noticeStaySeconds:6,tourArcDegrees:6 },
 };
 const numeric = (input: unknown, fallback: number, min: number, max: number) =>
   typeof input === 'number' && Number.isFinite(input) && input >= min && input <= max ? input : fallback;
@@ -48,8 +48,8 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
       growthSeconds: numeric(visual.growthSeconds, d.visual.growthSeconds, 0.3, 4),
       maxPixelRatio: numeric(visual.maxPixelRatio, d.visual.maxPixelRatio, 1, 2),
       lowFloors,midFloors,publicBuildings:visual.publicBuildings!==false,
-      tourStaySeconds:numeric(visual.tourStaySeconds,10,3,60),tourTransitionSeconds:numeric(visual.tourTransitionSeconds,2,.3,6),tourIdleSeconds:numeric(visual.tourIdleSeconds,20,5,120),
-      landingGlowSeconds:numeric(visual.landingGlowSeconds,.3,.15,.35),noticeStaySeconds:numeric(visual.noticeStaySeconds,2.5,2,3),tourArcDegrees:numeric(visual.tourArcDegrees,8,0,10),
+      tourStaySeconds:numeric(visual.tourStaySeconds,18,3,60),tourTransitionSeconds:numeric(visual.tourTransitionSeconds,7,2,15),focusTransitionSeconds:numeric(visual.focusTransitionSeconds,2.5,1,8),tourIdleSeconds:numeric(visual.tourIdleSeconds,20,5,120),
+      landingGlowSeconds:numeric(visual.landingGlowSeconds,.55,.3,1),noticeStaySeconds:numeric(visual.noticeStaySeconds,6,3,12),tourArcDegrees:numeric(visual.tourArcDegrees,6,0,10),
     },
   };
 }

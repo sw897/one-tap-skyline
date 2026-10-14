@@ -1,13 +1,14 @@
 import * as T from 'three';
 import {allPlots,districtPoint,districtsFor,streetCurve,type CityLayout} from './core/layout.ts';
 import {islandPlan,shoreLoop,shorePoint} from './core/island.ts';
+import {routeStreet,groundPixels,type GroundTriangle} from './core/ground.ts';
 export interface SceneryLabel {name:string;x:number;z:number;height:number}
 const v=(x:number,z:number,y=.035)=>new T.Vector3(x,y,z);
 // Ordered ground overlays still use depth testing: bridges/buildings occlude them.
 function surfaceMaterial(color:string,order:number){
   return new T.MeshStandardMaterial({color,roughness:.9,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-order*.25,polygonOffsetUnits:-order*2});
 }
-function ribbon(points:T.Vector3[],width:number,color:string,y=.035,order=2){
+function makeRibbon(points:T.Vector3[],width:number,color:string,y=.035,order=2){
   const closed=points[0].distanceToSquared(points.at(-1)!)<.00001;
   const curve=new T.CatmullRomCurve3(closed?points.slice(0,-1):points,closed),p:number[]=[],uv:number[]=[];
   const count=Math.max(24,points.length*10);
@@ -21,14 +22,22 @@ function ribbon(points:T.Vector3[],width:number,color:string,y=.035,order=2){
   const mesh=new T.Mesh(geometry,surfaceMaterial(color,order));mesh.renderOrder=order;return mesh;
 }
 export function disposeLandscape(group:T.Group){
-  const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
+  const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
   group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);if(o instanceof T.InstancedMesh)o.dispose();}});
-  for(const g of geometries)g.dispose();for(const m of materials)m.dispose();group.removeFromParent();group.clear();
+  for(const g of geometries)g.dispose();for(const m of materials){const texture=(m as T.MeshStandardMaterial).map;if(texture)textures.add(texture);m.dispose();}for(const texture of textures)texture.dispose();group.removeFromParent();group.clear();
 }
 
 /** Original procedural scenery; public architecture never enters scores/player data. */
 export function createWaterfront(layout:CityLayout,publicBuildings=true){
   const root=new T.Group(),island=islandPlan(layout),ds=districtsFor(layout),plots=allPlots(layout);
+  const streetRoutes=new Map<string,T.Vector3[]>();
+  const ribbon=(points:T.Vector3[],width:number,color:string,y=.035,order=2)=>{
+    if(order>=3&&order<=5){const key=points.map(p=>p.x.toFixed(3)+':'+p.z.toFixed(3)).join('|');
+      if(!streetRoutes.has(key))streetRoutes.set(key,routeStreet(points,plots,width).map(p=>v(p.x,p.z)));
+      points=streetRoutes.get(key)!;if(order===4)color='#788f92';
+    }
+    return makeRibbon(points,width,color,y,order);
+  };
   const stone=new T.MeshStandardMaterial({color:'#ece6d5',roughness:.9,side:T.DoubleSide});
   const labels:SceneryLabel[]=[];root.userData.labels=labels;root.userData.publicFootprints=[];
   type Kind='box'|'glass'|'metal'|'leaf'|'cone'|'sphere'|'shadow';
@@ -70,7 +79,8 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
       box(x,.25,z,8,.25,2.5,'#e9e3d3',angle);
       for(const sign of [-1,1]){box(x,.72,z+sign*1.12,7.8,.055,.055,'#7a9ba0',angle);for(let j=0;j<5;j++)box(x-3.6+j*1.8,.5,z+sign*1.12,.06,.43,.06,'#a2b6af');}
     }
-    const curve=new T.CatmullRomCurve3(avenue);
+    const avenueKey=avenue.map(p=>p.x.toFixed(3)+':'+p.z.toFixed(3)).join('|');
+    const curve=new T.CatmullRomCurve3(streetRoutes.get(avenueKey)??avenue);
     for(let i=0;i<9;i++){
       const t=.06+i*.095,p=curve.getPoint(t),dir=curve.getTangent(t),angle=Math.atan2(dir.x,dir.z),side=i%2?-.6:.6;
       p.x+=dir.z*side;p.z-=dir.x*side;
@@ -138,5 +148,22 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     }
     mesh.userData.kind=kind;root.add(mesh);
   }
+  const triangles:GroundTriangle[]=[],remove:T.Mesh[]=[];
+  root.traverse(object=>{
+    if(!(object instanceof T.Mesh)||object instanceof T.InstancedMesh||!(object.material instanceof T.MeshStandardMaterial)||!object.material.polygonOffset)return;
+    object.updateMatrix();const position=object.geometry.getAttribute('position'),index=object.geometry.index,color=object.material.color.getHex();
+    for(let i=0;i<(index?.count??position.count);i+=3){const points=[0,1,2].map(j=>new T.Vector3().fromBufferAttribute(position,index?index.getX(i+j):i+j).applyMatrix4(object.matrix));
+      triangles.push({points:points.map(p=>({x:p.x,z:p.z})),height:points.reduce((s,p)=>s+p.y,0)/3,color});
+    }
+    remove.push(object);
+  });
+  const border=shoreLoop(island),extent={minX:Math.min(...border.map(p=>p.x)),maxX:Math.max(...border.map(p=>p.x)),minZ:Math.min(...border.map(p=>p.z)),maxZ:Math.max(...border.map(p=>p.z))};
+  const size=1536,texture=new T.DataTexture(groundPixels(triangles,plots,extent,size),size,size,T.RGBAFormat);
+  texture.colorSpace=T.SRGBColorSpace;texture.magFilter=T.LinearFilter;texture.minFilter=T.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;
+  const geometry=new T.ShapeGeometry(shape(1)),positions=geometry.getAttribute('position'),uv=geometry.getAttribute('uv');
+  for(let i=0;i<positions.count;i++)uv.setXY(i,(positions.getX(i)-extent.minX)/(extent.maxX-extent.minX),(positions.getY(i)-extent.minZ)/(extent.maxZ-extent.minZ));
+  const ground=new T.Mesh(geometry,new T.MeshStandardMaterial({map:texture,roughness:.9,side:T.DoubleSide}));ground.rotation.x=Math.PI/2;ground.position.y=.003;root.add(ground);
+  for(const mesh of remove){mesh.geometry.dispose();(mesh.material as T.Material).dispose();mesh.removeFromParent();}
+  root.userData.groundSurfaceCount=1;root.userData.routedStreets=streetRoutes.size;root.userData.groundTextureBytes=size*size*4;
   return root;
 }

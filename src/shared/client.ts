@@ -8,7 +8,7 @@ export class SharedError extends Error {
   readonly code:string;
   constructor(code:string){super(code);this.code=code;}
 }
-const messages:Record<string,string>={session_required:'身份已过期，请刷新后重新开局。',city_write_closed:'共享体验暂未开放，请稍后重试。',rate_limited:'操作有些频繁，请稍等再试。',active_run_exists:'上一局仍有效，请结束或重新开局。',run_expired_or_cancelled:'本局已过期或取消，请重新盖一局。',invalid_trace:'本局暂未通过验证，作品仍保留，可再开一局。',impossible_run_time:'本局时长暂未通过验证，请重新开局。',submission_conflict:'这一局已有提交结果，请刷新城市查看。',service_unavailable:'共享服务暂时不可用，作品仍保留，请稍后重试。'};
+const messages:Record<string,string>={entry_expired:'今日入口已更新，请扫描现场大屏上的二维码。',session_required:'身份已过期，请刷新后重新开局。',city_write_closed:'共享体验暂未开放，请稍后重试。',rate_limited:'操作有些频繁，请稍等再试。',active_run_exists:'上一局仍有效，请结束或重新开局。',run_expired_or_cancelled:'本局已过期或取消，请重新盖一局。',invalid_trace:'本局暂未通过验证，作品仍保留，可再开一局。',impossible_run_time:'本局时长暂未通过验证，请重新开局。',submission_conflict:'这一局已有提交结果，请刷新城市查看。',service_unavailable:'共享服务暂时不可用，作品仍保留，请稍后重试。'};
 export const sharedMessage=(error:unknown)=>error instanceof SharedError?(messages[error.code]??'共享暂未成功，请稍后重试。'):'网络暂时不通，作品仍保留，请重试。';
 messages.city_full='城市已满，已有楼仍可继续长高；本局作品保留在结算页。';
 Object.assign(messages,{city_reset:'新的一天，城市已经重新开始。',photos_closed:'照片体验暂未开放。',no_saved_building:'先把有效成绩保存到城市，再装饰你的楼。',photo_too_large:'压缩后的照片仍然较大，请换一张。',invalid_photo:'这张照片暂时无法处理，请重新选择。',photo_expired:'照片草稿已失效，请重新选择。',photo_conflict:'照片状态已更新，请查看我的楼后再试。',photo_service_unavailable:'照片暂未保存，请稍后重试。',photo_storage_unavailable:'照片存储暂时不可用。'});
@@ -73,5 +73,5 @@ export class DisplayCityRepository extends SharedCityRepository {
   }
 }
 export const loadDisplay=(city:SharedCityId,signal?:AbortSignal)=>requestJson<CitySnapshot>(`/api/city?city=${city}&scope=all`,undefined,signal);
-export const loadSession=(city:SharedCityId,signal?:AbortSignal,scope:SnapshotScope='all')=>requestJson<SharedSession>(`/api/session?city=${city}&scope=${scope}`,undefined,signal?AbortSignal.any([signal,AbortSignal.timeout(12_000)]):AbortSignal.timeout(12_000));
+export const loadSession=(city:SharedCityId,signal?:AbortSignal,scope:SnapshotScope='all',entry?:string)=>requestJson<SharedSession>(`/api/session?city=${city}&scope=${scope}`+(entry?'&entry='+encodeURIComponent(entry):''),undefined,signal?AbortSignal.any([signal,AbortSignal.timeout(12_000)]):AbortSignal.timeout(12_000));
 export const startSharedRun=(city:SharedCityId,startKey:string,replaceRunId:string|null)=>requestJson<StartReceipt>('/api/runs',{city,startKey,replaceRunId});
