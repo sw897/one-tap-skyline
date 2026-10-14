@@ -30,15 +30,28 @@ export async function createGameServer(options:NodeRuntimeOptions){
   await mkdir(dbRoot,{recursive:true});
   const database=new NodeDatabase(path.join(dbRoot,'game.sqlite'),options.migrations),bucket=new FileBucket(photosRoot);
   await bucket.probe();
+  const activeUploads=new Map<number,number>();let physicalPending=0,endedOldUploadRevision=0,sweptUploadRevision=0;
   const config=serverRuntime(env),context:ServerContext={db:database.asD1(),bucket:bucket.asR2(),now:clock,boundary:job=>database.atomic(job,()=>{
     const marker=database.connection.prepare("SELECT day_start FROM game_clock WHERE id='daily'").get();
     if(marker?.day_start!==shanghaiMidnight(clock()))throw new ApiError(410,'city_reset');
   }),publicWriteOpen:env.SKYLINE_PUBLIC_WRITE_OPEN==='1',publicPhotosOpen:env.SKYLINE_PUBLIC_PHOTOS_OPEN==='1',cityName:config.cityDisplayName,layout:waterfrontLayout(config.city.openDistricts,config.city.capacities)};
-  const health={ready:false,cleanupPending:0,lastMaintenanceAt:0,dayStart:0,resetAt:0,lastError:null as string|null};
+  context.photoIO=async(createdAt,job)=>{
+    const day=shanghaiMidnight(createdAt);activeUploads.set(day,(activeUploads.get(day)??0)+1);
+    try{return await job();}
+    finally{
+      const left=(activeUploads.get(day)??1)-1;if(left)activeUploads.set(day,left);else activeUploads.delete(day);
+      if(day<shanghaiMidnight(clock())){
+        endedOldUploadRevision++;
+        if(!closed){if(maintenance)void maintenance.finally(()=>{if(!closed)void maintain();});else void maintain();}
+      }
+    }
+  };
+  const health={ready:false,get cleanupPending(){return physicalPending+(endedOldUploadRevision>sweptUploadRevision?1:0)+[...activeUploads].reduce((n,[day,count])=>n+(day<shanghaiMidnight(clock())?count:0),0);},lastMaintenanceAt:0,dayStart:0,resetAt:0,lastError:null as string|null};
   let maintenance:Promise<void>|undefined,midnightTimer:ReturnType<typeof setTimeout>|undefined,interval:ReturnType<typeof setInterval>|undefined,closed=false;
   function maintain(){
     if(maintenance)return maintenance;
     maintenance=(async()=>{
+      const ioRevision=endedOldUploadRevision,pendingBefore=health.cleanupPending;
       let logicalComplete=false;
       try{
         const day=await gameOperation(context,async(_now,day)=>day);
@@ -48,10 +61,10 @@ export async function createGameServer(options:NodeRuntimeOptions){
         let expired=0,pending=0;
         for(let page=0;page<50;page++){const cleaned=await cleanupPhotos({...context,publicPhotosOpen:context.publicPhotosOpen===true});expired+=cleaned.removed;pending+=cleaned.pending;if(cleaned.removed<200||cleaned.pending)break;}
         const files=await removePastDayFiles(bucket.asR2(),clock()),temporary=await bucket.sweepTemporary(clock());
-        health.cleanupPending=pending+files.pending+temporary.pending;health.lastError=health.cleanupPending?'cleanup_pending':null;health.lastMaintenanceAt=clock();
-        if(day.reset||expired||files.removed||temporary.removed||health.cleanupPending)log({event:'file_cleanup',at:clock(),removed:files.removed+expired+temporary.removed,pending:health.cleanupPending,dayStart:health.dayStart});
+        physicalPending=pending+files.pending+temporary.pending;sweptUploadRevision=ioRevision;health.lastError=health.cleanupPending?'cleanup_pending':null;health.lastMaintenanceAt=clock();
+        if(day.reset||expired||files.removed||temporary.removed||health.cleanupPending||pendingBefore)log({event:'file_cleanup',at:clock(),removed:files.removed+expired+temporary.removed,pending:health.cleanupPending,dayStart:health.dayStart});
       }catch{
-        health.lastError='maintenance_failed';health.cleanupPending=Math.max(1,health.cleanupPending);log({event:'maintenance_failed',at:clock()});
+        health.lastError='maintenance_failed';physicalPending=Math.max(1,physicalPending);log({event:'maintenance_failed',at:clock()});
         // A request boundary still checks the current day; startup cannot be ready without its logical reset.
         if(!logicalComplete)health.ready=false;
       }finally{maintenance=undefined;}

@@ -105,11 +105,14 @@ test('late upload cannot revive yesterday; midnight clears DB while file IO is s
     const intercepted=new Proxy(f.runtime.bucket,{get(target,key){if(key==='put')return async(...args:Parameters<typeof target.put>)=>{if(first){first=false;started();await wait;}return target.put(...args);};const v=Reflect.get(target,key);return typeof v==='function'?v.bind(target):v;}});
     const uploading=f.upload(cookie,{...f.runtime.context,bucket:intercepted as unknown as R2Bucket});
     await began;f.setNow(nextShanghaiMidnight(f.now())+1);
+    assert.ok(f.runtime.health.cleanupPending>0,'Old-day in-flight upload must count as unfinished physical cleanup');
     await f.runtime.maintain();
+    assert.ok(f.runtime.health.cleanupPending>0,'Logical reset does not imply a suspended old upload is finished');
     assert.equal(f.runtime.database.connection.prepare('SELECT COUNT(*) n FROM photo_assets').get()!.n,0);
     const newKey='photos/'+shanghaiMidnight(f.now())+'/'+randomId()+'/image.jpg';await f.runtime.bucket.put(newKey,photo());
     release();assert.equal((await uploading).status,410);await f.runtime.maintain();
     const listed=await f.runtime.bucket.list();assert.deepEqual(listed.objects.map(x=>x.key),[newKey]);
+    assert.equal(f.runtime.health.cleanupPending,0);
     assert.equal(f.runtime.database.connection.prepare('SELECT COUNT(*) n FROM buildings').get()!.n,0);
   }finally{await f.runtime.close();}
 });

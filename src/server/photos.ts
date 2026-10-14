@@ -60,7 +60,7 @@ export async function cleanupPhotos(context:PhotoContext){
 export async function handlePhotoApi(request:Request,context:PhotoContext,expectedDay?:number){
   try{
     if(!context.db||!context.bucket)throw new ApiError(503,'photo_storage_unavailable');
-    const url=new URL(request.url),photos=new Photos(context.db,context.bucket);
+    const url=new URL(request.url),bucket=context.bucket,photos=new Photos(context.db,bucket);
     const writeDay=expectedDay??(request.method==='POST'?shanghaiMidnight((context.now??Date.now)()):undefined);
     if(request.method==='GET'&&url.pathname==='/api/photos/cleanup-due')return json(await cleanupPhotos(context));
     const media=/^\/api\/photos\/media\/([a-f0-9-]{36})\/(image|thumbnail)$/i.exec(url.pathname);
@@ -95,9 +95,10 @@ export async function handlePhotoApi(request:Request,context:PhotoContext,expect
       },writeDay);
       const asset=preparation.asset;
       if(!preparation.duplicate){
+        const writing=async()=>{
         try{
-          await context.bucket.put(asset.image_key,image.image,{httpMetadata:{contentType:'image/jpeg',cacheControl:'no-store'}});
-          await context.bucket.put(asset.thumbnail_key,image.thumbnail,{httpMetadata:{contentType:'image/jpeg',cacheControl:'no-store'}});
+          await bucket.put(asset.image_key,image.image,{httpMetadata:{contentType:'image/jpeg',cacheControl:'no-store'}});
+          await bucket.put(asset.thumbnail_key,image.thumbnail,{httpMetadata:{contentType:'image/jpeg',cacheControl:'no-store'}});
           await gameOperation(context,async now=>{
             await photos.owner(request,now);
             const changed=await photos.stmt("UPDATE photo_assets SET status='draft' WHERE id=? AND status='uploading' AND expires_at>?",asset.id,now).run();
@@ -105,9 +106,11 @@ export async function handlePhotoApi(request:Request,context:PhotoContext,expect
           },writeDay);
         }catch(error){
           try{await gameOperation(context,async()=>{await photos.stmt("UPDATE photo_assets SET status='failed' WHERE id=? AND status!='active'",asset.id).run();});}catch{}
-          try{await context.bucket.delete([asset.image_key,asset.thumbnail_key]);}catch{/* prefix/expiry sweep retries */}
+          try{await bucket.delete([asset.image_key,asset.thumbnail_key]);}catch{/* prefix/expiry sweep retries */}
           throw error;
         }
+        };
+        if(context.photoIO)await context.photoIO(asset.created_at,writing);else await writing();
       }
       return json({id:asset.id,expiresAt:asset.expires_at,bytes:asset.bytes});
     }

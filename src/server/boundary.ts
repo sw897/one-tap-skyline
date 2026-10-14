@@ -7,6 +7,7 @@ export interface BoundaryContext {
   db?:D1Database;
   now?:()=>number;
   boundary?:<T>(job:()=>Promise<T>)=>Promise<T>;
+  photoIO?:<T>(createdAt:number,job:()=>Promise<T>)=>Promise<T>;
 }
 /** Capture again after slow input, and reject a day change before committing. */
 export async function gameOperation<T>(context:BoundaryContext,job:(now:number,day:Awaited<ReturnType<typeof ensureGameDay>>)=>Promise<T>,expectedDay?:number):Promise<T>{
