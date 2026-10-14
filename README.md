@@ -82,4 +82,4 @@ npm run db:import:local -- --file D:\private\city-export.json
 
 阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已实施，候选待手工体验）、[P5开发记录](docs/P5-development-record.md)、[后续记录模板](docs/development-record-template.md)。
 
-下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（经审查修订，仍待实施确认）、[计划审查](docs/P6-plan-review.md)、[原只读预检记录](docs/P6-planning-record.md)。本轮没有实现Docker/Node适配、连接SSH或执行统一验收。
+下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（已按Sites22/固定六区审查修订，仍待实施确认）、[计划审查](docs/P6-plan-review.md)、[原只读预检记录](docs/P6-planning-record.md)。本轮没有实现Docker/Node适配、连接SSH或执行统一验收。
