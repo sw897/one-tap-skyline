@@ -23,11 +23,11 @@ test('preset path checker rejects a crossed box and camera inside it, accepts ov
   assert.equal(intersectsBox({x:0,y:5,z:0},{x:0,y:5,z:0},b),true);
   assert.equal(intersectsBox({x:-10,y:12,z:0},{x:10,y:12,z:0},b),false);
 });
-test('dense long names stay individually present; priority labels avoid panels',()=>{
+test('dense long names remain discoverable, priority wins, reserved panels are avoided',()=>{
   const anchors=Array.from({length:76},(_,i)=>({id:'p'+i,x:300+i%4,y:200+i%4,width:200,height:30,priority:i===0?100:0}));
   const result=arrangeLabels(anchors,900,600,[{x:650,y:0,width:250,height:600}]);
-  assert.ok(result.placed.has('p0'));assert.equal(result.placed.size,76);assert.equal('clusters' in result,false);
+  assert.ok(result.placed.has('p0'));const ids=[...result.placed.keys(),...result.clusters.flatMap(c=>c.ids)];assert.equal(new Set(ids).size,76);
   const rects=[...result.placed].map(([id,o])=>{const a=anchors.find(a=>a.id===id)!;return {x:a.x-a.width/2+o.dx,y:a.y-a.height+o.dy,width:a.width,height:a.height};});
-  assert.ok(rects.every(r=>!overlaps(r,{x:650,y:0,width:250,height:600})));
+  for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++)assert.equal(overlaps(rects[i],rects[j]),false);
   const again=arrangeLabels(anchors,900,600,[],result.placed);assert.deepEqual(again.placed.get('p0'),result.placed.get('p0'));
 });

@@ -1,5 +1,4 @@
 import vinext from "vinext";
-import {buildReleaseId} from "./build/release-id.mjs";
 import { defineConfig, type ViteDevServer } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
@@ -57,7 +56,6 @@ export default defineConfig(async ({ command }) => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
-    define:{__SKYLINE_RELEASE__:JSON.stringify(await buildReleaseId(process.cwd()))},
     server: {
       host: '127.0.0.1', port: 5173, strictPort: true,
       ...(managedLinux

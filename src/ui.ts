@@ -4,9 +4,8 @@ export function mountUI(root: HTMLElement) {
     <div class="sky-cloud cloud-a"></div><div class="sky-cloud cloud-b"></div><div class="sky-cloud cloud-c"></div>
     <header class="app-header">
       <button class="brand" id="home-button" aria-label="一指盖楼：城市天际线 首页">${cube}<span><strong>一指盖楼</strong><small>城市天际线</small></span></button>
-      <div class="header-actions"><button class="text-button" id="sound-toggle" aria-label="关闭音效" aria-pressed="false">音效 开</button><button class="text-button" id="sound-preview" aria-label="试听普通落层与Perfect音效">♪</button><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
+      <div class="header-actions"><button class="text-button" id="sound-toggle" aria-label="关闭音效" aria-pressed="false">音效 开</button><span class="prototype-badge" id="prototype-badge">共享试玩</span><button class="text-button" id="settings-button" aria-label="调整试玩参数">⚙</button><button class="outline-button" id="overview-button">城市总览 <span aria-hidden="true">↗</span></button></div>
     </header>
-    <aside id="release-update" class="release-update" hidden role="status"><span id="release-update-note"></span><button id="release-update-button" class="outline-button">更新体验</button></aside>
     <div id="viewport"><div id="building-labels"></div><span id="scene-data-mark" hidden>共享测试数据</span></div>
 
     <section data-screen="intro" class="intro-copy">
@@ -83,7 +82,6 @@ export function mountUI(root: HTMLElement) {
 export function mountSharedUnavailable(root:HTMLElement,message:string):()=>void {
   root.innerHTML='<main class="compatibility-message"><h1>共享城市暂未连接</h1><p id="shared-error" role="status"></p><button id="retry-shared" class="primary-button">重试连接</button><p>连接成功后再开始盖楼，作品才能同步到大屏。</p></main>';
   root.querySelector('#shared-error')!.textContent=message;
-  if(message.includes('今日入口已更新')){root.querySelector('h1')!.textContent='请扫描今日二维码';root.querySelector<HTMLButtonElement>('#retry-shared')!.hidden=true;root.querySelector('main > p:last-child')!.textContent='每日午夜入口更新，同一天登记后无需重复扫码。';}
   const retry=root.querySelector<HTMLButtonElement>('#retry-shared')!;
   retry.onclick=()=>location.reload();
   return ()=>{retry.onclick=null;};

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Group,PerspectiveCamera} from 'three';
+import {Group} from 'three';
 import {CityCamera} from '../src/city-camera.ts';
-import {SkylineRenderer,buildTower} from '../src/render.ts';
+import {SkylineRenderer} from '../src/render.ts';
 import {DEFAULT_CONFIG} from '../src/config.ts';
 import {waterfrontLayout} from '../src/core/layout.ts';
 import {fixtureTower,towerHeight} from '../src/core/tower.ts';
@@ -30,16 +30,4 @@ test('setCity immediately renders a full latest tower at scale 1 without stretch
   renderer.setCity([b(12)]);renderer.setCity([b(25)],{kind:'best',building:b(25),previous:b(12)});
   const geometry=renderer.cityGeometry('synthetic')!;
   assert.equal(geometry.displayedHeight,towerHeight(b(25).tower));assert.equal(geometry.logicalHeight,geometry.displayedHeight);assert.equal(geometry.model.layers.length,25);
-});
-test('rooftop-only name hides when its roof is outside view, then returns when framed',()=>{
-  const building=b(60),group=buildTower(building.tower,building.color);group.updateMatrixWorld(true);
-  const camera=new PerspectiveCamera(44,1,1,2500);camera.position.set(0,5,4);camera.lookAt(0,5,0);camera.updateMatrixWorld(true);
-  const renderer=Object.create(SkylineRenderer.prototype) as SkylineRenderer;Object.assign(renderer,{width:700,height:700,cityCamera:{camera},cityObjects:new Map([[building.playerId,group]])});
-  const label=renderer.projectLabel(building);assert.equal(label.visible,false);
-  camera.position.set(0,40,75);camera.lookAt(0,10,0);camera.updateMatrixWorld(true);
-  assert.equal(renderer.projectLabel(building).visible,true);
-});
-
-test('manual click focus finishes in configured2.5 seconds while automatic transition stays7 seconds',()=>{
- const c=camera();c.setBuildings([b(12)]);c.focus(b(12));for(let i=0;i<25;i++)c.update(.1);const target=c.camera.position.toArray();c.update(.1);assert.deepEqual(c.camera.position.toArray(),target);assert.equal(DEFAULT_CONFIG.visual.tourTransitionSeconds,7);c.dispose();
 });

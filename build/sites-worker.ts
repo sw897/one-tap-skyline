@@ -1,5 +1,4 @@
 import handler from "vinext/server/fetch-handler";
-import {cachePolicy} from "../src/server/cache";
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
@@ -25,6 +24,6 @@ export default {
         },
       };
     }
-    return runWithConnectorBinding(binding, async () => cachePolicy(request,await handler.fetch(request, env, ctx)));
+    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
   },
 };

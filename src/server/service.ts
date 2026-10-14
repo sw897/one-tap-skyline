@@ -1,5 +1,3 @@
-import {RELEASE_ID} from '../release.ts';
-import {shanghaiMidnight} from '../core/photo.ts';
 import { cleanName, playerColor, randomBuildingName, PALETTE } from '../core/city.ts';
 import {waterfrontLayout,type CityLayout} from '../core/layout.ts';
 import type { D1Database } from '@cloudflare/workers-types';
@@ -14,7 +12,7 @@ import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
 
 export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; now?: () => number }
-const COOKIE='skyline_player',ENTRY_COOKIE='skyline_entry';
+const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
 const keys=(body:Record<string,unknown>,allowed:string[])=>{if(Object.keys(body).some(k=>!allowed.includes(k)))throw new ApiError(400,'unexpected_field');};
@@ -42,42 +40,29 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     const store=new CityStore(context.db),url=new URL(request.url),now=(context.now??Date.now)();
     const name=parseRuntimeConfig({cityDisplayName:context.cityName}).cityDisplayName;
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
-    const grant=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(ENTRY_COOKIE+'='))?.slice(ENTRY_COOKIE.length+1);
     let player:PlayerRow|null=null;
     if(token&&/^[a-f0-9]{64}$/.test(token))player=await store.player(await hashText(token),now);
     const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name,context.layout??waterfrontLayout());};
     const writeOpen=(city:SharedCityId)=>city!=='public'||context.publicWriteOpen;
     const requirePlayer=()=>{if(!player)throw new ApiError(401,'session_required');return player;};
-    if(request.method==='GET'&&url.pathname==='/api/game/entry'){
-      const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
-      const current=await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>();
-      return json({releaseId:RELEASE_ID,dayStart:day.dayStart,resetAt:day.resetAt,entry:current!.epoch});
-    }
     const ownOnly=url.searchParams.get('scope')==='own';
     if(url.searchParams.has('scope')&&!['all','own'].includes(url.searchParams.get('scope')!))throw new ApiError(400,'invalid_scope');
     const afterRaw=url.searchParams.get('after');
     if(afterRaw!==null&&!/^\d{1,15}$/.test(afterRaw))throw new ApiError(400,'invalid_cursor');
     const after=afterRaw===null?undefined:Number(afterRaw);
-    const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined,after);view.resetAt=day.resetAt;view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
+    const snapshot=async(city:SharedCityId)=>{const view=await store.snapshot(city,writeOpen(city),ownOnly?requirePlayer().id:undefined,after);view.photoWriteOpen=city!=='public'||context.publicPhotosOpen===true;return view;};
     if(request.method==='GET'&&url.pathname==='/api/session') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
-      let cookie:string|undefined,entryCookie:string|undefined;
-      if(city==='public'){
-        const current=await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>();
-        if(grant!==current!.epoch){
-          if(url.searchParams.get('entry')!==current!.epoch)throw new ApiError(403,'entry_expired');
-          entryCookie=ENTRY_COOKIE+'='+current!.epoch+'; HttpOnly; SameSite=Lax; Path=/; Max-Age='+Math.max(1,Math.floor((day.resetAt-now)/1000))+(url.protocol==='https:'?'; Secure':'');
-        }
-      }
+      let cookie:string|undefined;
       if(!player){
         const address=request.headers.get('cf-connecting-ip')??'loopback';
         await store.rateLimit('signup:'+await hashText(address+':'+Math.floor(now/86_400_000)),240,now,300_000);
-        const credential=randomCredential();player=await store.createPlayer(randomId(),randomId(),await hashText(credential),now,Math.min(now+PLAYER_TTL_MS,day.resetAt));
-        cookie=`${COOKIE}=${credential}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.max(1,Math.floor((day.resetAt-now)/1000))}${url.protocol==='https:'?'; Secure':''}`;
+        const credential=randomCredential();player=await store.createPlayer(randomId(),randomId(),await hashText(credential),now,now+PLAYER_TTL_MS);
+        cookie=`${COOKIE}=${credential}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${PLAYER_TTL_MS/1000}${url.protocol==='https:'?'; Secure':''}`;
       }
       const view=await snapshot(city),active=await store.activeRun(city,player.id,now);
       const session:SharedSession={playerId:player.public_id,color:playerColor(player.public_id),snapshot:view,rules:{...OFFICIAL_RULES},rulesetId:RULESET_ID,activeRunId:active?.id??null};
-      const response=json(session,200,cookie);if(entryCookie)response.headers.append('Set-Cookie',entryCookie);return response;
+      return json(session,200,cookie);
     }
     if(request.method==='GET'&&url.pathname==='/api/city') {
       const city=cityId(url.searchParams.get('city')??'public');await getCity(city);
@@ -88,14 +73,12 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
     if(request.method==='POST'&&url.pathname==='/api/runs') {
       const body=await readBody(request);keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
       if(!writeOpen(city))throw new ApiError(403,'city_write_closed');await getCity(city);
-      if(city==='public'&&(await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>())?.epoch!==grant)throw new ApiError(403,'entry_expired');
       await store.rateLimit('start:'+owner.id,30,now,60_000);
       return json(await store.start(city,owner.id,uuid(body.startKey),body.replaceRunId?uuid(body.replaceRunId):null,now));
     }
     const matched=/^\/api\/runs\/([a-f0-9-]{36})(?:\/(submit|cancel))?$/i.exec(url.pathname);
     if(matched) {
       const owner=requirePlayer(),run=await store.getRun(matched[1],owner.id,now);
-      if(run.created_at<shanghaiMidnight(now))throw new ApiError(410,'city_reset');
       if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await snapshot(run.city_id)});
       if(request.method==='POST'&&matched[2]==='cancel') {const body=await readBody(request);keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
       if(request.method==='POST'&&matched[2]==='submit') {
