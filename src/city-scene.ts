@@ -110,7 +110,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   // Empty plots blend into the park ground; occupied towers retain their own base.
   for(const p of plots)box(p.x,.012,p.z,2.95,.012,2.95,'#c3d9bb',p.rotation);
   function tree(x:number,z:number,seed:number){
-    if(!clear(x,z,2.9)||!clearRoad(x,z)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return;
+    if(!clear(x,z,2.9)||!clearRoad(x,z)||(publicBuildings&&Math.hypot(x+2,z-30)<5.2)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return;
     const color=['#4f9277','#70a77d','#8bb883'][seed%3],size=.85+(seed%4)*.075;
     box(x,.47,z,.12,.84,.12,'#998574');
     if(seed%4===0)add('cone',x,1.20,z,.6*size,1.65*size,.6*size,color);
@@ -190,7 +190,10 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     const park=new T.Mesh(new T.CircleGeometry(1,48),surfaceMaterial('#81b694',1));park.renderOrder=1;park.rotation.x=-Math.PI/2;park.position.set(x,.004,z);park.scale.set(sx,sz,1);root.add(park);
     root.add(ribbon([v(x-sx,z),v(x,z-1),v(x+sx,z)],.85,'#f0e4cd',.043));
     for(let j=0;j<12;j++){const a=j*Math.PI/6,px=x+Math.cos(a)*sx*.78,pz=z+Math.sin(a)*sz*.76;tree(px,pz,j+i);}
-    if(publicBuildings&&clear(x,z,6.6)){
+    const buildingX=i===0?-2:x,buildingZ=i===0?30:z;
+    if(publicBuildings&&clear(buildingX,buildingZ,6.6)){
+      const x=buildingX,z=buildingZ;
+      if(i===0){const forecourt=new T.Mesh(new T.PlaneGeometry(7.2,5.2),surfaceMaterial('#e3dfce',2));forecourt.rotation.x=-Math.PI/2;forecourt.position.set(x,.022,z);root.add(forecourt);}
       const w=i===0?5.8:i===1?5:3.8,d=i===0?3.6:i===1?3.5:3;
       box(x,.09,z,w+1.1,.13,d+1,'#eee4d0');add('glass',x,.76,z,w,1.25,d,'#8dc7d2');
       box(x,1.44,z,w+1,.13,d+.7,'#f3eee4',0,i===1?.09:0);

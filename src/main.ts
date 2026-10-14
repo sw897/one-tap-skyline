@@ -415,6 +415,7 @@ $('zoom-in').onclick = () => viewer.zoomCity(-0.12); $('zoom-out').onclick = () 
 $('rotate-city').onclick = () => viewer.rotateCity(1); $('city-wide').onclick = () => viewer.focusBuilding();
 $('find-building').onclick = () => focusCurrent(playerId);
 $('ambient-toggle').hidden=!displaySurface;
+$('ambient-toggle').textContent=viewer.ambientOn?'环境动态 开':'环境动态 关';$('ambient-toggle').setAttribute('aria-pressed',String(viewer.ambientOn));
 $('ambient-toggle').onclick=()=>{const on=viewer.toggleAmbient();$('ambient-toggle').textContent=on?'环境动态 开':'环境动态 关';$('ambient-toggle').setAttribute('aria-pressed',String(on));};
 $('tour-toggle').onclick=()=>{$('tour-toggle').textContent=viewer.toggleTour()?'恢复巡游':'暂停巡游';};
 $('district-select').onchange=()=>{selectedId=undefined;viewer.focusDistrict(Number($<HTMLSelectElement>('district-select').value));refreshLabels();};

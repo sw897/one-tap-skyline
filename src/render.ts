@@ -237,7 +237,8 @@ export class SkylineRenderer {
   private soloColor='#75aaff';
   private nextPhotoCheck=0;
   private ambient?:T.Group;
-  private ambientEnabled=false;
+  private ambientEnabled=!this.reduced.matches;
+  get ambientOn(){return this.ambientEnabled&&!this.reduced.matches;}
   toggleAmbient(){this.ambientEnabled=this.reduced.matches?false:!this.ambientEnabled;return this.ambientEnabled;}
 
   constructor(container: HTMLElement, config: RuntimeConfig, layout=waterfrontLayout(config.city.openDistricts,config.city.capacities),citySurface=true,displaySurface=false) {
