@@ -1,87 +1,78 @@
 # 一指盖楼：城市天际线
 
-当前已发布 **Sites23**：真实大屏与扫码参与（线上地址私存）（版本参数：build-7426f2dd921c）、六区满城模拟（线上地址私存）（版本参数：build-7426f2dd921c）。应用e5f7f5a / p5：增加iPhone媒体音效路径、触摸结束重试和试听启动提示，用户已反馈iPhone有声。16项定向检查、构建、本地与线上Chrome手机模拟媒体播放及无凭据HTTP读取通过，见[音频修订记录](docs/P5-mobile-audio-record.md)。原Sites22累计景观与76展示位规则保留，见[历史发布记录](docs/P5-sites22-release-record.md)。以下为各次历史状态，旧URL的v参数不能选择历史部署；统一验收与P6实施仍待批准。
+一款面向现场活动的扫码互动小游戏。参与者用手机一指盖楼，把自己的作品送入大屏上的三维城市，与现场其他人一起创造当天的天际线。
 
-本地及GitHub阶段tag仅保留`p1`–`p5`，各指向最后应用版本，见[完整SHA与清理记录](docs/stage-tags.md)。下文旧tag名称为历史标识，其引用已退休；旧版本仍可通过commit SHA查阅。
+无需下载应用或注册账号。打开现场大屏，手机扫描当天二维码，即可参与。
 
-历史[固定六区景观本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-d47e8b59af1d)：新增游乐园、商场、水岸集市和书屋；76个展示位按最佳层数竞争，同分先到先得，个人作品及照片保留。见[测试入口及真实记录](docs/P5-six-district-display-slots-record.md)。编译和本地竞争接口通过；101项回归100通过，旧迁移工具1项缺口保留；三维观感待手工体验。未上传Sites，线上仍21；以下均为历史候选记录，旧v不会加载历史部署。
+打开现场大屏（线上地址私存） · 查看满城演示（模拟数据）（线上地址私存）
 
-历史[同轴过桥本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-773fb4d6392b)：两岸引道与桥面共线，移除桥头三路尖角。17项检查/构建通过，视觉待复测，未上传Sites；见[记录](docs/P5-straight-bridge-record.md)。以下链接为历史记录，v不选择旧构建。
+## 现场怎么玩
 
-历史[本地桥头修订](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-282df7d178eb)：地块55旁坡道接到实际道路中心线，17项定向检查及构建通过，三维效果待复测；未上传Sites，见[记录与扩区说明](docs/P5-bridge-landing-record.md)。下述为上一轮历史候选，旧v参数不会加载旧构建。
+1. **扫码入场**：从大屏扫描当天二维码，用手机打开游戏。
+2. **一指盖楼**：点击接住移动的楼层，在最多60秒的有效游玩时间内挑战更高层数。
+3. **留下作品**：首次成绩或刷新个人最佳时，可为楼命名、选择颜色，并自愿上传照片贴到楼的正面。
+4. **大屏找楼**：入围的作品出现在共享城市中，可以通过排行榜或楼名搜索定位，现场一起围观、挑战。
 
-历史大屏[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-1864246899fd)进一步整理运河侧连接：就近接入路段、绕行首次接路即结束、共用运河侧街口；排行榜楼名17px、层数18px。33项定向检查与构建通过，三维视觉待用户复测，见[接路修订记录](docs/P5-road-junctions-record.md)。仅本机可用，未上传Sites，线上仍为Sites21。上一版本获用户“明显改进”的局部反馈，保留[历史记录](docs/P5-road-style-refinement-record.md)。
+参与页面保留扫码得到的完整网址，刷新和再次开局可沿用；新一天需要使用当天二维码。
 
-Sites21已发布满城反馈修复（线上地址私存）（版本参数：build-f2ca47025e2c）：连续环岛路/街区接路、湖泊到海岸运河及实际交点桥、12px屋顶楼名、满城街区定位保留目标。ac462a6 / p5-event-screen-preview.13；33项定向检查与构建、局部1080p预览完成；线上初始DOM可见，后续自动截图/字体读回受阻，真实手工复测待执行，见[修复记录](docs/P5-streets-and-district-fix-record.md)。
+## 游戏与城市
 
-历史Sites20首次上线满城模拟入口（线上地址私存）（版本参数：build-1bf79e032986）：默认六区76个地块全部生成模拟楼，沿用大屏交互，明确标模拟且不写共享数据、不提供参与二维码。dc8220c / p5-event-screen-preview.12；发布事实与局部检查见[满城预览记录](docs/P5-full-city-preview-record.md)。旧v参数不会选择历史部署；当时线上为Sites21。
+- **简单操作**：每层沿左右或前后单轴移动，逐层交替方向；点击落层，没接住就结束本局。
+- **即时反馈**：普通落层、Perfect和失误有不同音效与视觉反馈。Perfect和连击提供反馈，成绩按实际楼层数计算。
+- **自己的最佳楼**：同一天、同一浏览器保留个人最佳作品；刷新最佳时，用完整新楼替换原作品。手机展示自己的完整楼体。
+- **自由装饰**：提供六种楼体颜色。照片可预览、换图和撤回，保存后即时公开；首次或严格新高可修改楼名和外观，低分或同分沿用原作品。
+- **共享天际线**：城市固定六个街区、76个展示位。所有有效个人最佳都会保存，大屏展示成绩最高的76栋；同层数按达到成绩的先后竞争展示位，排行榜允许并列名次。
+- **作品持续保留**：暂未入围的作品仍能在手机查看，创新高后可再次竞争入城。已展示的楼创新高时保持位置。
+- **滨海大屏**：明亮海岛、街道、公园和水岸景观，配合自动巡游、手动查看、街区定位、楼名搜索和排行榜。车辆与摩天轮支持环境动态开关，尊重系统减少动态偏好。
+- **每天重新开始**：按北京时间00:00重置游戏，清空当天的成绩、作品、玩家身份、局次、照片和草稿，更新当天参与二维码。
 
-此前已按用户“上线测试”要求发布Sites19（aba685a / p5-event-screen-preview.11）；后续保留这些行为。包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；沿用上一轮31项定向检查、构建与本地Worker证据，本次未重新运行，真实手机/午夜仍未验证。见[发布记录](docs/P5-sites19-release-record.md)及[实现与回退历史](docs/P5-cache-entry-and-rollback-record.md)。
+同浏览器匿名身份用于识别“我的楼”，不提供跨设备认领。不同浏览器或设备会形成不同身份。照片和作品会公开展示，请自愿选择上传内容。
 
-手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
+## 两块屏幕，一座城市
 
-历史第一批候选为38c459f / p5-event-screen-preview.8 / Sites16：落层/Perfect音画反馈、完整新楼即时显示、镜头优先级、聚合楼名与多结果搜索。36项定向开发检查、构建及局部尺寸预览通过，真实手机/音效/多人过场与正式验收仍待执行；第二批按用户手工反馈后推进，见[第一批记录](docs/P5-experience-batch1-record.md)和[批准计划](docs/P5-experience-enhancement-plan.md)。
+| 手机参与端 | 现场大屏 |
+| --- | --- |
+| 扫码、一指盖楼、查看个人最佳 | 只读展示共享城市 |
+| 命名、选色、照片编辑与撤回 | 排行榜、找楼、街区定位 |
+| 音效开关和试听 | 自动巡游与手动查看 |
 
-上一轮候选为dfa5446 / p5-event-screen-preview.7 / Sites15：移除公开练习入口，扫码明确共享；新楼随机空地块、首次/严格新高可选六色。27项开发回归/本地隔离同步通过，HTTP线上隔离脚本403受阻，新截图/颜色UI/真机及正式验收未完成，见[当前记录](docs/P5-shared-entry-and-colors-record.md)。上一轮可读性6a383a6 / tag.6 / Sites14的榜名“排行榜”、1080p楼名21px/成绩22px、深色浮层保持，历史见[可读性记录](docs/P5-display-readability-record.md)。以下Sites13是更早完善的历史事实。
+真实参与入口由大屏的当天二维码生成。满城演示使用浏览器内生成的模拟数据，供查看场景与交互，不提交成绩、不上传照片，也不提供参与二维码。
 
-P5完善候选已部署Sites13（8444bf5 / p5-event-screen-preview.5）：练习入口、整墙照片、可见前三名顶饰、全楼名称、三档楼体与滨水场景；41项开发检查/构建/局部模拟预览及真实失败、缺项见[完善记录](docs/P5-refinement-record.md)。正式验收仍按用户要求延期，先手工体验；此前用户反馈闪动已解决，历史[全屏记录](docs/P5-fullscreen-record.md)、[表面记录](docs/P5-display-fix-record.md)、[海岛记录](docs/P5-island-update-record.md)保留。每日北京时间00:00任务仍启用，实际定时运行与全量清空尚未验证；[P4记录](docs/P4-development-record.md)、[P3记录](docs/P3-development-record.md)保留。站点：一指盖楼（线上地址私存），大屏（线上地址私存）。
+## 技术实现
 
-## 本地运行
+前端采用TypeScript、React/Vinext和Three.js。游玩、结算与城市展示共用同一套楼体几何；服务端登记局次、复算操作结果并保存个人最佳，避免成绩与展示楼体不一致。
 
-需要 Node.js 22.13+；依赖版本由 lockfile 固定。
+当前部署使用ChatGPT Sites / Cloudflare Workers，D1保存游戏数据，R2保存照片，Drizzle管理数据库结构。公开默认城市名为“城市天际线”，活动显示名称可通过运行时配置`CITY_DISPLAY_NAME`注入；品牌素材须取得授权后使用。
+
+## 本地开发
+
+需要Node.js 22.13或以上版本，依赖由`package-lock.json`固定。
 
 ```powershell
-npm ci
-$env:SKYLINE_D1_STATE_PATH='D:\private\skyline-d1'
-npm run build
-Get-ChildItem drizzle/*.sql | Sort-Object Name | ForEach-Object { node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to $env:SKYLINE_D1_STATE_PATH --file $_.FullName }
+npm run install:ci
 npm run dev
 ```
 
-开发服务默认 loopback 5173。`npm run preview` 启动编译后的本地 Worker；保持同一仓库外 D1 路径，开发与生产预览可读取同一数据。未指定路径时使用仓库外系统临时目录。手机不能直接访问另一台主机的 loopback，跨设备体验使用实际部署地址。
+开发服务默认使用`http://127.0.0.1:5173`。内部模拟玩法可通过`/?mode=practice`调试，满城场景可通过`/?mode=display&view=city&demo=full`查看；这些模拟数据不进入真实城市。
 
-## 共享与练习
-
-玩家使用一个手机试玩入口：一指盖楼（线上地址私存）。下面的test/test-mobile是开发验证地址，用来隔离程序生成的成绩，页面明确标测试；不代表运营两套游戏，不提供玩家环境切换，也不另建站点。大屏入口只是同一试玩数据的电脑视图。
-
-- `/?mode=shared&view=city`：桌面共享城市总览；手机/窄屏只看自己的楼。署名、成绩和楼体在大屏公开展示。
-- `/?mode=display&view=city`：只读大屏，不创建玩家或局次；滨水景观、自动巡游/手动接管、找楼、前十名、今日动态与同一手机入口二维码。默认手机入口仍只取自己的楼。
-- `/?mode=shared&city=test`：独立共享测试城市，画面明确标注测试数据；测试成绩不进入真实榜单。
-- `/?mode=shared&city=test-mobile`：保留原60楼测试证据后的手机修订回归城市，同样明确标测试数据。
-- 公开首页和二维码不提供练习链接；旧`/?mode=practice`和`?cut=single-x`地址仅供开发对比，模拟只在本页，不进入大屏真实成绩。
-- 服务端通过 `SKYLINE_PUBLIC_WRITE_OPEN=1` 开放真实写入，默认关闭。默认/显式共享入口在初始化失败或关闭时提示重试，不自动转练习；只读大屏仍独立读城。
-
-同浏览器匿名身份采用 HttpOnly、SameSite=Lax 的 cookie，HTTPS 下加 Secure，有效期 30 天。不同浏览器、微信容器和设备各算一个玩家；清除 cookie 后不能自动认领旧楼。榜单仅按层数，并列名次为 1、1、3；先达到该最佳的楼优先显示。
-
-服务端先创建局次，再开始游戏计时；单玩家/城市一个活跃局，局次墙钟有效期10分钟。服务端用固定B/60秒规则复算完整楼体，不信任客户端总分或几何。相同局和正文重试返回原回执；较低或同分不变，严格更高以整局新几何原地更新。首楼从开放区空地块随机分配，以后地块固定。默认楼名从当天随机匿名ID生成；首次/严格新高可选改名、换图和六色，未改沿用；颜色随提交冻结并校验幂等。浏览器时序可被脚本生成，这套校验不保证识别人类操作。
-
-大屏前台约每3秒检查快照/事件，后台暂停；初开和断线恢复不重播历史。手机不轮询全城，启动、提交及主动查看只取自身完整最佳楼。照片裁切/幕墙预览、即时公开保存、换图与撤回保留。外观分级1–12/13–24/25+，前三名顶饰沿用并列1、1、3，不增加主体层数/高度。每日00:00清空楼体、成绩、身份、局次、照片、草稿和动态；满城拒绝新楼，已有楼可继续长高。P5构建结果不是功能/性能验收，Docker/SSH仍P6。
-
-## 运行时活动配置
-
-服务端读取 `CITY_DISPLAY_NAME`，通过同源 `/runtime-config.json` 返回白名单显示配置，不编译进默认资产。Sites 的值在平台运行时环境设置；环境修改须重新部署已保存版本。公开默认保持中性名称，秘密值不返回客户端。
-
-P5默认六区10/12/14/11/13/16，共76地块。`SKYLINE_OPEN_DISTRICTS`可设1–10；`SKYLINE_DISTRICT_CAPACITIES`为十项10–16的JSON数组。默认十区140，全16配置上限160，规模/性能待验证。按最新开发反馈，读取城市时立即应用当前布局与容量，现有楼随新布局移动，保留成绩、楼体和照片；无需等待午夜。容量缩小时会在十区上限内容纳已有楼。`SKYLINE_VISUAL_CONFIG`可提供公开JSON白名单（lowFloors/midFloors/publicBuildings/tourStaySeconds/tourTransitionSeconds/tourIdleSeconds等），不包含秘密。
-
-开发时可用仓库外 `SKYLINE_ACTIVITY_CONFIG_PATH` 指定 JSON，结构见 [公开安全示例](public/runtime-config.example.json)。正式共享使用服务端固定规则；可调练习参数不会进入真实榜单。P1/P2 静态部署的环境能力和结果保留在各阶段记录中，不能从当前实现反推旧版本已支持。
-
-## 测试、迁移与留证
+共享模式需要先初始化本地D1数据库，并配置服务端写入/照片开关。数据库、上传文件、原始日志和测试截图存放在仓库外；`SKYLINE_D1_STATE_PATH`可指定本地数据路径，未指定时使用系统临时目录。
 
 ```powershell
-npm test
-$env:SKYLINE_EVIDENCE_DIR='D:\private\skyline-evidence'
-npm run test:browser
-npm run test:cutting
-npm run test:visual
-npm run test:shared
-npm run db:export:local -- --file D:\private\city-export.json
-npm run db:import:local -- --file D:\private\city-export.json
+npm run build   # 类型检查与构建
+npm test        # 自动化测试
+npm run preview # 启动构建后的本地Worker，需先完成数据库初始化
 ```
 
-浏览器测试使用已安装 Chrome；录屏需要 Playwright FFmpeg。`SKYLINE_BASE_URL` 可指定地址。截图、视频、完整日志、时序、数据库与身份映射仅在仓库外私存。导出工具只操作本地 D1；导入要求已迁移的空库，并在单个批处理中恢复。这些是已有本地开发工具；按最新每日试玩安排，P6计划从新空城开始，不搬迁Sites成绩/照片/匿名身份。已应用 SQL/journal 不改历史。
+本地数据库按`drizzle/`中的SQL顺序初始化，已应用的迁移文件保持原样。浏览器测试脚本和完整开发规则见[AGENTS.md](AGENTS.md)；公开配置示例见[运行时配置](public/runtime-config.example.json)。
 
-自动化、手机尺寸模拟和真实手机反馈分别记录；安卓暂不安排。Git 是唯一源码版本线，公开推送前检查待推提交、全历史、tag 与资产，规则见 [AGENTS.md](AGENTS.md)。
+## 当前状态与开发记录
 
-阶段资料：[P1 记录](docs/P1-development-record.md)、[P2 对比记录](docs/P2-development-record.md)、[P2 收尾](docs/P2-closeout.md)、[P3 修订计划](docs/P3-implementation-plan.md)、[P3 实际开发记录](docs/P3-development-record.md)、[P4 照片与午夜重置计划](docs/P4-implementation-plan.md)、[P4 开发记录](docs/P4-development-record.md)（候选，正式验收延期）、[P5 大屏城市与试玩计划](docs/P5-implementation-plan.md)（已实施，候选待手工体验）、[P5开发记录](docs/P5-development-record.md)、[后续记录模板](docs/development-record-template.md)。
+当前试玩版为Sites23，应用版本标记为`p5`。用户已反馈iPhone音效恢复；真实设备、投屏、性能与完整流程的统一正式验收仍待开展。Docker云部署属于P6，尚未实施。
 
-下一阶段：[P6 Docker云部署与最终验收计划](docs/P6-implementation-plan.md)（已按Sites22/固定六区审查修订，仍待实施确认）、[计划审查](docs/P6-plan-review.md)、[原只读预检记录](docs/P6-planning-record.md)。本轮没有实现Docker/Node适配、连接SSH或执行统一验收。
+源码以Git管理，各阶段仅保留一个`p1`–`p5` tag，指向该阶段最后一个应用版本。开发过程与历史版本保留在提交记录和文档中：
+
+- [阶段tag与提交对照](docs/stage-tags.md)
+- [最新移动端音频修订](docs/P5-mobile-audio-record.md)
+- [固定六区与展示位竞争](docs/P5-six-district-display-slots-record.md)
+- [P5城市与大屏方案](docs/P5-implementation-plan.md)
+- [P6部署与最终验收计划](docs/P6-implementation-plan.md)
