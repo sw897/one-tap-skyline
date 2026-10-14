@@ -78,7 +78,8 @@ catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
   throw new Error('WebGL2 renderer unavailable');
 }
-const audio=new GameAudio();
+let soundNoteTimer:ReturnType<typeof setTimeout>|undefined;
+const audio=new GameAudio(message=>{if(disposed||displaySurface)return;clearTimeout(soundNoteTimer);$('sound-note').textContent=message;$('sound-note').hidden=false;soundNoteTimer=setTimeout(()=>{$('sound-note').hidden=true;},6000);});
 const labels=new CityLabels($('building-labels'),focusCurrent);
 const soundUI=()=>{$('sound-toggle').textContent=audio.muted?'音效 关':'音效 开';$('sound-toggle').setAttribute('aria-pressed',String(audio.muted));$('sound-toggle').setAttribute('aria-label',audio.muted?'开启音效':'关闭音效');};
 soundUI();$('sound-toggle').onclick=()=>{audio.toggle();soundUI();};$('sound-toggle').hidden=displaySurface;
@@ -401,6 +402,8 @@ const gestureClick=(event:MouseEvent)=>{
 };
 root.addEventListener('pointerdown',gestureStart,true);
 root.addEventListener('click',gestureClick,true);
+const audioGesture=()=>audio.gesture();
+root.addEventListener('touchend',audioGesture,true);
 $('drop-button').addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) { event.preventDefault(); place(); } });
 viewer.renderer.domElement.addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) place(); });
 $('pause-button').onclick = () => { pauseGame(); updateHUD(); };
@@ -481,8 +484,8 @@ const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
 const resetTimer=setInterval(()=>{if(fullCityPreview||Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
 animationFrame=requestAnimationFrame(frame);
-return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
-  root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);
+return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);clearTimeout(soundNoteTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
+  root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);root.removeEventListener('touchend',audioGesture,true);
   document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
   if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();
   if(import.meta.env.DEV)delete(window as unknown as {__SKYLINE_QA__?:unknown}).__SKYLINE_QA__;

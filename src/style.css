@@ -180,6 +180,7 @@
 @media(max-width:760px){#sound-toggle{font-size:10px;padding:5px}.header-actions{gap:6px}}
 
 #sound-preview{font-size:19px;padding:5px;min-width:28px;min-height:36px}
+#sound-note{position:absolute;top:76px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 12px;border-radius:10px;background:#ffffffed;color:#244659;font-size:12px;line-height:1.5;z-index:12;pointer-events:none}
 :root[data-view=play] #placement-feedback{top:auto;bottom:25%;left:50%;transform:translate(-50%,6px);background:#f8fcfff2;color:#234e71;padding:9px 18px;border-radius:18px;font-size:22px;box-shadow:0 5px 18px #21496a20;white-space:nowrap}
 :root[data-view=play] #placement-feedback.visible{transform:translate(-50%,0)}
 :root[data-view=play] #placement-feedback.perfect{background:#fff2b4f5;color:#755020}
