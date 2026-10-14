@@ -48,6 +48,9 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   const ribbon=makeRibbon;
   const stone=new T.MeshStandardMaterial({color:'#ece6d5',roughness:.9,side:T.DoubleSide});
   const labels:SceneryLabel[]=[];root.userData.labels=labels;root.userData.publicFootprints=[];
+  const civic=publicBuildings&&layout.districtCount===6;
+  const civicPlots=civic?[{x:-34,z:55,radius:7},{x:-18,z:58,radius:4},{x:8,z:-43,radius:11},{x:41,z:43,radius:6},{x:-53,z:-26,radius:5}]:[];
+  root.userData.decorativeFeatures=[];
   type Kind='box'|'glass'|'metal'|'leaf'|'cone'|'sphere'|'shadow';
   type Item={x:number;y:number;z:number;w:number;h:number;d:number;color:string;ry:number;rz:number};
   const batches=new Map<Kind,Item[]>();
@@ -111,7 +114,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   }
   for(const p of plots)box(p.x,.027,p.z,3.15,.045,3.15,'#dfe2d2',p.rotation);
   function tree(x:number,z:number,seed:number){
-    if(!clear(x,z,2.9)||!clearRoad(x,z))return;
+    if(!clear(x,z,2.9)||!clearRoad(x,z)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return;
     const color=['#4f9277','#70a77d','#8bb883'][seed%3],size=.85+(seed%4)*.075;
     box(x,.47,z,.12,.84,.12,'#998574');
     if(seed%4===0)add('cone',x,1.20,z,.6*size,1.65*size,.6*size,color);
@@ -120,6 +123,49 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   }
   for(const d of ds)for(let j=0;j<18;j++){const x=(j%9-4)*4,z=(j<9?8.6:-8.6)+streetCurve(x),p=districtPoint(d,x,z);tree(p.x,p.z,j+d.id);}
   for(let i=0;i<105;i++){const p=shorePoint(island,i*Math.PI*2/105,.89);tree(p.x,p.z,i);}
+
+  if(civic){
+    const plaza=(x:number,z:number,w:number,d:number,color='#e8dfcb')=>{
+      const mesh=new T.Mesh(new T.PlaneGeometry(w,d),surfaceMaterial(color,2));mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.022,z);root.add(mesh);
+    };
+    const beam=(a:T.Vector3,b:T.Vector3,r:number,color:string)=>{
+      const mesh=new T.Mesh(new T.CylinderGeometry(r,r,a.distanceTo(b),8),new T.MeshStandardMaterial({color,roughness:.6}));
+      mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),b.clone().sub(a).normalize());root.add(mesh);
+    };
+    // A low seaside fairground, with one airy landmark instead of a solid tall block.
+    plaza(-29,55,29,14);const wheelX=-34,wheelZ=55,center=new T.Vector3(wheelX,6.4,wheelZ);
+    for(const z of [wheelZ-.65,wheelZ+.65]){
+      const rim=new T.Mesh(new T.TorusGeometry(5.1,.11,6,48),new T.MeshStandardMaterial({color:'#f0aa84',metalness:.15,roughness:.5}));rim.position.set(wheelX,6.4,z);root.add(rim);
+      for(const side of [-1,1])beam(new T.Vector3(wheelX+side*2.1,.2,z+side*.3),new T.Vector3(wheelX,6.4,z),.13,'#e8eee7');
+    }
+    for(let j=0;j<12;j++){
+      const a=j*Math.PI/6,q=new T.Vector3(wheelX+Math.cos(a)*5.1,6.4+Math.sin(a)*5.1,wheelZ);
+      beam(center,q,.055,'#e7f0eb');box(q.x,q.y-.5,q.z,1,.8,1.4,['#f3b08c','#83c6c2','#9bb9dc'][j%3]);add('glass',q.x,q.y-.35,q.z+.72,.65,.4,.03,'#dbf2ef');
+    }
+    box(-18,.18,58,6.8,.3,6.8,'#e9c9a2');add('cone',-18,3.25,58,3.7,1.9,3.7,'#e99794');
+    box(-18,1.5,58,.22,2.5,.22,'#e8d9ba');
+    for(let j=0;j<8;j++){const a=j*Math.PI/4,x=-18+Math.cos(a)*2.55,z=58+Math.sin(a)*2.55;box(x,1.5,z,.055,2.5,.055,'#f3e5be');box(x,.8,z,.8,.42,.5,j%2?'#a6c6e6':'#f2c07b',-a);}
+    labels.push({name:'海湾游乐园',x:-29,z:55,height:11.8});root.userData.decorativeFeatures.push('fairground');
+    // A stepped two-storey shopping arcade leaves the player's skyline dominant.
+    plaza(8,-43,23,15);box(8,1.1,-43,18,2.1,8,'#ebe3d6');add('glass',8,1.05,-38.96,16,1.65,.08,'#83b9c3');
+    box(8,2.22,-43,19,.22,9,'#f5efdf');box(9,3.05,-44,12,1.5,5,'#bfd4ca');add('glass',9,3.05,-41.45,11,1.2,.06,'#86b9c7');box(9,3.87,-44,13,.18,6,'#f3eadd');
+    for(let j=0;j<7;j++){const x=1+j*2.3;box(x,1.95,-38.5,1.8,.12,1,'#f2b495');box(x,1.03,-38.82,.09,1.8,.12,'#f6eee0');}
+    plaza(8,-32.5,19,5,'#d8dfcb');for(let j=0;j<5;j++){box(j*3+2,.2,-33,1.6,.32,.7,'#c4a581');tree(j*4-1,-30.8,j);}
+    plaza(4,-56,22,8,'#a9b7b0');
+    for(let j=0;j<8;j++){box(-5+j*2.5,.052,-56,.07,.02,5.5,'#f1efdb');if(j%3!==0){box(-3.8+j*2.5,.35,-56,1.1,.5,2.3,j%2?'#a3bed0':'#e7b39a');add('glass',-3.8+j*2.5,.67,-56,.88,.25,1.2,'#6e9da8');}}
+    labels.push({name:'晴湾生活广场',x:8,z:-43,height:4.3});root.userData.decorativeFeatures.push('shopping-arcade');
+    // Waterfront market and west garden occupy distinct gaps rather than every lawn.
+    plaza(41,43,12,9);for(let j=0;j<3;j++){const x=37+j*4;box(x,.8,43,3,1.5,3.5,'#f0e3cc');box(x,1.65,43,3.5,.18,4,j%2?'#99c6b4':'#efb591');add('glass',x,.95,45,2.5,.85,.05,'#88bac6');box(x,.4,46.3,1.6,.65,.7,'#c4a37a');}
+    labels.push({name:'水岸集市',x:41,z:43,height:2.1});root.userData.decorativeFeatures.push('waterfront-market');
+    plaza(-53,-26,10,8,'#dce1c8');box(-53,.7,-26,5,1.2,4,'#cbded2');add('glass',-53,1.55,-26,5.2,.8,4.2,'#9cc6c8');box(-53,2.02,-26,5.8,.12,4.8,'#f0e7cd');
+    labels.push({name:'花园书屋',x:-53,z:-26,height:2.3});root.userData.decorativeFeatures.push('garden-pavilion');
+    for(const p of civicPlots)root.userData.publicFootprints.push(p);
+    // Short footpaths connect the amenities, leaving the ring road and canal intact.
+    for(const path of [[[-34,48],[-34,44]],[[-18,51],[-15,49]],[[8,-35.5],[8,-32.5]],[[41,38.5],[48,37]],[[ -53,-22],[-52,-14]]]){
+      root.add(ribbon(path.map(([x,z])=>v(x,z)),1.1,'#e9dfc6',.028,2,true));
+    }
+    for(let j=0;j<18;j++){tree(-42+(j%6)*6,-48-Math.floor(j/6)*4,j);tree(29+(j%6)*4,51+Math.floor(j/6)*3,j+2);}
+  }
 
   const parks=[[-15,47,9,5],[-20,-42,9,6],[20,48,5,5]];
   parks.forEach(([x,z,sx,sz],i)=>{

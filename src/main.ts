@@ -29,7 +29,7 @@ export async function mountSkyline(root: HTMLElement, signal?: AbortSignal): Pro
 const search = new URLSearchParams(location.search);
 const displaySurface=search.get('mode')==='display';
 const fullCityPreview=isFullCityPreview(search);
-const personalSurface=search.get('mode')!=='display'&&(matchMedia('(pointer: coarse)').matches||matchMedia('(max-width:760px)').matches);
+const personalSurface=search.get('mode')!=='display';
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
 const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':search.get('city')==='test'?'test':'public';
 const shared = !fullCityPreview&&(displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut'));
@@ -125,7 +125,7 @@ $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 
 if(initialError)$('intro-direction').textContent=initialError;
 if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link'])$(id).hidden=true;
   $('prototype-badge').textContent=fullCityPreview?'满城模拟':'今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
-if(fullCityPreview)root.querySelector<HTMLElement>('.city-qr')!.hidden=true;
+if(fullCityPreview||cityId!=='public')root.querySelector<HTMLElement>('.city-qr')!.hidden=true;
 root.dataset.release=RELEASE_ID;
 let qrUrl='',qrGeneration=0;
 $('entry-link').hidden=displaySurface;
@@ -221,7 +221,7 @@ function finish() {
   $('performance-summary').textContent = `Perfect ${completed.perfectCount} 次 · 最长 ${completed.longestCombo} 连击`;
   ($('submit-button') as HTMLButtonElement).disabled = count === 0;
   updateColorChoices();
-  $('submit-note').textContent = count === 0 ? '先成功盖一层，再把小楼放进城市。' : shared?'提交后，署名、成绩与楼体将公开展示。本局需在开局后10分钟内提交。':'城市使用模拟数据，仅保留在本页。';
+  $('submit-note').textContent = count === 0 ? '先成功盖一层，再把小楼放进城市。' : shared?'作品会保存；大屏76个展示位按层数竞争，同分先到先得。署名、成绩与照片可公开展示，本局需在开局后10分钟内提交。':'城市使用模拟数据，仅保留在本页。';
   viewer.setSolo(completed.tower,selectedColor,city.get(playerId)?.photo); show('result');
 }
 function refreshCityUI() {
@@ -237,9 +237,10 @@ function refreshCityUI() {
     $('personal-floors').textContent=String(own?.tower.layers.length??0);
     $('personal-name').textContent=own?.name??'还没有保存的作品';
     const p=own?plotLocation(own.plotId,currentLayout()):undefined;
-    $('personal-note').textContent=own?`${p?.districtName??'今日街区'} · 地块 ${own.plotId+1}；新最佳在大屏原地更新。`:'先盖一局，把自己的楼留在天际线。';
+    const cutoff=city instanceof SharedCityRepository?city.snapshot.displayCutoff??0:0;
+    $('personal-note').textContent=own?own.plotId<0?`作品已保存，暂未获得大屏展示位。盖到 ${cutoff+1} 层可竞争展示位；同分先到先得。`:`${p?.districtName??'今日街区'} · 地块 ${own.plotId+1}；展示期间新最佳原地更新。`:'先盖一局，把自己的楼留在天际线。';
     $('city-callout-title').textContent=own?'看看你的最高作品。':'先盖出属于你的小楼。';
-    $('city-callout-note').textContent=shared?'署名、成绩与楼体会在大屏城市公开展示。':'这是本页模拟，刷新后重置。';
+    $('city-callout-note').textContent=shared?'全城76个展示位，按个人最佳层数竞争；个人作品保留至午夜。':'这是本页模拟，刷新后重置。';
     $('city-play').textContent=game?.phase==='paused'?'继续盖楼 →':own?'再盖一局 →':'开始盖楼 →';
     labels.clear();sceneryNodes=[];return;
   }
@@ -340,7 +341,7 @@ async function submit() {
   refreshCityUI();show('city');
   const event = $('city-event'); event.replaceChildren();
   const title = document.createElement('strong'), note = document.createElement('span');
-  title.textContent = update.kind === 'first' ? '你的楼，入城了！' : update.kind === 'best' ? '新最佳，原地长高！' : update.kind==='duplicate'?'这一局已经共享过':'最佳纪录保持不变';
+  title.textContent = update.building.plotId<0?'作品已保存，继续挑战展示位':update.kind === 'first'||update.previous?.plotId===-1 ? '你的楼，入城了！' : update.kind === 'best' ? '新最佳，原地长高！' : update.kind==='duplicate'?'这一局已经共享过':'最佳纪录保持不变';
   note.textContent = update.kind === 'first' ? `${update.building.name} · ${completed.tower.layers.length} 层` : update.kind === 'best' ? `从 ${update.previous!.tower.layers.length} 层，长到 ${update.building.tower.layers.length} 层` : `本局 ${completed.tower.layers.length} 层，主楼仍是 ${update.building.tower.layers.length} 层`;
   event.append(title, note); event.dataset.kind = update.kind; event.hidden = false; eventUntil = performance.now() + 6000;
   if(photoEditor.selected){

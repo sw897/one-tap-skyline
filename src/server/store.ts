@@ -51,10 +51,10 @@ export class CityStore {
   async currentName(city:SharedCityId,owner:string){return (await this.stmt('SELECT name FROM buildings WHERE city_id=? AND player_id=?',city,owner).first<{name:string}>())?.name;}
   async snapshot(city:SharedCityId,writeOpen:boolean,owner?:string,after?:number):Promise<CitySnapshot> {
     const rows=await this.db.batch([
-      this.stmt('SELECT c.*,(SELECT COUNT(*) FROM buildings WHERE city_id=c.id) AS total_buildings,COALESCE((SELECT MAX(id) FROM city_events WHERE city_id=c.id),0) AS latest_event,COALESCE((SELECT MIN(id) FROM city_events WHERE city_id=c.id),0) AS first_event FROM cities c WHERE id=?',city),
+      this.stmt('SELECT c.*,(SELECT COUNT(*) FROM buildings WHERE city_id=c.id) AS total_buildings,(SELECT COUNT(*) FROM buildings WHERE city_id=c.id AND plot_id>=0) AS displayed_buildings,(SELECT MIN(floors) FROM buildings WHERE city_id=c.id AND plot_id>=0) AS display_cutoff,COALESCE((SELECT MAX(id) FROM city_events WHERE city_id=c.id),0) AS latest_event,COALESCE((SELECT MIN(id) FROM city_events WHERE city_id=c.id),0) AS first_event FROM cities c WHERE id=?',city),
       owner ? this.stmt(`SELECT b.*,p.public_id,1+(SELECT COUNT(*) FROM buildings other WHERE other.city_id=b.city_id AND other.floors>b.floors) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? AND b.player_id=?`,city,owner) :
-        this.stmt(`SELECT b.*,p.public_id,RANK() OVER(ORDER BY b.floors DESC) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? ORDER BY b.floors DESC,b.achieved_at,b.id`,city),
-      this.stmt(`SELECT b.id,COALESCE(f.version,0) AS version,a.id AS asset_id,a.expires_at,a.status FROM buildings b LEFT JOIN building_facades f ON f.building_id=b.id LEFT JOIN photo_assets a ON a.id=f.asset_id WHERE b.city_id=? AND (? IS NULL OR b.player_id=?)`,city,owner??null,owner??null),
+        this.stmt(`SELECT b.*,p.public_id,RANK() OVER(ORDER BY b.floors DESC) AS rank FROM buildings b JOIN players p ON p.id=b.player_id WHERE b.city_id=? AND b.plot_id>=0 ORDER BY b.floors DESC,b.achieved_order,b.achieved_at,b.id`,city),
+      this.stmt(`SELECT b.id,COALESCE(f.version,0) AS version,a.id AS asset_id,a.expires_at,a.status FROM buildings b LEFT JOIN building_facades f ON f.building_id=b.id LEFT JOIN photo_assets a ON a.id=f.asset_id WHERE b.city_id=? AND ((? IS NULL AND b.plot_id>=0) OR b.player_id=?)`,city,owner??null,owner??null),
       owner?this.stmt('SELECT * FROM city_events WHERE 0') : after===undefined?this.stmt('SELECT * FROM city_events WHERE city_id=? ORDER BY id DESC LIMIT 40',city):this.stmt('SELECT * FROM city_events WHERE city_id=? AND id>? ORDER BY id LIMIT 40',city,after),
     ]);
     const meta=rows[0].results[0] as unknown as CityRow;
@@ -65,7 +65,7 @@ export class CityStore {
     type EventRow={id:number;epoch:string;revision:number;run_id:string;kind:'first'|'best';player_public_id:string;plot_id:number;name:string;previous_floors:number;floors:number;global_record:number;created_at:number};
     const events=(rows[3].results as unknown as EventRow[]).map(e=>({id:e.id,epoch:e.epoch,revision:e.revision,runId:e.run_id,kind:e.kind,playerId:e.player_public_id,plotId:e.plot_id,name:e.name,previousFloors:e.previous_floors,floors:e.floors,globalRecord:!!e.global_record,createdAt:e.created_at} satisfies CityEvent));
     if(after===undefined)events.reverse();
-    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings,scope:owner?'own':'all',totalBuildings:Number((meta as CityRow&{total_buildings:number}).total_buildings),resetAt:nextShanghaiMidnight(),layout,...(owner?{ownLocation:buildings[0]?plotLocation(buildings[0].plotId,layout):undefined}:{events,latestEventId:meta.latest_event,eventGap:after!==undefined&&after>0&&meta.first_event>after+1})};
+    return {cityId:city,epoch:meta.epoch,revision:meta.revision,name:meta.display_name,isTest:!!meta.is_test,writeOpen,capacity:meta.capacity,buildings,scope:owner?'own':'all',totalBuildings:Number((meta as CityRow&{total_buildings:number}).total_buildings),displayedBuildings:Number((meta as CityRow&{displayed_buildings:number}).displayed_buildings),displayCutoff:Number((meta as CityRow&{display_cutoff:number}).display_cutoff??0),resetAt:nextShanghaiMidnight(),layout,...(owner?{ownLocation:buildings[0]?plotLocation(buildings[0].plotId,layout):undefined}:{events,latestEventId:meta.latest_event,eventGap:after!==undefined&&after>0&&meta.first_event>after+1})};
   }
   async activeRun(city:SharedCityId,player:string,now:number) {
     await this.stmt("UPDATE runs SET status='expired' WHERE city_id=? AND player_id=? AND status='active' AND expires_at<?",city,player,now).run();
@@ -106,26 +106,38 @@ export class CityStore {
         result_kind=CASE WHEN ?=0 THEN 'zero'
           WHEN EXISTS(SELECT 1 FROM buildings WHERE city_id=runs.city_id AND player_id=runs.player_id) THEN
             CASE WHEN ?> (SELECT floors FROM buildings WHERE city_id=runs.city_id AND player_id=runs.player_id) THEN 'best' ELSE 'unchanged' END
-          WHEN (SELECT next_plot>=capacity FROM cities WHERE id=runs.city_id) THEN 'full' ELSE 'first' END
+          ELSE 'first' END
         WHERE id=? AND player_id=? AND status='active' AND expires_at>=?`,hash,JSON.stringify(trace),tower,floors,token,floors,floors,run.id,owner,now),
-      this.stmt(`WITH RECURSIVE ordinals(n) AS (
-          SELECT 0 UNION ALL SELECT n+1 FROM ordinals WHERE n+1<(SELECT capacity FROM cities WHERE id=?)
-        ) INSERT INTO buildings(id,city_id,player_id,plot_id,color,name,best_run_id,floors,tower_json,achieved_at)
-        SELECT ?,r.city_id,r.player_id,(SELECT n+CASE WHEN n>=13 THEN 1 ELSE 0 END FROM ordinals
-          WHERE NOT EXISTS(SELECT 1 FROM buildings b WHERE b.city_id=r.city_id AND b.plot_id=n+CASE WHEN n>=13 THEN 1 ELSE 0 END)
-          ORDER BY random() LIMIT 1),
-          ?,?,r.id,r.floors,r.tower_json,?
-        FROM runs r JOIN cities c ON c.id=r.city_id WHERE r.id=? AND r.finalize_token=? AND r.result_kind='first'`,city,id,color??playerColor(player.public_id),cleanName(name),now,run.id,token),
-      this.stmt(`UPDATE buildings SET floors=?,tower_json=?,best_run_id=?,achieved_at=?,name=?,color=COALESCE(?,color)
+      // -1 means saved personal work with no display slot; only nonnegative plots are unique.
+      this.stmt(`INSERT INTO buildings(id,city_id,player_id,plot_id,color,name,best_run_id,floors,tower_json,achieved_at,achieved_order)
+        SELECT ?,r.city_id,r.player_id,-1,?,?,r.id,r.floors,r.tower_json,?,
+          1+COALESCE((SELECT MAX(achieved_order) FROM buildings WHERE city_id=r.city_id),0)
+        FROM runs r WHERE r.id=? AND r.finalize_token=? AND r.result_kind='first'`,id,color??playerColor(player.public_id),cleanName(name),now,run.id,token),
+      this.stmt(`UPDATE buildings SET floors=?,tower_json=?,best_run_id=?,achieved_at=?,name=?,color=COALESCE(?,color),
+        achieved_order=1+(SELECT MAX(other.achieved_order) FROM buildings other WHERE other.city_id=buildings.city_id)
         WHERE city_id=? AND player_id=? AND floors<? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind='best')`,floors,tower,run.id,now,cleanName(name),color??null,city,owner,floors,run.id,token),
-      this.stmt(`UPDATE cities SET revision=revision+1,next_plot=next_plot+CASE WHEN (SELECT result_kind FROM runs WHERE id=? AND finalize_token=?)='first' THEN 1 ELSE 0 END
-        WHERE id=? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind IN ('first','best'))`,run.id,token,city,run.id,token),
+      // First-arrival order is assigned in this same serialized transaction, even at equal timestamps.
+      this.stmt(`UPDATE buildings SET plot_id=-1 WHERE city_id=? AND plot_id>=0 AND id NOT IN(
+        SELECT id FROM buildings WHERE city_id=? ORDER BY floors DESC,achieved_order,achieved_at,id
+        LIMIT (SELECT capacity FROM cities WHERE id=?))
+        AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind IN ('first','best'))`,city,city,city,run.id,token),
+      this.stmt(`WITH RECURSIVE ordinals(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM ordinals
+        WHERE n+1<(SELECT capacity FROM cities WHERE id=?))
+        UPDATE buildings SET plot_id=(SELECT n+CASE WHEN n>=13 THEN 1 ELSE 0 END FROM ordinals
+          WHERE NOT EXISTS(SELECT 1 FROM buildings b WHERE b.city_id=? AND b.plot_id=n+CASE WHEN n>=13 THEN 1 ELSE 0 END)
+          ORDER BY random() LIMIT 1)
+        WHERE city_id=? AND player_id=? AND plot_id<0 AND id IN(
+          SELECT id FROM buildings WHERE city_id=? ORDER BY floors DESC,achieved_order,achieved_at,id
+          LIMIT (SELECT capacity FROM cities WHERE id=?))
+        AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind IN ('first','best'))`,city,city,city,owner,city,city,run.id,token),
+      this.stmt(`UPDATE cities SET revision=revision+1,next_plot=(SELECT COUNT(*) FROM buildings WHERE city_id=? AND plot_id>=0)
+        WHERE id=? AND EXISTS(SELECT 1 FROM runs WHERE id=? AND finalize_token=? AND result_kind IN ('first','best'))`,city,city,run.id,token),
       this.stmt(`INSERT OR IGNORE INTO city_events(city_id,epoch,revision,run_id,kind,player_public_id,plot_id,name,previous_floors,floors,global_record,created_at)
         SELECT r.city_id,c.epoch,c.revision,r.id,r.result_kind,p.public_id,b.plot_id,b.name,
           COALESCE(json_array_length(json_extract(r.previous_json,'$.tower.layers')),0),r.floors,
           CASE WHEN r.previous_max_floors>0 AND r.floors>r.previous_max_floors THEN 1 ELSE 0 END,?
         FROM runs r JOIN cities c ON c.id=r.city_id JOIN players p ON p.id=r.player_id JOIN buildings b ON b.city_id=r.city_id AND b.player_id=r.player_id
-        WHERE r.id=? AND r.finalize_token=? AND r.result_kind IN ('first','best')`,now,run.id,token),
+        WHERE r.id=? AND r.finalize_token=? AND r.result_kind IN ('first','best') AND b.plot_id>=0`,now,run.id,token),
       this.stmt('DELETE FROM city_events WHERE city_id=? AND id NOT IN(SELECT id FROM city_events WHERE city_id=? ORDER BY id DESC LIMIT 200)',city,city),
       this.stmt(`UPDATE runs SET receipt_json=json_object('kind',result_kind,'runId',id,'floors',floors,
         'revision',(SELECT revision FROM cities WHERE id=runs.city_id),'building',json((${currentBuilding})),'previous',json(previous_json))

@@ -27,8 +27,9 @@ const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 export function parseRuntimeConfig(input: unknown): RuntimeConfig {
-  const root = object(input), game = object(root.game), visual = object(root.visual), city = object(root.city), d = DEFAULT_CONFIG;
-  const layout=waterfrontLayout(typeof city.openDistricts==='number'?city.openDistricts:6,Array.isArray(city.capacities)?city.capacities as number[]:d.city.capacities);
+  const root = object(input), game = object(root.game), visual = object(root.visual), d = DEFAULT_CONFIG;
+  // The event city is a finished six-district composition, with 76 display slots.
+  const layout=waterfrontLayout();
   const lowFloors=Math.round(numeric(visual.lowFloors,12,1,100)),midFloors=Math.max(lowFloors+1,Math.round(numeric(visual.midFloors,24,2,200)));
   const name = typeof root.cityDisplayName === 'string' ? root.cityDisplayName.trim() : '';
   return {

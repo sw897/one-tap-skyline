@@ -27,7 +27,8 @@ export const buildings = sqliteTable('buildings', {
   id: text('id').primaryKey(), cityId: text('city_id').notNull().references(() => cities.id), playerId: text('player_id').notNull().references(() => players.id),
   plotId: integer('plot_id').notNull(), color: text('color').notNull(), name: text('name').notNull(),
   bestRunId: text('best_run_id').notNull().references(() => runs.id), floors: integer('floors').notNull(), towerJson: text('tower_json').notNull(), achievedAt: integer('achieved_at').notNull(),
-}, t => [uniqueIndex('one_player_building').on(t.cityId,t.playerId),uniqueIndex('one_city_plot').on(t.cityId,t.plotId),index('city_ranking').on(t.cityId,t.floors)]);
+  achievedOrder: integer('achieved_order').notNull().default(0),
+}, t => [uniqueIndex('one_player_building').on(t.cityId,t.playerId),uniqueIndex('one_city_plot').on(t.cityId,t.plotId).where(sql`${t.plotId} >= 0`),index('city_ranking').on(t.cityId,t.floors)]);
 export const rateLimits = sqliteTable('rate_limits', {
   bucket: text('bucket').primaryKey(), count: integer('count').notNull().default(0), expiresAt: integer('expires_at').notNull(),
 });

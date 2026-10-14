@@ -1,5 +1,7 @@
 # 一指盖楼：城市天际线
 
+当前为[固定六区景观本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-d47e8b59af1d)：新增游乐园、商场、水岸集市和书屋；76个展示位按最佳层数竞争，同分先到先得，个人作品及照片保留。见[测试入口及真实记录](docs/P5-six-district-display-slots-record.md)。编译和本地竞争接口通过；101项回归100通过，旧迁移工具1项缺口保留；三维观感待手工体验。未上传Sites，线上仍21；以下均为历史候选记录，旧v不会加载历史部署。
+
 最新[同轴过桥本地候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-773fb4d6392b)：两岸引道与桥面共线，移除桥头三路尖角。17项检查/构建通过，视觉待复测，未上传Sites；见[记录](docs/P5-straight-bridge-record.md)。以下链接为历史记录，v不选择旧构建。
 
 最新[本地桥头修订](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-282df7d178eb)：地块55旁坡道接到实际道路中心线，17项定向检查及构建通过，三维效果待复测；未上传Sites，见[记录与扩区说明](docs/P5-bridge-landing-record.md)。下述为上一轮历史候选，旧v参数不会加载旧构建。

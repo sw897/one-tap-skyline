@@ -96,13 +96,22 @@ test('tied ranks 1/1/3 and foreign run rejection; zero run produces no plot',asy
     assert.equal((await h.call('/api/runs',{city:'test',startKey:randomId()},zero.cookie)).status,200);
   }finally{h.db.close();}
 });
-test('capacity rejects newcomer without losing existing best; reserved park never allocated',async()=>{
-  const h=harness(waterfrontLayout(2));try{const a=await h.session();await h.play(a.cookie,2);
-    for(let i=1;i<22;i++){const player=await h.session();assert.equal((await h.play(player.cookie,2)).submitted.body.receipt.kind,'first');}
-    const b=await h.session();const full=await h.play(b.cookie,3);assert.equal(full.submitted.body.receipt.kind,'full');assert.equal(full.submitted.body.snapshot.revision,22);
-    const ids=full.submitted.body.snapshot.buildings.map((b:any)=>b.plotId);assert.equal(new Set(ids).size,22);assert.ok(!ids.includes(13));assert.ok(ids.every((id:number)=>!!plotLocation(id,waterfrontLayout(2))));
-    const improved=await h.play(a.cookie,4);assert.equal(improved.submitted.body.receipt.kind,'best');assert.equal(improved.submitted.body.snapshot.buildings.length,22);
-    assert.equal((await h.call('/api/runs',{city:'test',startKey:randomId()},b.cookie)).status,200);
+test('76 display slots keep first arrivals on ties; displacements retain personal works and can return',async()=>{
+  const h=harness();try{
+    const entrants=[];
+    for(let i=0;i<76;i++){const p=await h.session();const saved=await h.play(p.cookie,2,'模拟楼'+i);assert.equal(saved.submitted.status,200);entrants.push({p,building:saved.submitted.body.receipt.building});}
+    const last=entrants.at(-1)!,newcomer=await h.session();
+    const equal=await h.play(newcomer.cookie,2,'候选作品',PALETTE[4]);assert.equal(equal.submitted.body.receipt.kind,'first');assert.equal(equal.submitted.body.receipt.building.plotId,-1);
+    assert.equal(equal.submitted.body.snapshot.buildings.length,76);assert.equal(equal.submitted.body.snapshot.totalBuildings,77);
+    const personal=await h.call('/api/city?city=test&scope=own',undefined,newcomer.cookie);assert.equal(personal.body.buildings[0].plotId,-1);assert.equal(personal.body.buildings[0].color,PALETTE[4]);
+    const high=await h.play(newcomer.cookie,3,'升高作品');assert.equal(high.submitted.body.receipt.building.plotId,last.building.plotId);
+    const displaced=(await h.call('/api/city?city=test&scope=own',undefined,last.p.cookie)).body.buildings[0];
+    assert.equal(displaced.plotId,-1);assert.deepEqual(displaced.tower,last.building.tower);assert.equal(displaced.name,last.building.name);
+    for(const e of entrants.slice(0,-1))assert.equal(high.submitted.body.snapshot.buildings.find((b:any)=>b.playerId===e.p.profile.playerId).plotId,e.building.plotId);
+    const replay=await h.call('/api/runs/'+high.runId+'/submit',high.body,newcomer.cookie);assert.equal(replay.body.duplicate,true);assert.equal(replay.body.snapshot.revision,high.submitted.body.snapshot.revision);
+    const low=await h.play(last.p.cookie,2,'不应改名');assert.equal(low.submitted.body.receipt.kind,'unchanged');assert.equal(low.submitted.body.receipt.building.plotId,-1);assert.equal(low.submitted.body.receipt.building.name,last.building.name);
+    const returned=await h.play(last.p.cookie,4,'重新入城');assert.ok(returned.submitted.body.receipt.building.plotId>=0);
+    const ids=returned.submitted.body.snapshot.buildings.map((b:any)=>b.plotId);assert.equal(new Set(ids).size,76);assert.ok(!ids.includes(13));assert.equal(h.db.connection.prepare('SELECT COUNT(*) n FROM buildings').get()!.n,77);
   }finally{h.db.close();}
 });
 

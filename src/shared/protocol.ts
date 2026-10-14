@@ -12,6 +12,7 @@ export interface CitySnapshot {
   cityId: SharedCityId; epoch: string; revision: number; name: string; isTest: boolean; writeOpen: boolean;
   capacity: number; buildings: RankedBuilding[];
   scope?: SnapshotScope; totalBuildings?: number;
+  displayedBuildings?:number; displayCutoff?:number;
   photoWriteOpen?: boolean;
   resetAt?: number;
   layout?:CityLayout; ownLocation?:PlotLocation;

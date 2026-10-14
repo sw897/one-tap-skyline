@@ -7,6 +7,7 @@ import {MemoryCityRepository} from '../src/core/city.ts';
 import {buildTower,decorateRank} from '../src/render.ts';
 import {createWaterfront,disposeLandscape} from '../src/city-scene.ts';
 import {allPlots,waterfrontLayout} from '../src/core/layout.ts';
+import {insideIsland,islandPlan} from '../src/core/island.ts';
 const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
 for(const floors of [1,12,24,35])test(`full ${floors}-floor photo covers every actual face without bridging setbacks`,()=>{
   const model=fixtureTower(floors,3),f=fullWallFacade(model);
@@ -71,4 +72,19 @@ for(const count of [6,10])test(`public background architecture has names and doe
   assert.ok(scene.userData.labels.length>0);
   for(const footprint of scene.userData.publicFootprints)for(const p of plots)assert.ok(Math.hypot(p.x-footprint.x,p.z-footprint.z)>footprint.radius+2.25);
   disposeLandscape(scene);const without=createWaterfront(layout,false);assert.equal(without.userData.labels.length,0);disposeLandscape(without);
+});
+
+test('six-district amenities have distinct landmarks and clear player plots, roads and shoreline',()=>{
+  const layout=waterfrontLayout(),scene=createWaterfront(layout),plan=islandPlan(layout);
+  assert.deepEqual(scene.userData.decorativeFeatures,['fairground','shopping-arcade','waterfront-market','garden-pavilion']);
+  const roads=scene.userData.roadNetwork.roads;
+  // New facilities use conservative circular bounds; ground plazas and paths are not scored buildings.
+  for(const f of scene.userData.publicFootprints.slice(0,5)){
+    for(let i=0;i<32;i++)assert.ok(insideIsland(plan,f.x+Math.cos(i*Math.PI/16)*f.radius,f.z+Math.sin(i*Math.PI/16)*f.radius));
+    for(const road of roads)for(let i=1;i<road.points.length;i++){
+      const a=road.points[i-1],b=road.points[i],dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((f.x-a.x)*dx+(f.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+      assert.ok(Math.hypot(f.x-a.x-t*dx,f.z-a.z-t*dz)>f.radius+road.shoulder/2,`amenity at ${f.x},${f.z} crosses ${road.id}`);
+    }
+  }
+  assert.equal(scene.userData.groundSurfaceCount,1);disposeLandscape(scene);
 });

@@ -7,6 +7,7 @@ export const PALETTE = ['#75aaff', '#73cbbb', '#ffb084', '#baa0ef', '#f29ea9', '
 export const playerColor = (publicId:string) => PALETTE[(Number.parseInt(publicId.replaceAll('-','').slice(0,8),16)||0)%PALETTE.length];
 export interface CityBuilding {
   readonly playerId: string;
+  /** -1 is a saved personal work awaiting a public display slot. */
   readonly plotId: number;
   readonly color: string;
   readonly name: string;
