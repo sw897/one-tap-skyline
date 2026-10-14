@@ -1,6 +1,6 @@
 # 一指盖楼：城市天际线
 
-当前线上按用户要求回退至Sites16（38c459f / p5-event-screen-preview.8）；源码保留最新aba685a / p5-event-screen-preview.11候选，尚未上线。候选包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；31项定向检查、构建及本地Worker检查通过，真机/真实午夜仍未验证。见[当前实际记录](docs/P5-cache-entry-and-rollback-record.md)；新候选先保存供确认。
+当前线上已按用户“上线测试”要求发布Sites19（aba685a / p5-event-screen-preview.11）。包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；沿用上一轮31项定向检查、构建与本地Worker证据，本次未重新运行，真实手机/午夜仍未验证。见[发布记录](docs/P5-sites19-release-record.md)及[实现与回退历史](docs/P5-cache-entry-and-rollback-record.md)。
 
 手机优先的一指盖楼游戏。默认逐层交替 X/Z，每层单轴；60 秒有效游玩时间，Perfect 与连击只做反馈。游玩、结算和城市共用完整楼体模型，层数与高度一致。公开默认城市名为“城市天际线”。
 

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026 10 14 Sites19 上线试玩
+
+- 用户批准后，原保存Sites19发布succeeded，aba685a / p5-event-screen-preview.11；原public受众和午夜任务保持。无应用源码变更，沿用31项定向检查/构建，本次未重新执行，手机与真实午夜未验证。见[发布记录](docs/P5-sites19-release-record.md)。
+
 ## 2026 10 14 P5 反馈、每日入口候选与线上回退
 
 - Sites17反馈修复及Sites18缓存/每日入口曾实际发布；用户要求回退未试玩版本，线上重新部署Sites16成功，源码保留并继续简化，旧tag/真实历史不删。
