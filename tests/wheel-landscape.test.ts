@@ -27,3 +27,11 @@ test('exhibition moves toward green district and away from fairground without cr
  for(const road of scene.userData.roadNetwork.roads)for(let i=1;i<road.points.length;i++){const a=road.points[i-1],b=road.points[i],dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((label.x-a.x)*dx+(label.z-a.z)*dz)/(dx*dx+dz*dz||1)));assert.ok(Math.hypot(label.x-a.x-t*dx,label.z-a.z-t*dz)>road.shoulder/2+4.2);}
  disposeLandscape(scene);
 });
+
+test('exhibition lawn and trees share the relocated building origin and stay clear',()=>{
+ const scene=createWaterfront(waterfrontLayout()),g=scene.userData.exhibitionGarden,label=scene.userData.labels.find((l:any)=>l.name==='云岸展馆');assert.equal(g.x,label.x);assert.equal(g.z,label.z);assert.ok(g.trees.length>=4);
+ for(const tree of g.trees){assert.ok(Math.abs(tree.x-g.x)>4.2);assert.ok(Math.abs(tree.z-g.z)<g.sz);}
+ for(let i=0;i<360;i++){const a=i*Math.PI/180,x=g.x+Math.cos(a)*g.sx,z=g.z+Math.sin(a)*g.sz;for(const p of allPlots(waterfrontLayout()))assert.ok(Math.hypot(x-p.x,z-p.z)>2.7);
+ for(const road of scene.userData.roadNetwork.roads)for(let j=1;j<road.points.length;j++){const a=road.points[j-1],b=road.points[j],dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));assert.ok(Math.hypot(x-a.x-t*dx,z-a.z-t*dz)>road.shoulder/2+.1);}}
+ disposeLandscape(scene);
+});

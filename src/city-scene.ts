@@ -109,13 +109,13 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   }
   // Empty plots blend into the park ground; occupied towers retain their own base.
   for(const p of plots)box(p.x,.012,p.z,2.95,.012,2.95,'#c3d9bb',p.rotation);
-  function tree(x:number,z:number,seed:number){
-    if(!clear(x,z,2.9)||!clearRoad(x,z)||(publicBuildings&&Math.hypot(x+2,z-30)<5.2)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return;
+  function tree(x:number,z:number,seed:number,exhibitionGarden=false){
+    if(!clear(x,z,2.9)||!clearRoad(x,z)||(publicBuildings&&!exhibitionGarden&&Math.hypot(x+2,z-30)<5.2)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return false;
     const color=['#4f9277','#70a77d','#8bb883'][seed%3],size=.85+(seed%4)*.075;
     box(x,.47,z,.12,.84,.12,'#998574');
     if(seed%4===0)add('cone',x,1.20,z,.6*size,1.65*size,.6*size,color);
     else add('leaf',x,1.05,z,.7*size,.92*size,.67*size,color);
-    add('shadow',x,.006,z,.78,.78,1,'#3f7960');
+    add('shadow',x,.006,z,.78,.78,1,'#3f7960');return true;
   }
   for(const d of ds)for(let j=0;j<18;j++){const x=(j%9-4)*4,z=(j<9?8.6:-8.6)+streetCurve(x),p=districtPoint(d,x,z);tree(p.x,p.z,j+d.id);}
   for(let i=0;i<105;i++){const p=shorePoint(island,i*Math.PI*2/105,.89);tree(p.x,p.z,i);}
@@ -165,7 +165,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
       [[-15,47],[-20,-42],[20,48]].every(([px,pz])=>Math.hypot(x-px,z-pz)>r+10)&&
       Array.from({length:24},(_,i)=>i*Math.PI/12).every(a=>insideIsland(island,x+Math.cos(a)*r,z+Math.sin(a)*r,.95));
     const garden=(x:number,z:number,r:number,kind:string,index:number)=>{
-      if(!safe(x,z,r)||peripheral.some(p=>Math.hypot(x-p.x,z-p.z)<r+p.radius+1))return;
+      if(!safe(x,z,r)||peripheral.some(p=>Math.hypot(x-p.x,z-p.z)<r+p.radius+1))return false;
       // Avoid the canal corridor as well as roads, even when the reserve is currently empty.
       if(x>2-r&&x<24+r&&z>-r&&z<60+r)return;
       peripheral.push({x,z,radius:r,kind});
@@ -185,12 +185,14 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     for(let i=0;i<24;i++){const p=shorePoint(island,i*Math.PI/12,.81);garden(p.x,p.z,5.6,i%4===0?'beach':i%2?'grove':'garden',i+4);}
   }
 
-  const parks=[[-15,47,9,5],[-20,-42,9,6],[20,48,5,5]];
+  const parks=[[-2,30,6,4.2],[-20,-42,9,6],[20,48,5,5]];
   parks.forEach(([x,z,sx,sz],i)=>{
     const park=new T.Mesh(new T.CircleGeometry(1,48),surfaceMaterial('#81b694',1));park.renderOrder=1;park.rotation.x=-Math.PI/2;park.position.set(x,.004,z);park.scale.set(sx,sz,1);root.add(park);
-    root.add(ribbon([v(x-sx,z),v(x,z-1),v(x+sx,z)],.85,'#f0e4cd',.043));
-    for(let j=0;j<12;j++){const a=j*Math.PI/6,px=x+Math.cos(a)*sx*.78,pz=z+Math.sin(a)*sz*.76;tree(px,pz,j+i);}
-    const buildingX=i===0?-2:x,buildingZ=i===0?30:z;
+    root.add(ribbon(i===0?[v(x-sx*.8,z+sz*.78),v(x,z+sz*.82),v(x+sx*.8,z+sz*.78)]:[v(x-sx,z),v(x,z-1),v(x+sx,z)],.85,'#f0e4cd',.043));
+    const planted:Array<{x:number;z:number}>=[];
+    for(let j=0;j<12;j++){const a=j*Math.PI/6,px=x+Math.cos(a)*sx*(i===0?.9:.78),pz=z+Math.sin(a)*sz*(i===0?.9:.76);if(i===0&&Math.abs(px-x)<4.2)continue;if(tree(px,pz,j+i,i===0))planted.push({x:px,z:pz});}
+    if(i===0)root.userData.exhibitionGarden={x,z,sx,sz,trees:planted};
+    const buildingX=x,buildingZ=z;
     if(publicBuildings&&clear(buildingX,buildingZ,6.6)){
       const x=buildingX,z=buildingZ;
       if(i===0){const forecourt=new T.Mesh(new T.PlaneGeometry(7.2,5.2),surfaceMaterial('#e3dfce',2));forecourt.rotation.x=-Math.PI/2;forecourt.position.set(x,.022,z);root.add(forecourt);}
