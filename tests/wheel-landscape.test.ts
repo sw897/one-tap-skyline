@@ -22,7 +22,7 @@ test('peripheral gardens stay clear of player plots, existing roads and coastlin
 });
 
 test('exhibition moves toward green district and away from fairground without crossing roads',()=>{
- const scene=createWaterfront(waterfrontLayout()),label=scene.userData.labels.find((l:any)=>l.name==='云岸展馆');assert.ok(label);assert.equal(label.x,-2);assert.equal(label.z,30);
+ const scene=createWaterfront(waterfrontLayout()),label=scene.userData.labels.find((l:any)=>l.name==='云岸展馆');assert.ok(label);assert.equal(label.x,-8);assert.equal(label.z,38);assert.ok(Math.hypot(label.x-1,label.z-18)>20);
  assert.ok(Math.hypot(label.x-1,label.z-18)<Math.hypot(-15-1,47-18));assert.ok(Math.hypot(label.x+29,label.z-55)>Math.hypot(-15+29,47-55));
  for(const road of scene.userData.roadNetwork.roads)for(let i=1;i<road.points.length;i++){const a=road.points[i-1],b=road.points[i],dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((label.x-a.x)*dx+(label.z-a.z)*dz)/(dx*dx+dz*dz||1)));assert.ok(Math.hypot(label.x-a.x-t*dx,label.z-a.z-t*dz)>road.shoulder/2+4.2);}
  disposeLandscape(scene);
