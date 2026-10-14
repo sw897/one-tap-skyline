@@ -20,3 +20,11 @@ export function fullWallFacade(model: TowerModel, offset = .032) {
   });
   return { positions, uvs };
 }
+
+/** Source-image rectangles used by the actual wall UVs, in top-left canvas coordinates. */
+export function facadePreviewRects(model:TowerModel){
+ const {positions,uvs}=fullWallFacade(model);
+ return model.layers.map((_,i)=>{const p=positions.slice(i*18,i*18+18),u=uvs.slice(i*12,i*12+12);
+ return {x:Math.min(...p.filter((_,j)=>j%3===0)),y:Math.min(...p.filter((_,j)=>j%3===1)),width:p[3]-p[0],height:model.layerHeight,
+ sx:u[0]*512,sy:(1-u[5])*768,sw:(u[2]-u[0])*512,sh:(u[5]-u[1])*768};});
+}

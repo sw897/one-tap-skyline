@@ -141,6 +141,7 @@ if(!shared){$('qr-note').textContent='模拟数据 · 练习不生成参与二�
 void updates?.check();
 
 function show(next: View) {
+  photoEditor.invalidate();
   navigationVersion++;
   view = next;
   document.documentElement.dataset.view = next;
@@ -404,8 +405,8 @@ $('drop-button').addEventListener('pointerdown', event => { if (event.isPrimary 
 viewer.renderer.domElement.addEventListener('pointerdown', event => { if (event.isPrimary && event.button === 0) place(); });
 $('pause-button').onclick = () => { pauseGame(); updateHUD(); };
 $('resume-button').onclick = () => { resumeGame(); updateHUD(); };
-$('choose-sticker').onclick=()=>photoEditor.choose('result',shared);
-$('edit-own-photo').onclick=()=>photoEditor.choose('own',shared);
+$('choose-sticker').onclick=()=>{if(!completed)return;const target=completed,navigation=navigationVersion,expires=nextShanghaiMidnight();photoEditor.choose('result',shared,target.tower,()=>completed===target&&view==='result'&&navigationVersion===navigation&&Date.now()<expires);};
+$('edit-own-photo').onclick=()=>{const own=city.get(playerId);if(!own)return;const model=JSON.stringify(own.tower),navigation=navigationVersion,expires=nextShanghaiMidnight();photoEditor.choose('own',shared,own.tower,()=>navigationVersion===navigation&&JSON.stringify(city.get(playerId)?.tower)===model&&Date.now()<expires);};
 $('retry-photo').onclick=()=>void saveSelectedPhoto();
 $('remove-own-photo').onclick=()=>void removePhoto();
 $('skip-sticker').onclick = () => { photoEditor.clear();if(completed)viewer.setSolo(completed.tower,buildingColor,city.get(playerId)?.photo);photoNote('已跳过，本次不更换照片。');stickerSkipped = true; $('skip-sticker').textContent = '已跳过'; ($('skip-sticker') as HTMLButtonElement).disabled = true; };
@@ -413,6 +414,8 @@ $('submit-button').onclick = submit;
 $('zoom-in').onclick = () => viewer.zoomCity(-0.12); $('zoom-out').onclick = () => viewer.zoomCity(0.12);
 $('rotate-city').onclick = () => viewer.rotateCity(1); $('city-wide').onclick = () => viewer.focusBuilding();
 $('find-building').onclick = () => focusCurrent(playerId);
+$('ambient-toggle').hidden=!displaySurface;
+$('ambient-toggle').onclick=()=>{const on=viewer.toggleAmbient();$('ambient-toggle').textContent=on?'环境动态 开':'环境动态 关';$('ambient-toggle').setAttribute('aria-pressed',String(on));};
 $('tour-toggle').onclick=()=>{$('tour-toggle').textContent=viewer.toggleTour()?'恢复巡游':'暂停巡游';};
 $('district-select').onchange=()=>{selectedId=undefined;viewer.focusDistrict(Number($<HTMLSelectElement>('district-select').value));refreshLabels();};
 $('results-close').onclick=()=>{resultIds=[];$('building-results').hidden=true;};

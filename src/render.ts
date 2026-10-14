@@ -1,3 +1,5 @@
+import {terracePlan} from './core/terraces.ts';
+import {createAmbient,stepAmbient} from './ambient.ts';
 import * as T from 'three';
 import type { RuntimeConfig } from './config.ts';
 import type { GameSession } from './core/game.ts';
@@ -23,6 +25,11 @@ const roofGlass=new T.MeshStandardMaterial({color:'#70bacb',roughness:.24,metaln
 const roofSteel=new T.MeshStandardMaterial({color:'#d5e9f1',roughness:.25,metalness:.48});
 const medalMaterials=['#e7bf63','#c0d5e3','#ca9277'].map(color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.55,emissive:color,emissiveIntensity:.15}));
 const medalRing=new T.TorusGeometry(1,.08,8,32),medalPeak=new T.OctahedronGeometry(1,0);
+const shadowGeometry=new T.PlaneGeometry(1,1);
+const shadowPixels=new Uint8Array(32*32*4);
+for(let y=0;y<32;y++)for(let x=0;x<32;x++){const d=Math.max(Math.abs((x-15.5)/15.5),Math.abs((y-15.5)/15.5));shadowPixels[(y*32+x)*4+3]=Math.round(48*Math.max(0,1-d)**.7);}
+const shadowTexture=new T.DataTexture(shadowPixels,32,32);shadowTexture.needsUpdate=true;
+const shadowMaterial=new T.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
 const haloGeometry=new T.RingGeometry(1,1.06,48);
 const stickerMaterial = new T.MeshStandardMaterial({ color: '#fffaf1', roughness: 0.6 });
 const scratch = new T.Object3D();
@@ -31,7 +38,7 @@ const warmTint = new T.Color('#fff4d8'), coolTint = new T.Color('#eef8ff');
 export type View = 'intro' | 'play' | 'result' | 'city';
 
 export const layerTint = (color: string, index: number, target = new T.Color()) =>
-  target.set(color).lerp(index % 3 === 1 ? warmTint : coolTint, index % 4 * 0.075);
+  target.set(color).lerp(index % 3 === 1 ? warmTint : coolTint, index % 4 * 0.018);
 
 function instance(mesh: T.InstancedMesh, index: number, x: number, y: number, z: number, width: number, height: number, depth: number) {
   scratch.position.set(x, y, z); scratch.rotation.set(0, 0, 0); scratch.scale.set(width, height, depth);
@@ -43,7 +50,7 @@ function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh,
   instance(slabs, index, layer.x, y, layer.z, layer.width, model.layerHeight, layer.depth);
   for (let j = 0; j < 3; j++)for(let face=0;face<4;face++){
     const front=face<2,sign=face%2===0?1:-1;
-    const windowWidth=tier===0?.18:tier===1?.25:.29,windowHeight=tier===0?.54:tier===1?.7:.82;
+    const windowWidth=tier===0?.18:tier===1?.325:.31,windowHeight=tier===0?.54:tier===1?.88:.93;
     instance(windows,index*12+j*4+face,layer.x+(front?(j-1)*layer.width*.29:sign*(layer.width/2+.009)),y,layer.z+(front?sign*(layer.depth/2+.009):(j-1)*layer.depth*.29),front?layer.width*windowWidth:.018,model.layerHeight*windowHeight,front?.018:layer.depth*windowWidth);
   }
   if(trim)for(let j=0;j<4;j++){const sx=j%2===0?1:-1,sz=j<2?1:-1;instance(trim,index*4+j,layer.x+sx*layer.width*.47,y,layer.z+sz*layer.depth*.47,Math.min(.025,layer.width*.04),model.layerHeight*.95,Math.min(.025,layer.depth*.04));}
@@ -53,7 +60,7 @@ function positionFloor(model: TowerModel, index: number, slabs: T.InstancedMesh,
 
 export function facadeWindowColor(color:string,tier:number,index:number){
   if(tier===0)return new T.Color('#ffebbd');
-  return new T.Color(color).lerp(new T.Color(tier===1?'#f1f9ff':'#142c42'),tier===1?.38+(index%3)*.035:.12+(index%3)*.025);
+  return new T.Color(color).lerp(new T.Color(tier===1?'#f1f9ff':'#142c42'),tier===1?.38+(index%3)*.008:.12+(index%3)*.006);
 }
 function styledRoof(model:TowerModel,tier:number,color:string){
   const root=new T.Group(),top=topLayer(model);
@@ -107,9 +114,12 @@ export function buildTower(model: TowerModel, color: string,photo?:PhotoDecorati
     for(let j=0;j<12;j++)windows.setColorAt(index*12+j,facadeWindowColor(color,tier,index));
   });
   floors.add(slabs, windows, slots,trim);
+  const terraceData=terracePlan(model),terraces=new T.InstancedMesh(unit,roofGreen,Math.max(1,terraceData.length));terraces.count=terraceData.length;
+  terraceData.forEach((r,i)=>instance(terraces,i,r.x,r.y+r.height/2,r.z,r.width,r.height,r.depth));floors.add(terraces);
+  root.userData.terraceData=terraceData;
   const photoHolder=new T.Group();floors.add(photoHolder);
   const roof=styledRoof(model,tier,color);root.add(roof);
-  root.userData = { model, floors, slabs, windows, slots,trim,roof,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color,tier };
+  root.userData = { terraceData,terraces, model, floors, slabs, windows, slots,trim,roof,photoHolder,photoKey:null, logicalHeight: towerHeight(model), color,tier };
   applyFacade(root,photo,thumbnail);
   return root;
 }
@@ -225,6 +235,9 @@ export class SkylineRenderer {
   private maxCityHeight = 0;
   private soloColor='#75aaff';
   private nextPhotoCheck=0;
+  private ambient?:T.Group;
+  private ambientEnabled=false;
+  toggleAmbient(){this.ambientEnabled=this.reduced.matches?false:!this.ambientEnabled;return this.ambientEnabled;}
 
   constructor(container: HTMLElement, config: RuntimeConfig, layout=waterfrontLayout(config.city.openDistricts,config.city.capacities),citySurface=true,displaySurface=false) {
     this.layout=layout;
@@ -266,7 +279,7 @@ export class SkylineRenderer {
   }
   private createCityGround() {
     if(this.landscape)disposeLandscape(this.landscape);
-    this.landscape=createWaterfront(this.layout,this.config.visual.publicBuildings);this.city.add(this.landscape);
+    this.landscape=createWaterfront(this.layout,this.config.visual.publicBuildings);this.city.add(this.landscape);this.ambient=createAmbient(this.layout);this.landscape.add(this.ambient);
   }
   setSolo(model: TowerModel, color = this.soloColor,photo?:PhotoDecoration|null,rank?:number) {
     if (model === this.soloModel && color===this.soloColor){if(this.soloTower){applyFacade(this.soloTower,photo);decorateRank(this.soloTower,rank);}return;}
@@ -306,6 +319,7 @@ export class SkylineRenderer {
       const group = buildTower(building.tower, building.color,building.photo,thumbnail,this.config.visual);
       decorateRank(group,rank);group.rotation.y=p.rotation;
       group.position.set(p.x, 0.055, p.z);
+      const shade=new T.Mesh(shadowGeometry,shadowMaterial);shade.rotation.x=-Math.PI/2;shade.position.y=-.012;shade.scale.set(3.12,3.12,1);group.add(shade);
       group.userData.playerId = building.playerId;
       this.city.add(group); this.cityObjects.set(building.playerId, group);
       if(update?.building?.playerId===building.playerId&&['first','best'].includes(update.kind))this.highlightBuilding(building.playerId);
@@ -366,6 +380,7 @@ export class SkylineRenderer {
     return {model,logicalHeight:towerHeight(model),displayedHeight:model.baseHeight+model.layers.length*model.layerHeight*this.soloTower.userData.floors.scale.y,color:this.soloColor};
   }
   update(seconds: number, game?: GameSession) {
+    if(this.ambient)stepAmbient(this.ambient,seconds,this.ambientEnabled&&!this.reduced.matches&&!document.hidden&&this.view==='city',this.cityCamera.camera.position);
     if(Date.now()>=this.nextPhotoCheck){this.nextPhotoCheck=Date.now()+500;for(const root of [...this.cityObjects.values(),...(this.soloTower?[this.soloTower]:[])])if(root.userData.photo&&root.userData.photo.expiresAt<=Date.now())applyFacade(root,undefined);}
     for(const group of this.cityObjects.values())if(group.userData.halo){const left=group.userData.highlightUntil-performance.now();if(left<=0){group.userData.halo.material.dispose();group.userData.halo.removeFromParent();group.userData.halo=undefined;}else group.userData.halo.material.opacity=.35+.35*Math.sin(left*.0015)**2;}
     if (this.view === 'play' && game) {

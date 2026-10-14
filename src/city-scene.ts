@@ -64,7 +64,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     return Math.hypot(x-a.x-t*dx,z-a.z-t*dz)>road.shoulder/2+r;
   }));
   // Ocean and shallow-water bands extend into an open horizon, without a board edge.
-  const ocean=new T.Mesh(new T.CircleGeometry(10000,96),new T.MeshBasicMaterial({color:'#88d4e0',toneMapped:false}));ocean.rotation.x=-Math.PI/2;ocean.position.set(island.x,-.33,island.z);root.add(ocean);
+  const ocean=new T.Mesh(new T.CircleGeometry(10000,96),new T.MeshBasicMaterial({color:'#88d4e0',toneMapped:false}));ocean.rotation.x=-Math.PI/2;ocean.position.set(island.x,-.33,island.z);root.add(ocean);root.userData.oceanMaterial=ocean.material;root.userData.oceanColor=ocean.material.color.clone();
   const shape=(scale:number)=>new T.Shape(shoreLoop(island,scale).slice(0,-1).map(p=>new T.Vector2(p.x,p.z)));
   const waterBand=shape(1.115);waterBand.holes.push(new T.Path(shoreLoop(island,1.036).slice(0,-1).reverse().map(p=>new T.Vector2(p.x,p.z))));
   const shallows=new T.Mesh(new T.ShapeGeometry(waterBand),new T.MeshBasicMaterial({color:'#ade5dd',side:T.DoubleSide}));shallows.rotation.x=Math.PI/2;shallows.position.y=-.265;root.add(shallows);
@@ -104,15 +104,10 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
         for(let j=0;j<5;j++){const along=(j/4-.5)*(length-.2);box(x+nx+Math.sin(rotation)*along,.5,z+nz+Math.cos(rotation)*along,.06,.38,.06,'#a2b6af');}
       }
     }
-    const curve=new T.CatmullRomCurve3(network.roads.find(road=>road.id==='avenue')!.points.map(p=>v(p.x,p.z)));
-    for(let i=0;i<9;i++){
-      const t=.06+i*.095,p=curve.getPoint(t),dir=curve.getTangent(t),angle=Math.atan2(dir.x,dir.z),side=i%2?-.6:.6;
-      p.x+=dir.z*side;p.z-=dir.x*side;
-      box(p.x,.22,p.z,.5,.28,1.1,['#f5ce86','#dbeef2','#b3c9ed'][i%3],angle);
-      add('glass',p.x,.41,p.z,.42,.16,.53,'#5b9caf',angle);
-    }
+    // Moving road vehicles are added separately, using the actual safe road segments.
   }
-  for(const p of plots)box(p.x,.027,p.z,3.15,.045,3.15,'#dfe2d2',p.rotation);
+  // Empty plots blend into the park ground; occupied towers retain their own base.
+  for(const p of plots)box(p.x,.012,p.z,2.95,.012,2.95,'#c3d9bb',p.rotation);
   function tree(x:number,z:number,seed:number){
     if(!clear(x,z,2.9)||!clearRoad(x,z)||civicPlots.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+1))return;
     const color=['#4f9277','#70a77d','#8bb883'][seed%3],size=.85+(seed%4)*.075;
