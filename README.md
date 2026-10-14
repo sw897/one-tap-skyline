@@ -1,5 +1,7 @@
 # 一指盖楼：城市天际线
 
+满城反馈修复候选：连续环岛路/街区接路、湖泊到海岸运河及实际交点桥、12px屋顶楼名、满城街区定位保留目标。33项定向检查与构建、局部1080p预览完成；实际发布与缺项见[修复记录](docs/P5-streets-and-district-fix-record.md)。
+
 Sites20已上线满城模拟入口（线上地址私存）（版本参数：build-1bf79e032986）：默认六区76个地块全部生成模拟楼，沿用大屏交互，明确标模拟且不写共享数据、不提供参与二维码。dc8220c / p5-event-screen-preview.12；发布事实与局部检查见[满城预览记录](docs/P5-full-city-preview-record.md)。
 
 此前已按用户“上线测试”要求发布Sites19（aba685a / p5-event-screen-preview.11）；当前Sites20保留这些行为。包含缓存/午夜换码、强制保留当天扫码URL、简单屋顶楼名和2.5秒手动定位；沿用上一轮31项定向检查、构建与本地Worker证据，本次未重新运行，真实手机/午夜仍未验证。见[发布记录](docs/P5-sites19-release-record.md)及[实现与回退历史](docs/P5-cache-entry-and-rollback-record.md)。

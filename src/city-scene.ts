@@ -1,14 +1,28 @@
 import * as T from 'three';
 import {allPlots,districtPoint,districtsFor,streetCurve,type CityLayout} from './core/layout.ts';
 import {islandPlan,shoreLoop,shorePoint} from './core/island.ts';
-import {routeStreet,groundPixels,type GroundTriangle} from './core/ground.ts';
+import {groundPixels,type GroundTriangle} from './core/ground.ts';
+import {waterfrontRoads} from './core/roads.ts';
 export interface SceneryLabel {name:string;x:number;z:number;height:number}
 const v=(x:number,z:number,y=.035)=>new T.Vector3(x,y,z);
 // Ordered ground overlays still use depth testing: bridges/buildings occlude them.
 function surfaceMaterial(color:string,order:number){
   return new T.MeshStandardMaterial({color,roughness:.9,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-order*.25,polygonOffsetUnits:-order*2});
 }
-function makeRibbon(points:T.Vector3[],width:number,color:string,y=.035,order=2){
+function makeRibbon(points:T.Vector3[],width:number,color:string,y=.035,order=2,linear=false){
+  if(linear){
+    const p:number[]=[];
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i],normal=new T.Vector3(-(b.z-a.z),0,b.x-a.x).normalize().multiplyScalar(width/2);
+      for(const q of [a.clone().add(normal),a.clone().sub(normal),b.clone().add(normal),a.clone().sub(normal),b.clone().sub(normal),b.clone().add(normal)])p.push(q.x,y,q.z);
+    }
+    // Round joins stay inside the routed centerline clearance; no spline overshoot.
+    for(const q of points)for(let j=0;j<12;j++){
+      p.push(q.x,y,q.z,q.x+Math.cos(j*Math.PI/6)*width/2,y,q.z+Math.sin(j*Math.PI/6)*width/2,q.x+Math.cos((j+1)*Math.PI/6)*width/2,y,q.z+Math.sin((j+1)*Math.PI/6)*width/2);
+    }
+    const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(p,3));geometry.computeVertexNormals();
+    const mesh=new T.Mesh(geometry,surfaceMaterial(color,order));mesh.renderOrder=order;return mesh;
+  }
   const closed=points[0].distanceToSquared(points.at(-1)!)<.00001;
   const curve=new T.CatmullRomCurve3(closed?points.slice(0,-1):points,closed),p:number[]=[],uv:number[]=[];
   const count=Math.max(24,points.length*10);
@@ -30,14 +44,8 @@ export function disposeLandscape(group:T.Group){
 /** Original procedural scenery; public architecture never enters scores/player data. */
 export function createWaterfront(layout:CityLayout,publicBuildings=true){
   const root=new T.Group(),island=islandPlan(layout),ds=districtsFor(layout),plots=allPlots(layout);
-  const streetRoutes=new Map<string,T.Vector3[]>();
-  const ribbon=(points:T.Vector3[],width:number,color:string,y=.035,order=2)=>{
-    if(order>=3&&order<=5){const key=points.map(p=>p.x.toFixed(3)+':'+p.z.toFixed(3)).join('|');
-      if(!streetRoutes.has(key))streetRoutes.set(key,routeStreet(points,plots,width).map(p=>v(p.x,p.z)));
-      points=streetRoutes.get(key)!;if(order===4)color='#788f92';
-    }
-    return makeRibbon(points,width,color,y,order);
-  };
+  const network=layout.version==='waterfront-1'?waterfrontRoads(layout):undefined;
+  const ribbon=makeRibbon;
   const stone=new T.MeshStandardMaterial({color:'#ece6d5',roughness:.9,side:T.DoubleSide});
   const labels:SceneryLabel[]=[];root.userData.labels=labels;root.userData.publicFootprints=[];
   type Kind='box'|'glass'|'metal'|'leaf'|'cone'|'sphere'|'shadow';
@@ -48,6 +56,10 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   }
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,color:string,ry=0,rz=0)=>add('box',x,y,z,w,h,d,color,ry,rz);
   const clear=(x:number,z:number,r=3)=>plots.every(p=>Math.hypot(x-p.x,z-p.z)>r);
+  const clearRoad=(x:number,z:number,r=.65)=>!network||network.roads.every(road=>road.points.slice(1).every((b,i)=>{
+    const a=road.points[i],dx=b.x-a.x,dz=b.z-a.z,t=T.MathUtils.clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1),0,1);
+    return Math.hypot(x-a.x-t*dx,z-a.z-t*dz)>road.shoulder/2+r;
+  }));
   // Ocean and shallow-water bands extend into an open horizon, without a board edge.
   const ocean=new T.Mesh(new T.CircleGeometry(10000,96),new T.MeshBasicMaterial({color:'#88d4e0',toneMapped:false}));ocean.rotation.x=-Math.PI/2;ocean.position.set(island.x,-.33,island.z);root.add(ocean);
   const shape=(scale:number)=>new T.Shape(shoreLoop(island,scale).slice(0,-1).map(p=>new T.Vector2(p.x,p.z)));
@@ -58,29 +70,35 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   land.rotation.x=Math.PI/2;land.position.y=-.075;root.add(land);
   root.add(ribbon(shoreLoop(island,.958).map(p=>v(p.x,p.z)),1.8,'#eee3cb',.01),ribbon(shoreLoop(island,.976).map(p=>v(p.x,p.z)),.18,'#faf3df',.025));
 
-  const avenue=[v(-52,46),v(-22,41),v(-16,19),v(-19,-4),v(4,-8),v(30,0),v(54,19),v(55,48)];
-  // A smooth boulevard links the districts; repeated street furniture is batched below.
-  if(layout.version==='waterfront-1'){
-    root.add(ribbon(avenue,4.8,'#e6e7d9',.012,3),ribbon(avenue,3.25,'#788f92',.04,4),ribbon(avenue,.07,'#f6d482',.065,5));
-    const links:[number,number][]=[[-19,-4],[4,-8],[30,0],[54,19],[-16,19],[-22,41],[-37,-21],[28,-32],[55,48],[-52,46]];
-    ds.forEach((d,i)=>{
-      const local=Array.from({length:9},(_,j)=>{const x=(j-4)*4,p=districtPoint(d,x,streetCurve(x));return v(p.x,p.z);});
-      const [x,z]=links[i],link=[v(d.x,d.z),v((d.x+x)/2,(d.z+z)/2),v(x,z)];
-      root.add(ribbon(link,3.9,'#e6e7d9',.012,3),ribbon(link,2.5,'#859b9c',.04,4));
-      root.add(ribbon(local,3.9,'#e6e7d9',.012,3),ribbon(local,2.5,'#859b9c',.04,4),ribbon(local,.05,'#fff1c4',.065,5));
+  if(network){
+    for(const road of network.roads){
+      const points=road.points.map(p=>v(p.x,p.z));
+      root.add(ribbon(points,road.shoulder,'#e6e7d9',.012,3,true),ribbon(points,road.width,'#788f92',.04,4,true),ribbon(points,.06,'#f6d482',.065,5,true));
+    }
+    ds.forEach(d=>{
       for(let j=0;j<6;j++){const p=districtPoint(d,-12+j*.3,streetCurve(-12));box(p.x,.087,p.z,.16,.02,2.1,'#f7f4e5',d.rotation);}
       for(const sign of [-1,1]){const p=districtPoint(d,0,sign*7.55);box(p.x,.12,p.z,1.8,.2,.5,'#cad9bb',d.rotation);box(p.x,.27,p.z,1.65,.18,.43,'#61977b',d.rotation);}
     });
-    const outlet=shorePoint(island,Math.PI*.45,1.045),canal=[v(18,7),v(19,25),v(18,36),v(10,49),v(outlet.x,outlet.z)];
-    root.add(ribbon(canal,5.5,'#e7ddc7',.09,6),ribbon(canal,3.8,'#42b7cb',.12,7));
+    const canal=network.canal.map(p=>v(p.x,p.z));
+    root.add(ribbon(canal,5.5,'#e7ddc7',.09,6,true),ribbon(canal,3.8,'#42b7cb',.12,7,true));
     const lake=new T.Mesh(new T.CircleGeometry(1,64),surfaceMaterial('#42b7cb',7));lake.renderOrder=7;lake.rotation.x=-Math.PI/2;lake.scale.set(9,5.6,1);lake.position.set(0,.12,0);root.add(lake);
     const walk=new T.Mesh(new T.RingGeometry(1,1.14,64),surfaceMaterial('#efe3ce',6));walk.renderOrder=6;walk.rotation.x=-Math.PI/2;walk.scale.set(9.1,5.7,1);walk.position.set(0,.09,0);root.add(walk);
-    for(const [x,z,angle] of [[18,35,0],[outlet.x,outlet.z*.88,.12]] as const){
-      box(x,.25,z,8,.25,2.5,'#e9e3d3',angle);
-      for(const sign of [-1,1]){box(x,.72,z+sign*1.12,7.8,.055,.055,'#7a9ba0',angle);for(let j=0;j<5;j++)box(x-3.6+j*1.8,.5,z+sign*1.12,.06,.43,.06,'#a2b6af');}
+    for(const bridge of network.bridges){
+      const {x,z,rotation,length,width}=bridge;
+      box(x,.23,z,width,.25,length,'#e9e3d3',rotation);box(x,.365,z,width-.15,.025,length,'#788f92',rotation);
+      for(const sign of [-1,1]){
+        const position:number[]=[],z0=sign*length/2,z1=sign*(length/2+1.8);
+        for(const q of [[-width/2,.378,z0],[width/2,.378,z0],[-width/2,.015,z1],[width/2,.378,z0],[width/2,.015,z1],[-width/2,.015,z1]])position.push(...q);
+        const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(position,3));geometry.computeVertexNormals();
+        const ramp=new T.Mesh(geometry,new T.MeshStandardMaterial({color:'#788f92',roughness:.9,side:T.DoubleSide}));ramp.position.set(x,0,z);ramp.rotation.y=rotation;root.add(ramp);
+      }
+      for(const sign of [-1,1]){
+        const nx=Math.cos(rotation)*sign*width/2,nz=-Math.sin(rotation)*sign*width/2;
+        box(x+nx,.69,z+nz,.06,.055,length,'#7a9ba0',rotation);
+        for(let j=0;j<5;j++){const along=(j/4-.5)*(length-.2);box(x+nx+Math.sin(rotation)*along,.5,z+nz+Math.cos(rotation)*along,.06,.38,.06,'#a2b6af');}
+      }
     }
-    const avenueKey=avenue.map(p=>p.x.toFixed(3)+':'+p.z.toFixed(3)).join('|');
-    const curve=new T.CatmullRomCurve3(streetRoutes.get(avenueKey)??avenue);
+    const curve=new T.CatmullRomCurve3(network.roads[0].points.slice(0,-1).map(p=>v(p.x,p.z)),true);
     for(let i=0;i<9;i++){
       const t=.06+i*.095,p=curve.getPoint(t),dir=curve.getTangent(t),angle=Math.atan2(dir.x,dir.z),side=i%2?-.6:.6;
       p.x+=dir.z*side;p.z-=dir.x*side;
@@ -90,7 +108,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   }
   for(const p of plots)box(p.x,.027,p.z,3.15,.045,3.15,'#dfe2d2',p.rotation);
   function tree(x:number,z:number,seed:number){
-    if(!clear(x,z,2.9))return;
+    if(!clear(x,z,2.9)||!clearRoad(x,z))return;
     const color=['#4f9277','#70a77d','#8bb883'][seed%3],size=.85+(seed%4)*.075;
     box(x,.47,z,.12,.84,.12,'#998574');
     if(seed%4===0)add('cone',x,1.20,z,.6*size,1.65*size,.6*size,color);
@@ -164,6 +182,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   for(let i=0;i<positions.count;i++)uv.setXY(i,(positions.getX(i)-extent.minX)/(extent.maxX-extent.minX),(positions.getY(i)-extent.minZ)/(extent.maxZ-extent.minZ));
   const ground=new T.Mesh(geometry,new T.MeshStandardMaterial({map:texture,roughness:.9,side:T.DoubleSide}));ground.rotation.x=Math.PI/2;ground.position.y=.003;root.add(ground);
   for(const mesh of remove){mesh.geometry.dispose();(mesh.material as T.Material).dispose();mesh.removeFromParent();}
-  root.userData.groundSurfaceCount=1;root.userData.routedStreets=streetRoutes.size;root.userData.groundTextureBytes=size*size*4;
+  root.userData.groundSurfaceCount=1;root.userData.routedStreets=network?.roads.length??0;root.userData.groundTextureBytes=size*size*4;
+  root.userData.roadNetwork=network;
   return root;
 }

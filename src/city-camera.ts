@@ -6,7 +6,7 @@ import {districtsFor,plotLocation,type CityLayout} from './core/layout.ts';
 import {towerHeight} from './core/tower.ts';
 import {islandPlan,shoreLoop,shorePoint,type IslandPlan} from './core/island.ts';
 import {CameraControl,intersectsBox,type Box} from './core/presentation.ts';
-interface Goal{target:T.Vector3;position:T.Vector3;label:string;playerId?:string;arc?:boolean}
+interface Goal{target:T.Vector3;position:T.Vector3;label:string;playerId?:string;districtId?:number;arc?:boolean}
 export class CityCamera {
   readonly camera=new T.PerspectiveCamera(44,1,1,2500);
   readonly controls:OrbitControls;
@@ -68,7 +68,7 @@ export class CityCamera {
   private districtGoal(id:number):Goal{
     const d=districtsFor(this.layout).find(d=>d.id===id);if(!d)return this.fullGoal();
     const h=Math.max(3,...this.buildings.filter(b=>plotLocation(b.plotId,this.layout)?.districtId===id).map(b=>towerHeight(b.tower)+1.8));
-    return this.fit(d.x,h*.4,d.z,36,23,h,d.name);
+    return {...this.fit(d.x,h*.4,d.z,36,23,h,d.name),districtId:id};
   }
   private buildingGoal(b:CityBuilding):Goal{
     const p=plotLocation(b.plotId,this.layout);if(!p)return this.fullGoal();
@@ -79,21 +79,27 @@ export class CityCamera {
   private move(requested:Goal,snap=false,manual=false){
     this.travelSeconds=manual?this.config.visual.focusTransitionSeconds:this.config.visual.tourTransitionSeconds;
     const boxes=this.boxes(),height=Math.max(6,...boxes.map(b=>b.maxY+6));
+    // Dense buildings may occlude a district center; keep the requested district
+    // and use a higher viewpoint rather than silently returning to the whole island.
+    const safeGoal=(requested:Goal)=>{
+      const safe=requested.districtId?this.districtGoal(requested.districtId):this.fullGoal();
+      safe.position.y=Math.max(height+12,safe.position.y);safe.arc=false;return safe;
+    };
     let goal=requested;
     const blocked=boxes.some(b=>intersectsBox(goal.position,goal.position,b)||b.id!==goal.playerId&&intersectsBox(goal.position,goal.target,b,.3));
-    if(blocked){goal=goal.playerId?this.districtGoal(plotLocation(this.buildings.find(b=>b.playerId===goal.playerId)!.plotId,this.layout)!.districtId):this.fullGoal();goal.position.y=Math.max(height,goal.position.y);goal.arc=false;}
+    if(blocked){goal=safeGoal(goal.playerId?this.districtGoal(plotLocation(this.buildings.find(b=>b.playerId===goal.playerId)!.plotId,this.layout)!.districtId):goal);}
     this.selected=goal.playerId;this.label=goal.label;this.dwell=0;this.allowArc=!!goal.arc;this.arcOrigin=undefined;
     this.fromTarget.copy(this.controls.target);
     const start=this.camera.position.clone(),up=start.clone(),over=goal.position.clone();
     up.y=over.y=Math.max(height,start.y,goal.position.y);
     this.path=[start,up,over,goal.position.clone()];
     if(this.path.slice(1).some((p,i)=>boxes.some(b=>intersectsBox(this.path[i],p,b)))){
-      goal=this.fullGoal();goal.position.y=Math.max(height,goal.position.y);goal.arc=false;this.allowArc=false;this.selected=undefined;this.label='高位海岛全景';
+      goal=safeGoal(goal);this.allowArc=false;this.selected=undefined;this.label=goal.label;
       over.copy(goal.position);over.y=Math.max(height,start.y,goal.position.y);this.path=[start,up,over,goal.position.clone()];
     }
     this.travel=new T.CubicBezierCurve3(...this.path as [T.Vector3,T.Vector3,T.Vector3,T.Vector3]);
     if(this.travel.getPoints(40).slice(1).some((p,i,points)=>boxes.some(b=>intersectsBox(i?points[i-1]:this.path[0],p,b)))){
-      const safe=this.fullGoal();safe.position.y=Math.max(height,safe.position.y);safe.arc=false;goal=safe;this.selected=undefined;this.label='海岛全景';this.allowArc=false;
+      const safe=safeGoal(goal);goal=safe;this.selected=undefined;this.label=safe.label;this.allowArc=false;
       const highStart=start.clone(),highEnd=safe.position.clone();highStart.y=highEnd.y=Math.max(height,start.y,safe.position.y)+12;this.travel=new T.CubicBezierCurve3(start,highStart,highEnd,safe.position);
     }
     this.goal=goal;this.transition=0;

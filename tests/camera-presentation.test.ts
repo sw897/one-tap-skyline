@@ -4,7 +4,8 @@ import {Group,PerspectiveCamera} from 'three';
 import {CityCamera} from '../src/city-camera.ts';
 import {SkylineRenderer,buildTower} from '../src/render.ts';
 import {DEFAULT_CONFIG} from '../src/config.ts';
-import {waterfrontLayout} from '../src/core/layout.ts';
+import {waterfrontLayout,districtsFor} from '../src/core/layout.ts';
+import {FullCityRepository} from '../src/core/full-city.ts';
 import {fixtureTower,towerHeight} from '../src/core/tower.ts';
 import type {CityBuilding} from '../src/core/city.ts';
 
@@ -42,4 +43,16 @@ test('rooftop-only name hides when its roof is outside view, then returns when f
 
 test('manual click focus finishes in configured2.5 seconds while automatic transition stays7 seconds',()=>{
  const c=camera();c.setBuildings([b(12)]);c.focus(b(12));for(let i=0;i<25;i++)c.update(.1);const target=c.camera.position.toArray();c.update(.1);assert.deepEqual(c.camera.position.toArray(),target);assert.equal(DEFAULT_CONFIG.visual.tourTransitionSeconds,7);c.dispose();
+});
+
+test('every full-city district selection retains its destination despite dense building occlusion',()=>{
+ const c=camera();c.setBuildings(new FullCityRepository(waterfrontLayout()).all());
+ for(const d of districtsFor(waterfrontLayout())){
+   c.district(d.id);for(let i=0;i<30;i++)c.update(.1);
+   assert.ok(Math.abs(c.controls.target.x-d.x)<1e-6);assert.ok(Math.abs(c.controls.target.z-d.z)<1e-6);
+   assert.equal(c.status().label,d.name);assert.equal(c.status().automatic,false);
+ }
+ c.toggle();c.district(2);for(let i=0;i<30;i++)c.update(.1);
+ assert.equal(c.status().paused,true);assert.equal(c.status().label,'公园街区');assert.ok(Math.abs(c.controls.target.x+3)<1e-6);
+ c.district(0);for(let i=0;i<30;i++)c.update(.1);assert.equal(c.status().label,'海岛全景');c.dispose();
 });

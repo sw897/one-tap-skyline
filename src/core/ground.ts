@@ -1,10 +1,10 @@
 export interface GroundPoint{x:number;z:number}
-export interface Footprint extends GroundPoint{rotation:number}
+export interface Footprint extends GroundPoint{rotation:number;halfWidth?:number;halfDepth?:number}
 const bounds=(p:GroundPoint[])=>({minX:Math.min(...p.map(q=>q.x)),maxX:Math.max(...p.map(q=>q.x)),minZ:Math.min(...p.map(q=>q.z)),maxZ:Math.max(...p.map(q=>q.z))});
 export interface GroundTriangle {points:GroundPoint[];height:number;color:number}
 export function pointPlotDistance(p:GroundPoint,f:Footprint,half=1.8){
   const dx=p.x-f.x,dz=p.z-f.z,c=Math.cos(f.rotation),s=Math.sin(f.rotation);
-  return Math.hypot(Math.max(0,Math.abs(c*dx-s*dz)-half),Math.max(0,Math.abs(s*dx+c*dz)-half));
+  return Math.hypot(Math.max(0,Math.abs(c*dx-s*dz)-(f.halfWidth??half)),Math.max(0,Math.abs(s*dx+c*dz)-(f.halfDepth??half)));
 }
 /** All scenery ground is painted once: intersections cannot compete for depth. */
 export function groundPixels(triangles:GroundTriangle[],plots:Footprint[],extent:{minX:number;maxX:number;minZ:number;maxZ:number},size=1536){
@@ -33,10 +33,10 @@ export function routeStreet(points:GroundPoint[],plots:Footprint[],width:number)
   if(!plots.length)return points;
   const clearLine=(a:GroundPoint,b:GroundPoint)=>{const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.7));for(let i=0;i<=steps;i++){const p={x:a.x+(b.x-a.x)*i/steps,z:a.z+(b.z-a.z)*i/steps};if(plots.some(f=>pointPlotDistance(p,f)<width/2+.25))return false;}return true;};
   if(points.slice(1).every((p,i)=>clearLine(points[i],p)))return points;
-  const step=1.5,b=bounds([...points,...plots]),minX=b.minX-16,minZ=b.minZ-16,nx=Math.ceil((b.maxX-minX+16)/step),nz=Math.ceil((b.maxZ-minZ+16)/step);
+  const step=.75,b=bounds([...points,...plots]),minX=b.minX-16,minZ=b.minZ-16,nx=Math.ceil((b.maxX-minX+16)/step),nz=Math.ceil((b.maxZ-minZ+16)/step);
   const id=(x:number,z:number)=>x*(nz+1)+z,point=(key:number)=>({x:minX+Math.floor(key/(nz+1))*step,z:minZ+key%(nz+1)*step}),validCache=new Map<number,boolean>();
   const valid=(key:number)=>{if(validCache.has(key))return validCache.get(key)!;const p=point(key),ok=plots.every(f=>pointPlotDistance(p,f)>=width/2+.25);validCache.set(key,ok);return ok;};
-  const closest=(p:GroundPoint)=>{const x=Math.round((p.x-minX)/step),z=Math.round((p.z-minZ)/step);let best=-1,distance=Infinity;for(let dx=-6;dx<=6;dx++)for(let dz=-6;dz<=6;dz++){const ix=x+dx,iz=z+dz;if(ix<0||ix>nx||iz<0||iz>nz)continue;const key=id(ix,iz),q=point(key),d=Math.hypot(q.x-p.x,q.z-p.z);if(d<distance&&valid(key)){best=key;distance=d;}}return best;};
+  const closest=(p:GroundPoint)=>{const x=Math.round((p.x-minX)/step),z=Math.round((p.z-minZ)/step);let best=-1,distance=Infinity;for(let dx=-6;dx<=6;dx++)for(let dz=-6;dz<=6;dz++){const ix=x+dx,iz=z+dz;if(ix<0||ix>nx||iz<0||iz>nz)continue;const key=id(ix,iz),q=point(key),d=Math.hypot(q.x-p.x,q.z-p.z);if(d<distance&&valid(key)&&clearLine(p,q)){best=key;distance=d;}}return best;};
   const heap:Array<{key:number;f:number}>=[];
   const push=(v:{key:number;f:number})=>{heap.push(v);let i=heap.length-1;while(i>0){const parent=(i-1)>>1;if(heap[parent].f<=v.f)break;heap[i]=heap[parent];i=parent;}heap[i]=v;};
   const pop=()=>{const first=heap[0],last=heap.pop()!;if(heap.length){let i=0;while(i*2+1<heap.length){let child=i*2+1;if(child+1<heap.length&&heap[child+1].f<heap[child].f)child++;if(heap[child].f>=last.f)break;heap[i]=heap[child];i=child;}heap[i]=last;}return first;};
@@ -55,7 +55,7 @@ export function routeStreet(points:GroundPoint[],plots:Footprint[],width:number)
     }
     if(!found)return points;
     const route:number[]=[end];while(route.at(-1)!==start)route.push(previous.get(route.at(-1)!)!);route.reverse();
-    const nodes=route.map(point),smooth:GroundPoint[]=[nodes[0]];let cursor=0;
+    const nodes=[points[segment-1],...route.map(point),points[segment]],smooth:GroundPoint[]=[nodes[0]];let cursor=0;
     while(cursor<nodes.length-1){let next=nodes.length-1;while(next>cursor+1&&!clearLine(nodes[cursor],nodes[next]))next--;smooth.push(nodes[next]);cursor=next;}
     output.push(...smooth.slice(segment===1?0:1));
   }
