@@ -12,8 +12,9 @@ import { handlePhotoApi } from './photos.ts';
 import { ensureGameDay,removePastDayFiles } from './daily-reset.ts';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
+import {gameOperation,type BoundaryContext} from './boundary.ts';
 
-export interface ServerContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; now?: () => number }
+export interface ServerContext extends BoundaryContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; clientAddress?:string }
 const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
@@ -30,15 +31,8 @@ async function readBody(request:Request) {
   if(!value||typeof value!=='object'||Array.isArray(value))throw new ApiError(400,'invalid_body');return value as Record<string,unknown>;
 }
 
-export async function handleApi(request:Request,context:ServerContext):Promise<Response> {
-  try {
+async function handleGameApi(request:Request,context:ServerContext,parsedBody:Record<string,unknown>|undefined,day:Awaited<ReturnType<typeof ensureGameDay>>):Promise<Response> {
     if(!context.db)throw new ApiError(503,'storage_unavailable');
-    const day=await ensureGameDay(context.db,(context.now??Date.now)());
-    if(new URL(request.url).pathname==='/api/game/reset-due'&&request.method==='GET'){
-      const files=context.bucket?await removePastDayFiles(context.bucket,(context.now??Date.now)()):{removed:0};
-      return json({...day,filesRemoved:files.removed});
-    }
-    if(new URL(request.url).pathname.startsWith('/api/photos/'))return handlePhotoApi(request,{...context,publicPhotosOpen:context.publicPhotosOpen===true});
     const store=new CityStore(context.db),url=new URL(request.url),now=(context.now??Date.now)();
     const name=parseRuntimeConfig({cityDisplayName:context.cityName}).cityDisplayName;
     const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
@@ -66,7 +60,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
         if(url.searchParams.get('entry')!==current!.epoch)throw new ApiError(403,'entry_expired');
       }
       if(!player){
-        const address=request.headers.get('cf-connecting-ip')??'loopback';
+        const address=context.clientAddress??request.headers.get('cf-connecting-ip')??'loopback';
         await store.rateLimit('signup:'+await hashText(address+':'+Math.floor(now/86_400_000)),240,now,300_000);
         const credential=randomCredential();player=await store.createPlayer(randomId(),randomId(),await hashText(credential),now,Math.min(now+PLAYER_TTL_MS,day.resetAt));
         cookie=`${COOKIE}=${credential}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.max(1,Math.floor((day.resetAt-now)/1000))}${url.protocol==='https:'?'; Secure':''}`;
@@ -82,7 +76,7 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
       return json(view);
     }
     if(request.method==='POST'&&url.pathname==='/api/runs') {
-      const body=await readBody(request);keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
+      const body=parsedBody!;keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
       if(!writeOpen(city))throw new ApiError(403,'city_write_closed');await getCity(city);
       if(city==='public'&&(await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>())?.epoch!==url.searchParams.get('entry'))throw new ApiError(403,'entry_expired');
       await store.rateLimit('start:'+owner.id,30,now,60_000);
@@ -93,9 +87,9 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
       const owner=requirePlayer(),run=await store.getRun(matched[1],owner.id,now);
       if(run.created_at<shanghaiMidnight(now))throw new ApiError(410,'city_reset');
       if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await snapshot(run.city_id)});
-      if(request.method==='POST'&&matched[2]==='cancel') {const body=await readBody(request);keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
+      if(request.method==='POST'&&matched[2]==='cancel') {const body=parsedBody!;keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
       if(request.method==='POST'&&matched[2]==='submit') {
-        const body=await readBody(request);keys(body,['name','trace','color']);
+        const body=parsedBody!;keys(body,['name','trace','color']);
         if(!writeOpen(run.city_id))throw new ApiError(403,'city_write_closed');
         if(body.name!==undefined&&typeof body.name!=='string')throw new ApiError(400,'invalid_name');
         if(body.color!==undefined&&(typeof body.color!=='string'||!PALETTE.includes(body.color)))throw new ApiError(400,'invalid_color');
@@ -113,6 +107,21 @@ export async function handleApi(request:Request,context:ServerContext):Promise<R
       }
     }
     throw new ApiError(404,'route_not_found');
+}
+
+export async function handleApi(request:Request,context:ServerContext):Promise<Response> {
+  try {
+    const expectedDay=request.method==='POST'?shanghaiMidnight((context.now??Date.now)()):undefined;
+    const pathname=new URL(request.url).pathname;
+    if(pathname.startsWith('/api/photos/'))return handlePhotoApi(request,{...context,publicPhotosOpen:context.publicPhotosOpen===true},expectedDay);
+    if(pathname==='/api/game/reset-due'&&request.method==='GET'){
+      const day=await gameOperation(context,async(_now,day)=>day);
+      const files=context.bucket?await removePastDayFiles(context.bucket,(context.now??Date.now)()):{removed:0,pending:0};
+      return json({...day,filesRemoved:files.removed,filesPending:files.pending});
+    }
+    // Body IO finishes before acquiring the SQLite write boundary.
+    const parsedBody=request.method==='POST'?await readBody(request):undefined;
+    return await gameOperation(context,(now,day)=>handleGameApi(request,{...context,now:()=>now},parsedBody,day),expectedDay);
   } catch(error) {
     if(error instanceof ApiError)return json({error:error.code},error.status);
     // Never send database internals, identities or stack traces to public clients.

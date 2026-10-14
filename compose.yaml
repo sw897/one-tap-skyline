@@ -1,0 +1,51 @@
+name: one-tap-skyline
+services:
+  game:
+    image: ${SKYLINE_IMAGE:-one-tap-skyline:p6-preview}
+    build: {context: .}
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: https://${GAME_HOST}
+      CITY_DISPLAY_NAME: ${CITY_DISPLAY_NAME:-城市天际线}
+      SKYLINE_PUBLIC_WRITE_OPEN: "1"
+      SKYLINE_PUBLIC_PHOTOS_OPEN: "1"
+      SKYLINE_TRUST_PROXY: "1"
+    volumes: [game_db:/data/db, game_photos:/data/photos]
+    networks: [game]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+  gateway:
+    image: one-tap-skyline-caddy:2.10.2
+    build: {context: ., dockerfile: deploy/Caddy.Dockerfile}
+    restart: unless-stopped
+    environment:
+      GAME_HOST: ${GAME_HOST:?GAME_HOST must be set}
+    ports:
+      - "127.0.0.1:${SKYLINE_HTTP_PORT:-18080}:80"
+      - "${SKYLINE_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [game,edge]
+    depends_on:
+      game: {condition: service_healthy}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+volumes:
+  game_db: {name: skyline_game_db}
+  game_photos: {name: skyline_game_photos}
+  caddy_data: {name: skyline_caddy_data}
+  caddy_config: {name: skyline_caddy_config}
+networks:
+  game: {internal: true}
+  edge: {}

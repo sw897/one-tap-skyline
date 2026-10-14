@@ -32,6 +32,9 @@ const fullCityPreview=isFullCityPreview(search);
 const personalSurface=search.get('mode')!=='display';
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
 const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':search.get('city')==='test'?'test':'public';
+const measuring=displaySurface&&cityId==='test'&&search.get('measure')==='1';
+const measurement={frames:[] as number[],drawn:{} as Record<string,unknown>,ambient:false};
+if(measuring)(window as unknown as {__SKYLINE_MEASURE__:unknown}).__SKYLINE_MEASURE__=measurement;
 const shared = !fullCityPreview&&(displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut'));
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
@@ -465,6 +468,16 @@ function frame(now: number) {
   const seconds = Math.max(0, (now - previousTime) / 1000); previousTime = now;
   if (view === 'play' && game) { clock?.sync(clockNow()); finish(); if (now - lastHUD > 90) { updateHUD(); lastHUD = now; } }
   viewer.update(seconds, game);updates?.paint();
+  if(measuring&&view==='city'&&!document.hidden){
+    measurement.frames.push(seconds*1000);if(measurement.frames.length>3000)measurement.frames.shift();measurement.ambient=viewer.ambientOn;
+    for(const building of city.all())if(!measurement.drawn[building.bestRunId]){
+      const geometry=viewer.cityGeometry(building.playerId);
+      if(geometry?.model===building.tower&&viewer.renderer.info.render.calls>0){
+        const detail={runId:building.bestRunId,tower:geometry.model,color:geometry.color,logicalHeight:geometry.logicalHeight,displayedHeight:geometry.displayedHeight,at:performance.now()};
+        measurement.drawn[building.bestRunId]=detail;window.dispatchEvent(new CustomEvent('skyline:test-draw',{detail}));
+      }
+    }
+  }
   if(view==='city'&&!personalSurface){playNotice(now);const tour=viewer.tourStatus();$('tour-status').textContent=tour.paused?'巡游已暂停':tour.automatic?`自动巡游 · ${tour.label}`:'手动查看 · 空闲后恢复巡游';if(tour.selectedId!==selectedId){selectedId=tour.selectedId;refreshLabels();}}
   if(view==='city'&&!personalSurface)labels.update(now,b=>viewer.projectLabel(b),selectedId,activeNotice?.playerId);
   if(view==='city')for(const {label,node} of sceneryNodes){const p=viewer.projectSceneryLabel(label);node.style.transform=`translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`;node.hidden=!p.visible;}
@@ -489,5 +502,6 @@ return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(poll
   document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
   if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();
   if(import.meta.env.DEV)delete(window as unknown as {__SKYLINE_QA__?:unknown}).__SKYLINE_QA__;
+  if(measuring)delete(window as unknown as {__SKYLINE_MEASURE__?:unknown}).__SKYLINE_MEASURE__;
 };
 }

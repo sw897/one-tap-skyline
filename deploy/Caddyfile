@@ -1,0 +1,7 @@
+{$GAME_HOST} {
+    encode zstd gzip
+    reverse_proxy game:8080 {
+        header_up X-Skyline-Client-IP {remote_host}
+        header_up -CF-Connecting-IP
+    }
+}

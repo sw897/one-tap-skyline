@@ -20,12 +20,12 @@ export async function ensureGameDay(db:D1Database,now=Date.now()){
  return {reset:Boolean(rows[0].meta.changes),dayStart:day,resetAt:nextShanghaiMidnight(now)};
 }
 export async function removePastDayFiles(bucket:R2Bucket,now=Date.now()){
- const day=shanghaiMidnight(now);let cursor:string|undefined,removed=0;
+ const day=shanghaiMidnight(now);let cursor:string|undefined,removed=0,pending=0;
  do{
   const page=await bucket.list({prefix:'photos/',limit:1000,...(cursor?{cursor}:{})});
   const keys=page.objects.filter(o=>{const stamp=Number(o.key.split('/')[1]);return Number.isFinite(stamp)&&stamp<day;}).map(o=>o.key);
-  if(keys.length){await bucket.delete(keys);removed+=keys.length;}
+  for(const key of keys)try{await bucket.delete(key);removed++;}catch{pending++;}
   cursor=page.truncated?page.cursor:undefined;
  }while(cursor);
- return {removed,dayStart:day};
+ return {removed,pending,dayStart:day};
 }

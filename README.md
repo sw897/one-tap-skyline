@@ -49,3 +49,16 @@ npm run preview -- --port 5173 --var SKYLINE_PUBLIC_WRITE_OPEN:1 --var SKYLINE_P
 切换到构建预览前先停止占用5173端口的开发服务。打开本地`/?mode=display&view=city`展示大屏及当天二维码；手机参与页面须携带二维码生成的完整参数。本地回环地址只能在运行服务的电脑上访问。
 
 `SKYLINE_D1_STATE_PATH`用于指定本地数据目录，未指定时使用系统临时目录。后续启动保持同一数据路径；SQL初始化命令用于新建本地数据库，不需每次启动重复执行。
+
+独立Node运行方式用于Docker候选，也可本地启动，数据仍放仓库外：
+
+```powershell
+npm run build:node
+$env:PUBLIC_ORIGIN='http://127.0.0.1:8080'
+$env:SKYLINE_DATA_ROOT='D:\private\skyline-data'
+$env:SKYLINE_PUBLIC_WRITE_OPEN='1'
+$env:SKYLINE_PUBLIC_PHOTOS_OPEN='1'
+npm run start:node
+```
+
+Node按SQL版本自动初始化新数据库；同日重启保留数据，跨日启动补偿清空。打开`http://127.0.0.1:8080/?mode=display&view=city`生成当天二维码。Docker共存部署见[运行说明](docs/P6-docker-deployment.md)。

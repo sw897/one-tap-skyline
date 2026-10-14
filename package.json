@@ -13,6 +13,8 @@
     "build": "tsc --noEmit && node scripts/run-framework.mjs build",
     "start": "node scripts/preview.mjs",
     "preview": "node scripts/preview.mjs",
+    "build:node": "tsc -p tsconfig.node.json && node scripts/build-node.mjs",
+    "start:node": "node node-dist/server/main.js",
     "db:export:local": "node --experimental-strip-types scripts/city-data.mjs export",
     "db:import:local": "node --experimental-strip-types scripts/city-data.mjs import",
     "db:generate": "drizzle-kit generate",

@@ -1,84 +1,90 @@
-import { chromium } from 'playwright';
-import { mkdir,writeFile } from 'node:fs/promises';
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
 import {makeTrace} from './run-fixtures.ts';
 import {validateTower} from '../src/core/tower.ts';
-
-const base=process.env.SKYLINE_BASE_URL??'http://127.0.0.1:5173/';
+const base=process.env.SKYLINE_BASE_URL??'http://127.0.0.1:5187/',origin=new URL(base).origin;
 const root=path.resolve(process.env.SKYLINE_EVIDENCE_DIR??path.join(os.tmpdir(),'skyline-load-'+Date.now()));
-if(root===process.cwd()||root.startsWith(process.cwd()+path.sep))throw new Error('Private evidence path required');await mkdir(root,{recursive:true});
-const origin=new URL(base).origin,delay=ms=>new Promise(r=>setTimeout(r,Math.max(0,ms)));
-const report={timestamp:new Date().toISOString(),base,scope:'Actual HTTP/D1 test city with engine-generated valid event traces, 60 buildings, 20 clients/60s. Desktop Chrome rendering; not phone hardware.',requests:[],errors:[],propagationMs:[],checks:[],passed:false};
-const browserTransport=process.env.SKYLINE_LOAD_TRANSPORT==='browser';report.transport=browserTransport?'Real Chrome same-origin fetch and isolated browser cookie jars':'Node HTTP fetch';
-let apiBrowser,spectatorClient;const apiClients=new Map();
-async function browserCall(url,body,clientId){
-  apiBrowser??=await chromium.launch({headless:true,channel:process.env.SKYLINE_BROWSER_CHANNEL??'chrome'});
-  if(!clientId){if(url.startsWith('/api/session'))clientId=crypto.randomUUID();else clientId=spectatorClient??=crypto.randomUUID();}
-  if(!apiClients.has(clientId)){
-    const context=await apiBrowser.newContext(),page=await context.newPage();await page.goto(new URL('/favicon.svg',base).href);apiClients.set(clientId,{context,page});
-  }
-  const reply=await apiClients.get(clientId).page.evaluate(async({url,body})=>{
-    const response=await fetch(url,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});return {status:response.status,ok:response.ok,text:await response.text()};
-  },{url,body});
-  return {response:{status:reply.status,ok:reply.ok,json:async()=>JSON.parse(reply.text),headers:{get:()=>null}},clientId};
-}
-async function call(url,body,cookie,phase='load'){
-  const start=performance.now();let response,clientId;
-  if(browserTransport)({response,clientId}=await browserCall(url,body,cookie));
-  else response=await fetch(new URL(url,base),{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{'Content-Type':'application/json',Origin:origin})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+if(root===process.cwd()||root.startsWith(process.cwd()+path.sep))throw Error('Private evidence path required');
+await mkdir(root,{recursive:true});
+const delay=ms=>new Promise(r=>setTimeout(r,Math.max(0,ms)));
+const target=Number(process.env.SKYLINE_LOAD_TARGET??100),seconds=Number(process.env.SKYLINE_LOAD_SECONDS??60);
+assert.ok([0,1,60,76,100].includes(target));assert.ok(seconds>=60&&seconds<=300);
+const p95=values=>{const sorted=[...values].sort((a,b)=>a-b);return sorted[Math.max(0,Math.ceil(sorted.length*.95)-1)]??null;};
+const report={at:new Date().toISOString(),base,scope:'Isolated test city, generated protocol traces; actual desktop browser renderer calls, not phone hardware or pixel recognition. Formal run only after candidate freeze.',target,requests:[],scenes:[],propagationMs:[],errors:[],passed:false};
+let browser,context,page;
+const actors=[],draws=new Map(),starts=new Map(),expected=new Map();
+async function call(route,body,cookie,phase='load'){
+  const start=performance.now();
+  const response=await fetch(new URL(route,base),{method:body===undefined?'GET':'POST',headers:{...(cookie?{Cookie:cookie}:{}),...(body===undefined?{}:{Origin:origin,'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
   const value=await response.json();report.requests.push({phase,kind:body===undefined?'read':'write',status:response.status,ms:performance.now()-start});
-  if(!response.ok)throw new Error('HTTP '+response.status+' '+(value.error??''));return {value,cookie:browserTransport?clientId:response.headers.get('set-cookie')?.split(';')[0]};
+  if(!response.ok)throw Error('HTTP '+response.status+' '+(value.error??''));
+  return {value,cookie:response.headers.get('set-cookie')?.split(';')[0]};
 }
-const actors=[],targets=new Map(),seen=new Map();let browser,context;
+function compareDraw(id){
+  if(!expected.has(id)||!draws.has(id)||!starts.has(id))return;
+  const draw=draws.get(id),building=expected.get(id);
+  assert.deepEqual(draw.tower,building.tower);assert.equal(draw.color,building.color);assert.equal(draw.logicalHeight,draw.displayedHeight);
+  report.propagationMs.push(Math.max(0,draw.masterTime-starts.get(id)));starts.delete(id);
+}
 try{
-  const before=(await call('/api/city?city=test',undefined,undefined,'seed')).value;
-  const missing=60-before.buildings.length;if(missing<20)throw new Error('Need at least20 free test plots; preserve old data then use an isolated empty test city');
-  for(let i=0;i<missing;i++){
-    const s=await call('/api/session?city=test',undefined,undefined,'seed');
-    const start=await call('/api/runs',{city:'test',startKey:crypto.randomUUID()},s.cookie,'seed');
-    const floors=12+i%15,fixture=makeTrace(floors,i);
-    actors.push({cookie:s.cookie,playerId:s.value.playerId,runId:start.value.runId,floors,fixture,readyAt:Date.now()+fixture.trace.endUs/1000+60});
-    if((i+1)%10===0)console.log('Prepared '+(i+1)+'/'+missing+' isolated valid test runs');
-  }
-  await delay(Math.max(...actors.map(a=>a.readyAt))-Date.now());
-  for(let index=0;index<actors.length;index+=10)await Promise.all(actors.slice(index,index+10).map(async a=>{const r=await call('/api/runs/'+a.runId+'/submit',{trace:a.fixture.trace,name:'测试楼 '+String(actors.indexOf(a)+1).padStart(2,'0')},a.cookie,'seed');assert.equal(r.value.receipt.kind,'first');}));
-  const populated=(await call('/api/city?city=test',undefined,undefined,'seed')).value;
-  assert.equal(populated.buildings.length,60);assert.equal(new Set(populated.buildings.map(b=>b.plotId)).size,60);assert.ok(populated.buildings.every(b=>b.plotId!==13&&validateTower(b.tower)));
-  populated.buildings.forEach((b,index)=>{const expected=populated.buildings.findIndex(other=>other.tower.layers.length===b.tower.layers.length)+1;assert.equal(b.rank,expected);});
-  report.checks.push({name:'60 whole canonical buildings, unique plots, reserved park, tied ranks',passed:true});
-  browser=await chromium.launch({headless:true,channel:process.env.SKYLINE_BROWSER_CHANNEL??'chrome'});context=await browser.newContext({viewport:{width:1440,height:900}});const page=await context.newPage();
-  page.on('pageerror',e=>report.errors.push(e.message));page.on('response',async response=>{
-    if(!response.url().includes('/api/city'))return;
-    try{const s=await response.json();if(!s.buildings)return;const now=Date.now();for(const b of s.buildings){seen.set(b.bestRunId,now);if(targets.has(b.bestRunId)){report.propagationMs.push(Math.max(0,now-targets.get(b.bestRunId)));targets.delete(b.bestRunId);}}}catch{}
-  });
-  await page.goto(new URL('/?mode=shared&city=test&view=city',base).href,{waitUntil:'networkidle'});await page.waitForFunction(()=>document.querySelector('#city-count')?.textContent.startsWith('60 栋'));
-  await page.screenshot({path:path.join(root,'city-60-desktop.png'),fullPage:true});
-  const frameStats=await page.evaluate(()=>new Promise(resolve=>{const intervals=[];let previous=performance.now();function step(now){intervals.push(now-previous);previous=now;if(intervals.length===120){intervals.sort((a,b)=>a-b);resolve({medianMs:intervals[60],p95Ms:intervals[114],scope:'Desktop Chrome frame intervals only'});}else requestAnimationFrame(step);}requestAnimationFrame(step);}));report.frameStats=frameStats;
-  const began=Date.now();
-  const workers=actors.slice(0,20).map(async(a,index)=>{
-    let first=true;
-    while(Date.now()-began<60_000){
-      const iteration=Date.now();
-      if(index<10){await call('/api/city?city=test',undefined,a.cookie);}
-      else{
-        const started=await call('/api/runs',{city:'test',startKey:crypto.randomUUID()},a.cookie);
-        const fixture=makeTrace(first?a.floors+1:1,index),ready=Date.now()+fixture.trace.endUs/1000+60;
-        await delay(ready-Date.now());const submitted=await call('/api/runs/'+started.value.runId+'/submit',{trace:fixture.trace,name:'后续署名'},a.cookie);
-        if(first){assert.equal(submitted.value.receipt.kind,'best');const when=Date.now(),id=submitted.value.receipt.runId;if(seen.has(id))report.propagationMs.push(Math.max(0,seen.get(id)-when));else targets.set(id,when);first=false;}
-        else assert.equal(submitted.value.receipt.kind,'unchanged');
-      }
-      await delay(3000-(Date.now()-iteration));
+  assert.equal((await call('/api/city?city=test',undefined,undefined,'precondition')).value.totalBuildings,0,'Use a new isolated test volume; never clear public or reuse populated test city');
+  browser=await chromium.launch({headless:true,channel:process.env.SKYLINE_BROWSER_CHANNEL??'chrome'});
+  context=await browser.newContext({viewport:{width:1920,height:1080}});page=await context.newPage();
+  page.on('pageerror',e=>report.errors.push(e.message));
+  await page.exposeFunction('skylineDraw',detail=>{draws.set(detail.runId,{...detail,masterTime:performance.now()});try{compareDraw(detail.runId);}catch(e){report.errors.push(String(e));}});
+  await page.addInitScript(()=>window.addEventListener('skyline:test-draw',e=>void window.skylineDraw(e.detail)));
+  await page.goto(new URL('/?mode=display&view=city&city=test&measure=1',base).href);
+  await page.waitForFunction(()=>window.__SKYLINE_MEASURE__?.frames.length>30);
+  for(const count of [0,1,60,76,100].filter(n=>n<=target)){
+    const added=[];
+    for(let i=actors.length;i<count;i++){
+      const s=await call('/api/session?city=test',undefined,undefined,'seed');
+      const begun=await call('/api/runs',{city:'test',startKey:crypto.randomUUID()},s.cookie,'seed'),fixture=makeTrace(12+i%15,i);
+      const actor={cookie:s.cookie,playerId:s.value.playerId,runId:begun.value.runId,floors:12+i%15,fixture,ready:performance.now()+fixture.trace.endUs/1000+80};
+      actors.push(actor);added.push(actor);
     }
-  });
-  await Promise.all(workers);report.durationMs=Date.now()-began;
-  await page.waitForTimeout(3500);const final=(await call('/api/city?city=test',undefined,undefined,'final')).value;
-  assert.equal(final.buildings.length,60);assert.equal(final.revision,populated.revision+10);
-  const old=new Map(populated.buildings.map(b=>[b.playerId,b]));for(const b of final.buildings){const p=old.get(b.playerId);for(const k of ['plotId','color'])assert.equal(b[k],p[k]);assert.equal(b.name,b.tower.layers.length>p.tower.layers.length?'后续署名':p.name);assert.ok(b.tower.layers.length>=p.tower.layers.length);}
-  const samples=report.requests.filter(r=>r.phase==='load'),percentile=list=>{list.sort((a,b)=>a-b);return list[Math.max(0,Math.ceil(list.length*.95)-1)]??0;};
-  report.summary={requests:samples.length,unexpectedErrors:report.errors.length,readP95Ms:percentile(samples.filter(r=>r.kind==='read').map(r=>r.ms)),writeP95Ms:percentile(samples.filter(r=>r.kind==='write').map(r=>r.ms)),propagationSamples:report.propagationMs.length,within5Seconds:report.propagationMs.filter(ms=>ms<=5000).length};
-  assert.equal(report.errors.length,0);assert.ok(report.summary.readP95Ms<=1500);assert.ok(report.summary.writeP95Ms<=2000);assert.equal(targets.size,0);assert.ok(report.summary.propagationSamples>=10);assert.ok(report.summary.within5Seconds/report.summary.propagationSamples>=.95);
-  await page.screenshot({path:path.join(root,'city-60-final.png'),fullPage:true});report.passed=true;report.checks.push({name:'20 mixed concurrent clients/60s, atomic best, latency and spectator3s polling',passed:true});
-}catch(error){report.failure=String(error);report.errors.push(String(error));console.error(String(error));process.exitCode=1;}
-finally{await context?.close();await browser?.close();await apiBrowser?.close();await writeFile(path.join(root,'shared-load-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({passed:report.passed,summary:report.summary,errors:report.errors,evidenceDir:root}));}
+    if(added.length)await delay(Math.max(...added.map(a=>a.ready))-performance.now());
+    for(let index=0;index<added.length;index+=10)await Promise.all(added.slice(index,index+10).map(async a=>{
+      await call('/api/runs/'+a.runId+'/submit',{name:'模拟测试楼 '+(actors.indexOf(a)+1),trace:a.fixture.trace},a.cookie,'seed');
+    }));
+    const snapshot=(await call('/api/city?city=test',undefined,undefined,'scene')).value;
+    assert.equal(snapshot.totalBuildings,count);assert.equal(snapshot.displayedBuildings,Math.min(count,76));assert.equal(snapshot.buildings.length,Math.min(count,76));
+    assert.equal(new Set(snapshot.buildings.map(b=>b.plotId)).size,snapshot.buildings.length);assert.ok(snapshot.buildings.every(b=>validateTower(b.tower)&&b.plotId!==13));
+    if(count)await page.waitForFunction(ids=>ids.every(id=>window.__SKYLINE_MEASURE__?.drawn[id]),snapshot.buildings.map(b=>b.bestRunId),{timeout:15_000});
+    const observed=await page.evaluate(()=>{const m=window.__SKYLINE_MEASURE__;m.frames=[];return {ambient:m.ambient,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches};});
+    assert.equal(observed.reduced,false,'Default motion sample must not use reduced-motion');assert.equal(observed.ambient,true);
+    await delay(10_000);const intervals=await page.evaluate(()=>window.__SKYLINE_MEASURE__.frames.slice(20));
+    const frame={saved:count,displayed:snapshot.buildings.length,frameCount:intervals.length,p95Ms:p95(intervals),ambient:true,viewport:'1920x1080',scope:'renderer frame interval; GPU/network metadata captured by runner separately'};
+    report.scenes.push(frame);await page.screenshot({path:path.join(root,'city-'+count+'.png')});
+    if(count>76){
+      const outside=actors.find(a=>!snapshot.buildings.some(b=>b.playerId===a.playerId));assert.ok(outside);
+      const own=(await call('/api/city?city=test&scope=own',undefined,outside.cookie,'own-check')).value;
+      assert.equal(own.buildings.length,1);assert.equal(own.buildings[0].plotId,-1);
+    }
+  }
+  if(target>=60){
+    const before=(await call('/api/city?city=test',undefined,undefined,'load-start')).value;
+    const eligible=actors.filter(a=>before.buildings.some(b=>b.playerId===a.playerId)).slice(0,20);assert.equal(eligible.length,20);
+    const began=performance.now();
+    await Promise.all(eligible.map(async(a,index)=>{
+      if(index<10){while(performance.now()-began<seconds*1000){await call('/api/city?city=test&scope=own',undefined,a.cookie);await delay(3000);}}
+      else{
+        const started=await call('/api/runs',{city:'test',startKey:crypto.randomUUID()},a.cookie),fixture=makeTrace(a.floors+1,index);
+        await delay(fixture.trace.endUs/1000+80);const id=started.value.runId;
+        starts.set(id,performance.now());
+        const reply=(await call('/api/runs/'+id+'/submit',{trace:fixture.trace,name:'模拟更新楼 '+index},a.cookie)).value;
+        assert.equal(reply.receipt.kind,'best');const building=reply.receipt.building;
+        if(building.plotId<0)starts.delete(id);else{expected.set(id,building);compareDraw(id);}
+        while(performance.now()-began<seconds*1000){await call('/api/city?city=test&scope=own',undefined,a.cookie);await delay(3000);}
+      }
+    }));
+    await delay(5000);assert.equal(starts.size,0);
+    report.summary={clients:20,durationSeconds:seconds,readP95Ms:p95(report.requests.filter(r=>r.phase==='load'&&r.kind==='read').map(r=>r.ms)),writeP95Ms:p95(report.requests.filter(r=>r.phase==='load'&&r.kind==='write').map(r=>r.ms)),renderConfirmP95Ms:p95(report.propagationMs),eligibleUpdates:report.propagationMs.length,latencyClock:'master performance.now before submission to callback after renderer draw, including browser binding delivery'};
+    assert.ok(report.propagationMs.length>=10);assert.ok(report.summary.renderConfirmP95Ms<=5000);
+  }
+  assert.ok(report.scenes.every(s=>s.p95Ms!==null&&s.p95Ms<=33.3));assert.deepEqual(report.errors,[]);report.passed=true;
+}catch(error){report.failure=String(error);process.exitCode=1;}
+finally{await context?.close();await browser?.close();await writeFile(path.join(root,'shared-load-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({passed:report.passed,summary:report.summary,failure:report.failure,evidence:root}));}
