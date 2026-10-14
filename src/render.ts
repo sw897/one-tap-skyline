@@ -1,3 +1,4 @@
+import {stepFerrisWheel} from './ferris-wheel.ts';
 import {terracePlan} from './core/terraces.ts';
 import {createAmbient,stepAmbient} from './ambient.ts';
 import * as T from 'three';
@@ -380,6 +381,7 @@ export class SkylineRenderer {
     return {model,logicalHeight:towerHeight(model),displayedHeight:model.baseHeight+model.layers.length*model.layerHeight*this.soloTower.userData.floors.scale.y,color:this.soloColor};
   }
   update(seconds: number, game?: GameSession) {
+    if(this.landscape?.userData.ferrisWheel)stepFerrisWheel(this.landscape.userData.ferrisWheel,seconds,this.ambientEnabled&&!this.reduced.matches&&!document.hidden&&this.view==='city');
     if(this.ambient)stepAmbient(this.ambient,seconds,this.ambientEnabled&&!this.reduced.matches&&!document.hidden&&this.view==='city',this.cityCamera.camera.position);
     if(Date.now()>=this.nextPhotoCheck){this.nextPhotoCheck=Date.now()+500;for(const root of [...this.cityObjects.values(),...(this.soloTower?[this.soloTower]:[])])if(root.userData.photo&&root.userData.photo.expiresAt<=Date.now())applyFacade(root,undefined);}
     for(const group of this.cityObjects.values())if(group.userData.halo){const left=group.userData.highlightUntil-performance.now();if(left<=0){group.userData.halo.material.dispose();group.userData.halo.removeFromParent();group.userData.halo=undefined;}else group.userData.halo.material.opacity=.35+.35*Math.sin(left*.0015)**2;}

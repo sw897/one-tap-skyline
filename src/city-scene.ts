@@ -1,6 +1,7 @@
+import {createFerrisWheel} from './ferris-wheel.ts';
 import * as T from 'three';
 import {allPlots,districtPoint,districtsFor,streetCurve,type CityLayout} from './core/layout.ts';
-import {islandPlan,shoreLoop,shorePoint} from './core/island.ts';
+import {islandPlan,shoreLoop,shorePoint,insideIsland} from './core/island.ts';
 import {groundPixels,type GroundTriangle} from './core/ground.ts';
 import {waterfrontRoads} from './core/roads.ts';
 export interface SceneryLabel {name:string;x:number;z:number;height:number}
@@ -128,15 +129,9 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
       mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),b.clone().sub(a).normalize());root.add(mesh);
     };
     // A low seaside fairground, with one airy landmark instead of a solid tall block.
-    plaza(-29,55,29,14);const wheelX=-34,wheelZ=55,center=new T.Vector3(wheelX,6.4,wheelZ);
-    for(const z of [wheelZ-.65,wheelZ+.65]){
-      const rim=new T.Mesh(new T.TorusGeometry(5.1,.11,6,48),new T.MeshStandardMaterial({color:'#f0aa84',metalness:.15,roughness:.5}));rim.position.set(wheelX,6.4,z);root.add(rim);
-      for(const side of [-1,1])beam(new T.Vector3(wheelX+side*2.1,.2,z+side*.3),new T.Vector3(wheelX,6.4,z),.13,'#e8eee7');
-    }
-    for(let j=0;j<12;j++){
-      const a=j*Math.PI/6,q=new T.Vector3(wheelX+Math.cos(a)*5.1,6.4+Math.sin(a)*5.1,wheelZ);
-      beam(center,q,.055,'#e7f0eb');box(q.x,q.y-.5,q.z,1,.8,1.4,['#f3b08c','#83c6c2','#9bb9dc'][j%3]);add('glass',q.x,q.y-.35,q.z+.72,.65,.4,.03,'#dbf2ef');
-    }
+    plaza(-29,55,29,14);const wheelX=-34,wheelZ=55;
+    for(const z of [wheelZ-.65,wheelZ+.65])for(const side of [-1,1])beam(new T.Vector3(wheelX+side*2.1,.2,z+side*.3),new T.Vector3(wheelX,6.4,z),.13,'#e8eee7');
+    const wheel=createFerrisWheel();root.add(wheel);root.userData.ferrisWheel=wheel;
     box(-18,.18,58,6.8,.3,6.8,'#e9c9a2');add('cone',-18,3.25,58,3.7,1.9,3.7,'#e99794');
     box(-18,1.5,58,.22,2.5,.22,'#e8d9ba');
     for(let j=0;j<8;j++){const a=j*Math.PI/4,x=-18+Math.cos(a)*2.55,z=58+Math.sin(a)*2.55;box(x,1.5,z,.055,2.5,.055,'#f3e5be');box(x,.8,z,.8,.42,.5,j%2?'#a6c6e6':'#f2c07b',-a);}
@@ -160,6 +155,34 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
       root.add(ribbon(path.map(([x,z])=>v(x,z)),1.1,'#e9dfc6',.028,2,true));
     }
     for(let j=0;j<18;j++){tree(-42+(j%6)*6,-48-Math.floor(j/6)*4,j);tree(29+(j%6)*4,51+Math.floor(j/6)*3,j+2);}
+  }
+
+  // Broad peripheral gardens preserve the existing six districts and all street geometry.
+  const peripheral:Array<{x:number;z:number;radius:number;kind:string}>=[];root.userData.peripheralGardens=peripheral;
+  if(civic){
+    const safe=(x:number,z:number,r:number)=>clear(x,z,r+2.6)&&clearRoad(x,z,r+.4)&&
+      civicPlots.every(p=>Math.hypot(x-p.x,z-p.z)>p.radius+r+1)&&Math.hypot(x,z)>r+14&&
+      [[-15,47],[-20,-42],[20,48]].every(([px,pz])=>Math.hypot(x-px,z-pz)>r+10)&&
+      Array.from({length:24},(_,i)=>i*Math.PI/12).every(a=>insideIsland(island,x+Math.cos(a)*r,z+Math.sin(a)*r,.95));
+    const garden=(x:number,z:number,r:number,kind:string,index:number)=>{
+      if(!safe(x,z,r)||peripheral.some(p=>Math.hypot(x-p.x,z-p.z)<r+p.radius+1))return;
+      // Avoid the canal corridor as well as roads, even when the reserve is currently empty.
+      if(x>2-r&&x<24+r&&z>-r&&z<60+r)return;
+      peripheral.push({x,z,radius:r,kind});
+      const outline=new T.Shape();for(let i=0;i<=32;i++){const a=i*Math.PI/16,rr=r*(.86+.08*Math.sin(a*3+index));const px=x+Math.cos(a)*rr,pz=z+Math.sin(a)*rr*.78;if(i===0)outline.moveTo(px,pz);else outline.lineTo(px,pz);}
+      const lawn=new T.Mesh(new T.ShapeGeometry(outline),surfaceMaterial(kind==='beach'?'#e8dab8':kind==='grove'?'#9bbd92':'#b2cb9e',1));lawn.rotation.x=Math.PI/2;lawn.position.y=.015;root.add(lawn);
+      const path=Array.from({length:17},(_,i)=>{const a=i*Math.PI/8;return v(x+Math.cos(a)*r*.55,z+Math.sin(a)*r*.4);});root.add(ribbon(path,.55,'#e8dfc8',.024,2,true));
+      if(kind==='grove')for(let j=0;j<7;j++){const a=j*2.4;tree(x+Math.cos(a)*r*.62,z+Math.sin(a)*r*.48,index+j);}
+      else {
+        // An open shade pavilion, low enough to keep the player's skyline dominant.
+        for(const dx of [-1,1])for(const dz of [-.7,.7])box(x+dx,1,z+dz,.09,1.9,.09,'#bda383');
+        box(x,2,z,2.5,.10,1.9,'#f0e7d3');box(x,.27,z,1.7,.16,.6,'#bca184');
+        for(let j=0;j<6;j++){const a=j*Math.PI/3;add('leaf',x+Math.cos(a)*r*.65,.25,z+Math.sin(a)*r*.48,.5,.3,.45,j%2?'#dfba9f':'#89ad86');}
+      }
+    };
+    // Foreground amenity gardens first; remaining clusters follow the natural coastal belt.
+    for(const [i,p] of [[-37,44],[-7,-44]].entries())garden(p[0],p[1],3,'garden',i);
+    for(let i=0;i<24;i++){const p=shorePoint(island,i*Math.PI/12,.81);garden(p.x,p.z,5.6,i%4===0?'beach':i%2?'grove':'garden',i+4);}
   }
 
   const parks=[[-15,47,9,5],[-20,-42,9,6],[20,48,5,5]];
