@@ -2,7 +2,8 @@ import { loadRuntimeConfig, parseRuntimeConfig, playtestConfig } from './config.
 import { GameSession } from './core/game.ts';
 import type { CompletedRun } from './core/game.ts';
 import { MemoryCityRepository,cleanName,randomBuildingName,PALETTE,type CityBuilding } from './core/city.ts';
-import {waterfrontLayout,districtsFor,plotLocation} from './core/layout.ts';
+import {FullCityRepository,isFullCityPreview} from './core/full-city.ts';
+import {waterfrontLayout,districtsFor,plotLocation,layoutCapacity} from './core/layout.ts';
 import QRCode from 'qrcode';
 import {RELEASE_ID} from './release.ts';
 import {mobileEntryUrl} from './shared/entry.ts';
@@ -27,10 +28,11 @@ import { nextShanghaiMidnight } from './core/photo.ts';
 export async function mountSkyline(root: HTMLElement, signal?: AbortSignal): Promise<() => void> {
 const search = new URLSearchParams(location.search);
 const displaySurface=search.get('mode')==='display';
+const fullCityPreview=isFullCityPreview(search);
 const personalSurface=search.get('mode')!=='display'&&(matchMedia('(pointer: coarse)').matches||matchMedia('(max-width:760px)').matches);
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
 const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':search.get('city')==='test'?'test':'public';
-const shared = displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut');
+const shared = !fullCityPreview&&(displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut'));
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
   try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all',search.get('entry')??undefined); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
@@ -42,7 +44,7 @@ mountUI(root);
 document.documentElement.dataset.surface=displaySurface?'display':personalSurface?'personal':'city';
 const $ = <E extends HTMLElement = HTMLElement>(id: string) => root.querySelector('#'+id) as E;
 const defaultLayout=waterfrontLayout(config.city.openDistricts,config.city.capacities);
-const city = displaySurface?new DisplayCityRepository(displaySnapshot??{cityId,epoch:'pending',revision:0,name:config.cityDisplayName,isTest:cityId!=='public',writeOpen:false,capacity:0,buildings:[],layout:defaultLayout,scope:'all'}):shared && session ? new SharedCityRepository(session) : new MemoryCityRepository(true, config.game.cutMode);
+const city = fullCityPreview?new FullCityRepository(defaultLayout,config.game.cutMode):displaySurface?new DisplayCityRepository(displaySnapshot??{cityId,epoch:'pending',revision:0,name:config.cityDisplayName,isTest:cityId!=='public',writeOpen:false,capacity:0,buildings:[],layout:defaultLayout,scope:'all'}):shared && session ? new SharedCityRepository(session) : new MemoryCityRepository(true, config.game.cutMode);
 const playerId = displaySurface?'':shared && session ? session.playerId : temporaryId();
 const currentLayout=()=>city instanceof SharedCityRepository?city.snapshot.layout??defaultLayout:defaultLayout;
 const rankOf=(building:CityBuilding|undefined)=>building&&'rank' in building?Number(building.rank):undefined;
@@ -109,18 +111,21 @@ const pauseGame = () => { audio.stop();if (clock && game?.phase !== 'ended') clo
 const resumeGame = () => { audio.unlock();if (clock) clock.resume(clockNow()); };
 $('prototype-badge').textContent=shared?'共享试玩':'练习 · 本页模拟';
 $('overview-button').firstChild!.textContent=personalSurface?'我的楼 ':'城市总览 ';
-$('scene-data-mark').hidden=!(shared&&cityId!=='public');
+$('scene-data-mark').hidden=!(fullCityPreview||shared&&cityId!=='public');
+if(fullCityPreview)$('scene-data-mark').textContent='模拟数据 · 全地块预览';
 $('settings-button').hidden=shared;
 $('mode-links').hidden=shared;
 $('shared-link').hidden=shared;
 ($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
+if(fullCityPreview)$('data-badge').textContent='模拟数据 · 全地块预览';
 $('board-title').textContent=shared?'排行榜':'模拟排行榜';
 $('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
 $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
 if(initialError)$('intro-direction').textContent=initialError;
 if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link'])$(id).hidden=true;
-  $('prototype-badge').textContent='今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
+  $('prototype-badge').textContent=fullCityPreview?'满城模拟':'今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
+if(fullCityPreview)root.querySelector<HTMLElement>('.city-qr')!.hidden=true;
 root.dataset.release=RELEASE_ID;
 let qrUrl='',qrGeneration=0;
 $('entry-link').hidden=displaySurface;
@@ -146,7 +151,7 @@ function show(next: View) {
   viewer.setView(next==='city'&&personalSurface?'result':next);
   $('building-labels').hidden = next !== 'city'||personalSurface;
   $('overview-button').hidden = displaySurface||next === 'city';
-  $('footer-status').textContent = `${modeName()} · ${shared?(cityId!=='public'?'共享测试数据':'同浏览器匿名身份 · 真实共享'):next === 'city'?'模拟数据，刷新会重置城市':'城市使用模拟数据'}`;
+  $('footer-status').textContent = fullCityPreview?'模拟数据 · 全地块预览 · 不写入共享城市':`${modeName()} · ${shared?(cityId!=='public'?'共享测试数据':'同浏览器匿名身份 · 真实共享'):next === 'city'?'模拟数据，刷新会重置城市':'城市使用模拟数据'}`;
 }
 async function start() {
   if(displaySurface||starting||submitting||photoBusy||disposed)return;
@@ -238,7 +243,7 @@ function refreshCityUI() {
     $('city-play').textContent=game?.phase==='paused'?'继续盖楼 →':own?'再盖一局 →':'开始盖楼 →';
     labels.clear();sceneryNodes=[];return;
   }
-  $('city-count').textContent = shared?`${buildings.length} 栋${cityId!=='public'?'共享测试':'玩家'}建筑`:`12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
+  $('city-count').textContent = fullCityPreview?`${buildings.length} / ${layoutCapacity(currentLayout())} 地块 · 模拟数据`:shared?`${buildings.length} 栋${cityId!=='public'?'共享测试':'玩家'}建筑`:`12 栋样例建筑${own ? ' + 你的本页作品' : ''}`;
   const ranking = $('city-ranking'); ranking.replaceChildren();
   buildings.slice(0, 10).forEach((building, index) => {
     const item = document.createElement('li'), button = document.createElement('button');
@@ -258,6 +263,7 @@ function refreshCityUI() {
   $('city-callout-note').textContent = own ? nextTarget?`再盖到 ${nextTarget.tower.layers.length+1} 层，超过下一档目标`:`个人最佳 ${own.tower.layers.length} 层 · 地块和颜色保持不变` : '先玩一局，再为作品署名。';
   $('city-play').textContent = game?.phase === 'paused' ? '继续盖楼 →' : own ? '再盖一局 →' : '开始盖楼 →';
   if(displaySurface){$('city-play').hidden=true;$('own-photo-actions').hidden=true;$('city-callout-title').textContent=connectionError?'正在重新连接今日城市':buildings.length?'一起盖出的今日天际线':'城市刚刚醒来，等待第一栋楼';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 点击排行找楼';}
+  if(fullCityPreview){$('city-callout-title').textContent=`满城模拟 · ${buildings.length} 栋楼`;$('city-callout-note').textContent='拖动环绕 · 缩放 · 选择街区 · 点击楼名或排行榜定位';}
   refreshLabels();refreshFeed();
   const select=$<HTMLSelectElement>('district-select'),value=select.value;select.replaceChildren();select.add(new Option('城市全景','0'));for(const d of districtsFor(currentLayout()))select.add(new Option(d.name,String(d.id)));select.value=value||'0';
 }
@@ -285,8 +291,8 @@ function showNotice(event:CityEvent){
 }
 function refreshFeed(){
   const feed=$('event-feed');feed.replaceChildren();for(const event of [...recentEvents].reverse().slice(0,6)){const item=document.createElement('li'),button=document.createElement('button');button.textContent=`${event.globalRecord?'全城新纪录':event.kind==='first'?'首次入城':'个人新高'} · ${event.name} · ${event.floors} 层`;const time=document.createElement('small');time.textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(event.createdAt);button.append(time);button.onclick=()=>focusCurrent(event.playerId);item.append(button);feed.append(item);}
-  if(!recentEvents.length){const item=document.createElement('li');item.textContent=shared?'今天还没有入城动态':'模拟数据 · 练习不发布动态';feed.append(item);}
-  $('connection-status').textContent=connectionError?'连接暂时中断，自动重试；保留上次有效城市':`已更新 ${new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(lastSync)} · 每 3 秒同步`;
+  if(!recentEvents.length){const item=document.createElement('li');item.textContent=fullCityPreview?'静态模拟 · 无入城事件':shared?'今天还没有入城动态':'模拟数据 · 练习不发布动态';feed.append(item);}
+  $('connection-status').textContent=fullCityPreview?'静态模拟 · 不写入共享城市':connectionError?'连接暂时中断，自动重试；保留上次有效城市':`已更新 ${new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(lastSync)} · 每 3 秒同步`;
 }
 function collectEvents(){
   if(!(city instanceof SharedCityRepository))return;
@@ -468,7 +474,7 @@ async function pollCity(){
 }
 const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
-const resetTimer=setInterval(()=>{if(Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
+const resetTimer=setInterval(()=>{if(fullCityPreview||Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
 animationFrame=requestAnimationFrame(frame);
 return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
   root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);
