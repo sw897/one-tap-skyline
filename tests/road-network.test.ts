@@ -6,14 +6,18 @@ import {pointPlotDistance} from '../src/core/ground.ts';
 import {insideIsland,islandPlan} from '../src/core/island.ts';
 
 for(const layout of [waterfrontLayout(),waterfrontLayout(10,Array(10).fill(16))])test(`${allPlots(layout).length} plots have continuous district-to-loop roads with footprint clearance`,()=>{
-  const before=JSON.stringify(allPlots(layout)),network=waterfrontRoads(layout),[ring]=network.roads,plots=allPlots(layout),island=islandPlan(layout);
+  const before=JSON.stringify(allPlots(layout)),network=waterfrontRoads(layout),[ring]=network.roads,avenue=network.roads.find(r=>r.id==='avenue')!,plots=allPlots(layout),island=islandPlan(layout);
   assert.deepEqual(ring.points[0],ring.points.at(-1));
   for(const d of districtsFor(layout)){
     const street=network.roads.find(r=>r.id===`district-${d.id}`)!;
     for(const side of [0,1]){const link=network.roads.find(r=>r.id===`district-${d.id}-link-${side}`)!;
       assert.deepEqual(link.points[0],side?street.points.at(-1):street.points[0]);
-      assert.ok(ring.points.some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
+      assert.ok([...ring.points,...avenue.points].some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
     }
+  }
+  for(const side of [0,1]){const link=network.roads.find(r=>r.id===`avenue-coast-${side}`)!;
+    assert.deepEqual(link.points[0],side?avenue.points.at(-1):avenue.points[0]);
+    assert.ok(ring.points.some(p=>p.x===link.points.at(-1)!.x&&p.z===link.points.at(-1)!.z));
   }
   for(const road of network.roads)for(let i=1;i<road.points.length;i++){
     const a=road.points[i-1],b=road.points[i],steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.15));

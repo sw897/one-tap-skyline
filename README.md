@@ -1,5 +1,7 @@
 # 一指盖楼：城市天际线
 
+当前大屏修订为[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-0594b4a67ec0)：以原曲线大道和短连接路恢复街区层次，保留安全绕行、桥河连通、小楼名和定位修复。按用户要求未上传Sites；33项检查/构建与HTTP200完成，新视觉未观察、待用户反馈，见[本地修订记录](docs/P5-road-style-refinement-record.md)。本地地址仅运行服务的电脑可用，线上仍为Sites21。
+
 Sites21已发布满城反馈修复（线上地址私存）（版本参数：build-f2ca47025e2c）：连续环岛路/街区接路、湖泊到海岸运河及实际交点桥、12px屋顶楼名、满城街区定位保留目标。ac462a6 / p5-event-screen-preview.13；33项定向检查与构建、局部1080p预览完成；线上初始DOM可见，后续自动截图/字体读回受阻，真实手工复测待执行，见[修复记录](docs/P5-streets-and-district-fix-record.md)。
 
 历史Sites20首次上线满城模拟入口（线上地址私存）（版本参数：build-1bf79e032986）：默认六区76个地块全部生成模拟楼，沿用大屏交互，明确标模拟且不写共享数据、不提供参与二维码。dc8220c / p5-event-screen-preview.12；发布事实与局部检查见[满城预览记录](docs/P5-full-city-preview-record.md)。旧v参数不会选择历史部署，当前均加载Sites21。

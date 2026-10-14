@@ -73,7 +73,8 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
   if(network){
     for(const road of network.roads){
       const points=road.points.map(p=>v(p.x,p.z));
-      root.add(ribbon(points,road.shoulder,'#e6e7d9',.012,3,true),ribbon(points,road.width,'#788f92',.04,4,true),ribbon(points,.06,'#f6d482',.065,5,true));
+      const color=road.id==='avenue'?'#788f92':road.id==='island-loop'?'#91a6a1':'#859b9c';
+      root.add(ribbon(points,road.shoulder,'#e6e7d9',.012,3,true),ribbon(points,road.width,color,.04,4,true),ribbon(points,.06,'#f6d482',.065,5,true));
     }
     ds.forEach(d=>{
       for(let j=0;j<6;j++){const p=districtPoint(d,-12+j*.3,streetCurve(-12));box(p.x,.087,p.z,.16,.02,2.1,'#f7f4e5',d.rotation);}
@@ -98,7 +99,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
         for(let j=0;j<5;j++){const along=(j/4-.5)*(length-.2);box(x+nx+Math.sin(rotation)*along,.5,z+nz+Math.cos(rotation)*along,.06,.38,.06,'#a2b6af');}
       }
     }
-    const curve=new T.CatmullRomCurve3(network.roads[0].points.slice(0,-1).map(p=>v(p.x,p.z)),true);
+    const curve=new T.CatmullRomCurve3(network.roads.find(road=>road.id==='avenue')!.points.map(p=>v(p.x,p.z)));
     for(let i=0;i<9;i++){
       const t=.06+i*.095,p=curve.getPoint(t),dir=curve.getTangent(t),angle=Math.atan2(dir.x,dir.z),side=i%2?-.6:.6;
       p.x+=dir.z*side;p.z-=dir.x*side;
@@ -116,7 +117,7 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
     add('shadow',x,.006,z,.78,.78,1,'#3f7960');
   }
   for(const d of ds)for(let j=0;j<18;j++){const x=(j%9-4)*4,z=(j<9?8.6:-8.6)+streetCurve(x),p=districtPoint(d,x,z);tree(p.x,p.z,j+d.id);}
-  for(let i=0;i<105;i++){const p=shorePoint(island,i*Math.PI*2/105,.915);tree(p.x,p.z,i);}
+  for(let i=0;i<105;i++){const p=shorePoint(island,i*Math.PI*2/105,.89);tree(p.x,p.z,i);}
 
   const parks=[[-15,47,9,5],[-20,-42,9,6],[20,48,5,5]];
   parks.forEach(([x,z,sx,sz],i)=>{

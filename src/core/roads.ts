@@ -7,29 +7,57 @@ export interface RoadBridge {roadId:string;x:number;z:number;rotation:number;len
 const distance=(a:GroundPoint,b:GroundPoint)=>Math.hypot(a.x-b.x,a.z-b.z);
 const cross=(a:GroundPoint,b:GroundPoint)=>a.x*b.z-a.z*b.x;
 
-/** One connected road network: each end of every district street joins the island loop. */
+/** Keep the original curved boulevard and district streets; add short, safe connections. */
 export function waterfrontRoads(layout:CityLayout){
   const island=islandPlan(layout),plots=allPlots(layout);
   const obstacles=[...plots,{x:0,z:0,rotation:0,halfWidth:9.6,halfDepth:6.2},
     ...[[-15,47],[-20,-42],[20,48]].map(([x,z])=>({x,z,rotation:0,halfWidth:4,halfDepth:3}))];
-  const loop=shoreLoop(island,.919,64);loop[loop.length-1]=loop[0];
-  const ring:Road={id:'island-loop',points:routeStreet(loop,obstacles,4.8),width:3.25,shoulder:4.8};
+  const clear=(p:GroundPoint,width:number)=>obstacles.every(plot=>pointPlotDistance(p,plot)>=width/2+.4);
+  const safeNode=(p:GroundPoint,width:number)=>{
+    if(clear(p,width))return p;
+    for(let radius=.5;radius<=18;radius+=.5)for(let i=0;i<32;i++){
+      const q={x:p.x+Math.cos(i*Math.PI/16)*radius,z:p.z+Math.sin(i*Math.PI/16)*radius};
+      if(clear(q,width))return q;
+    }
+    throw Error('No clear boulevard node');
+  };
+  const rounded=(points:GroundPoint[],width:number)=>{
+    const result=[points[0]];
+    for(let i=1;i<points.length-1;i++){
+      const prev=points[i-1],p=points[i],next=points[i+1],a=distance(prev,p),b=distance(p,next);
+      let bend:GroundPoint[]=[p];
+      for(const scale of [1,.5,.25]){
+        const cut=Math.min(3,a*.28,b*.28)*scale;if(cut<.01)break;
+        const entry={x:p.x+(prev.x-p.x)*cut/a,z:p.z+(prev.z-p.z)*cut/a},exit={x:p.x+(next.x-p.x)*cut/b,z:p.z+(next.z-p.z)*cut/b};
+        const samples=Array.from({length:17},(_,j)=>{const t=j/16;return {x:(1-t)**2*entry.x+2*t*(1-t)*p.x+t*t*exit.x,z:(1-t)**2*entry.z+2*t*(1-t)*p.z+t*t*exit.z};});
+        if(samples.every(q=>clear(q,width))){bend=samples;break;}
+      }
+      result.push(...bend);
+    }
+    result.push(points.at(-1)!);return result;
+  };
+  const routed=(points:GroundPoint[],width:number)=>rounded(routeStreet(points,obstacles,width),width);
+  const loop=shoreLoop(island,.926,96);loop[loop.length-1]=loop[0];
+  const ring:Road={id:'island-loop',points:routeStreet(loop,obstacles,3.2),width:2.2,shoulder:3.2};
   const roads:Road[]=[ring];
+  const original=[[-52,46],[-22,41],[-16,19],[-19,-4],[4,-8],[30,0],[54,19],[55,48]];
+  const avenue:Road={id:'avenue',points:routed(original.map(([x,z])=>safeNode({x,z},3.9)),3.9),width:3.25,shoulder:3.9};roads.push(avenue);
+  const nearest=(points:GroundPoint[],p:GroundPoint)=>points.reduce((best,q)=>distance(q,p)<distance(best,p)?q:best,points[0]);
+  for(const [side,end] of [[0,avenue.points[0]],[1,avenue.points.at(-1)!]] as const){
+    roads.push({id:`avenue-coast-${side}`,points:routed([end,nearest(ring.points,end)],3.9),width:2.5,shoulder:3.9});
+  }
   for(const d of districtsFor(layout)){
-    const reach=(Math.ceil(d.capacity/2)-1)*3.9/2+2.2;
+    const reach=16;
     const end=(sign:number)=>{let x=sign*reach;for(let i=0;i<30;i++){
       const p=districtPoint(d,x,streetCurve(x));if(obstacles.every(plot=>pointPlotDistance(p,plot)>=2.2))return x;x-=sign*.5;
     }return 0;};
     const left=end(-1),right=end(1);
     const points=Array.from({length:9},(_,i)=>{const x=left+(right-left)*i/8;return districtPoint(d,x,streetCurve(x));});
-    const street:Road={id:`district-${d.id}`,points:routeStreet(points,obstacles,3.9),width:2.5,shoulder:3.9};roads.push(street);
+    const street:Road={id:`district-${d.id}`,points:routed(points,3.9),width:2.5,shoulder:3.9};roads.push(street);
     for(const [side,end] of [[0,street.points[0]],[1,street.points.at(-1)!]] as const){
-      const sign=side?1:-1,dir={x:Math.cos(d.rotation)*sign,z:-Math.sin(d.rotation)*sign};
-      const score=(p:GroundPoint)=>{const delta={x:p.x-end.x,z:p.z-end.z},length=distance(p,end),forward=delta.x*dir.x+delta.z*dir.z;
-        return forward<=0?Infinity:Math.abs(cross(dir,delta))/length*500+length;
-      };
-      const anchor=ring.points.reduce((best,p)=>score(p)<score(best)?p:best,ring.points[0]);
-      roads.push({id:`district-${d.id}-link-${side}`,points:routeStreet([end,anchor],obstacles,3.9),width:2.5,shoulder:3.9});
+      const anchor=nearest([...avenue.points,...ring.points],end);
+      const crossing=d.id===5&&side===1?safeNode({x:24,z:end.z},3.9):undefined;
+      roads.push({id:`district-${d.id}-link-${side}`,points:routed(crossing?[end,crossing,anchor]:[end,anchor],3.9),width:2.5,shoulder:3.9});
     }
   }
   // Starts inside the central lake and ends beyond the shore, so water is continuous.
