@@ -61,4 +61,4 @@ $env:SKYLINE_PUBLIC_PHOTOS_OPEN='1'
 npm run start:node
 ```
 
-Node按SQL版本自动初始化新数据库；同日重启保留数据，跨日启动补偿清空。打开`http://127.0.0.1:8080/?mode=display&view=city`生成当天二维码。Docker共存部署见[运行说明](docs/P6-docker-deployment.md)。
+Node按SQL版本自动初始化新数据库；同日重启保留数据，跨日启动补偿清空。打开`http://127.0.0.1:8080/?mode=display&view=city`生成当天二维码。Docker与Sites两套目标见[部署说明](docs/deployment.md)，两端数据和匿名身份独立。
