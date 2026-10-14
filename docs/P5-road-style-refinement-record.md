@@ -18,7 +18,7 @@
 
 起点`f7adfb66785c315c446c2b0f00ccb96251800490`；上一轮线上应用`ac462a6df727a206371ea006cab66089280a59fb` / `p5-event-screen-preview.13` / Sites21。
 
-本轮应用commit及本地候选tag在实际提交后补录。构建标识`build-0594b4a67ec0`，本地编译Worker已返回HTTP200，HTML为no-store。地址仅供运行服务的同一台电脑：[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-0594b4a67ec0)。保留服务供用户测试；不能把另一设备访问loopback失败当游戏故障。
+本轮应用`1a0236ade803fd00cd634f21ee780e438d005f6b` / `p5-event-screen-preview.14-local`，已正常推送GitHub，旧tag不移动。检查/构建在提交前运行，关联此候选源码；文档补录不改变应用。构建标识`build-0594b4a67ec0`，本地编译Worker已返回HTTP200，HTML为no-store。地址仅供运行服务的同一台电脑：[本地满城候选](http://127.0.0.1:5186/?mode=display&view=city&demo=full&v=build-0594b4a67ec0)。保留服务供用户测试；不能把另一设备访问loopback失败当游戏故障。
 
 此次没有保存或发布新的Sites版本，当前线上仍为Sites21；本地模拟不登记玩家/局次、不写真实共享数据、不调用清空，不要求扫码资格，也不提供参与二维码。
 
