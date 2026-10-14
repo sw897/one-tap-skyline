@@ -19,7 +19,7 @@ test('terraces sit on exposed supported strips, clear upper floor and stay bound
 });
 test('ambient routes remain in water or on flat real road segments and freeze when disabled',()=>{
  const layout=waterfrontLayout(),root=createAmbient(layout),island=islandPlan(layout),roads=waterfrontRoads(layout),plots=allPlots(layout);
- assert.ok(root.userData.motions.filter((m:any)=>!m.boat).length<=3);
+ assert.ok(root.userData.motions.filter((m:any)=>!m.boat).length===9);
  for(const m of root.userData.motions)for(let i=0;i<=100;i++){const p=m.a.clone().lerp(m.b,i/100);
   if(m.boat)assert.equal(insideIsland(island,p.x,p.z),false);
   else{assert.ok(plots.every(plot=>Math.hypot(p.x-plot.x,p.z-plot.z)>2));assert.ok(roads.bridges.every(b=>Math.hypot(p.x-b.x,p.z-b.z)>b.length/2+3));}
@@ -28,9 +28,11 @@ test('ambient routes remain in water or on flat real road segments and freeze wh
  stepAmbient(root,100,true);assert.ok(root.userData.elapsed-time<=.0500001);
 });
 
-test('main avenue retains six visible cars and spreads three moving cars across the city',()=>{
- const root=createAmbient(waterfrontLayout()),moving=root.userData.motions.filter((m:any)=>!m.boat),parked=root.userData.staticCars;
- assert.equal(parked.length,6);assert.equal(moving.length,3);const xs=moving.map((m:any)=>(m.a.x+m.b.x)/2);assert.ok(Math.max(...xs)-Math.min(...xs)>40);
- for(const c of [...parked,...moving.map((m:any)=>m.object)]){assert.ok(c.children[0].scale.x>=.7);assert.ok(c.position.y-.17>.04);}
- const before=parked.map((c:any)=>c.position.toArray());stepAmbient(root,.05,true);stepAmbient(root,10,false);assert.deepEqual(parked.map((c:any)=>c.position.toArray()),before);
+test('all nine avenue cars move and all freeze in place when disabled',()=>{
+ const root=createAmbient(waterfrontLayout()),moving=root.userData.motions.filter((m:any)=>!m.boat);
+ assert.equal(moving.length,9);const xs=moving.map((m:any)=>(m.a.x+m.b.x)/2);assert.ok(Math.max(...xs)-Math.min(...xs)>40);
+ for(const m of moving){assert.ok(m.object.children[0].scale.x>=.7);assert.ok(m.object.position.y-.17>.04);}
+ const before=moving.map((m:any)=>m.object.position.clone());for(let i=0;i<20;i++)stepAmbient(root,.05,true);
+ moving.forEach((m:any,i:number)=>assert.ok(m.object.position.distanceTo(before[i])>.001));
+ const stopped=moving.map((m:any)=>m.object.position.toArray());stepAmbient(root,10,false);assert.deepEqual(moving.map((m:any)=>m.object.position.toArray()),stopped);
 });
