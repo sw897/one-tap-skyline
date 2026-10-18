@@ -1,0 +1,23 @@
+/* Runtime presentation only; gameplay geometry and player colors are unchanged. */
+:root[data-theme=custom]{--ink:#182b3a}
+:root[data-theme=custom] .primary-button{background:var(--theme-accent);color:var(--theme-accent-ink);border-color:transparent;box-shadow:0 8px 22px #33424e18}
+:root[data-theme=custom] .primary-button:hover{filter:brightness(1.04)}
+:root[data-theme=custom] .intro-copy h1{color:#182b3a}
+:root[data-theme=custom] .intro-copy h1 span{color:#182b3a;text-decoration:underline;text-decoration-color:var(--theme-accent);text-decoration-thickness:.12em;text-underline-offset:.12em}
+:root[data-theme=custom] .intro-copy>.eyebrow{color:#42505b}
+:root[data-theme=custom] .intro-copy>.eyebrow>span{background:var(--theme-accent)}
+:root[data-theme=custom] .brand>svg path:first-child{fill:var(--theme-accent)}
+:root[data-theme=custom] .brand>svg path:nth-child(2){fill:#344551}
+:root[data-theme=custom] .brand>svg path:nth-child(3){fill:#fff1c5}
+:root[data-theme=custom] .brand{min-width:0}
+:root[data-theme=custom] .brand>span{min-width:0}
+:root[data-theme=custom] .brand small{letter-spacing:.05em;white-space:normal;line-height:1.35;max-width:220px}
+.theme-logo{width:42px;height:42px;object-fit:contain;flex-shrink:0}
+.theme-context{font-size:12px;line-height:1.5;font-weight:650;letter-spacing:.07em;color:#46545c;margin:0 0 8px}
+:root[data-theme=custom] .city-title>.theme-context{grid-column:1/-1;margin:0;border-left:4px solid var(--theme-accent);padding-left:10px}
+:root[data-theme=custom][data-surface=display] .city-title>.theme-context{font-size:16px}
+:root[data-theme=custom] .result-title>.theme-context{margin-bottom:10px}
+:root[data-theme=custom] .compatibility-message>.theme-context{font-size:15px;letter-spacing:0}
+@media(min-width:1101px) and (min-height:700px){:root[data-theme=custom][data-surface=display][data-view=city] #city-event{top:410px}}
+@media(max-width:760px){.theme-logo{width:30px;height:34px}:root[data-theme=custom] .brand small{max-width:150px;font-size:9px}.theme-context{font-size:10px}}
+@media(max-height:540px) and (min-width:600px){:root[data-theme=custom] .result-title>.theme-context{margin-bottom:4px;font-size:9px}}

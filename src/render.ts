@@ -281,7 +281,7 @@ export class SkylineRenderer {
   }
   private createCityGround() {
     if(this.landscape)disposeLandscape(this.landscape);
-    this.landscape=createWaterfront(this.layout,this.config.visual.publicBuildings);this.city.add(this.landscape);this.ambient=createAmbient(this.layout);this.landscape.add(this.ambient);
+    this.landscape=createWaterfront(this.layout,this.config.visual.publicBuildings,this.config.branding);this.city.add(this.landscape);this.ambient=createAmbient(this.layout);this.landscape.add(this.ambient);
   }
   setSolo(model: TowerModel, color = this.soloColor,photo?:PhotoDecoration|null,rank?:number) {
     if (model === this.soloModel && color===this.soloColor){if(this.soloTower){applyFacade(this.soloTower,photo);decorateRank(this.soloTower,rank);}return;}

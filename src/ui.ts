@@ -1,5 +1,8 @@
+import {DEFAULT_CONFIG,type RuntimeConfig} from './config.ts';
+import {applyBranding} from './ui/branding.ts';
 const cube = '<svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 2 38 12 20 22 2 12Z" fill="#8fbcff"/><path d="M2 12 20 22v20L2 32Z" fill="#4e89e6"/><path d="m20 22 18-10v20L20 42Z" fill="#bdd8ff"/><path d="M2 22 20 32l18-10M2 32l18 10 18-10" stroke="white" stroke-width="2"/></svg>';
-export function mountUI(root: HTMLElement) {
+
+export function mountUI(root: HTMLElement,config:RuntimeConfig=DEFAULT_CONFIG) {
   root.innerHTML = `
     <div class="sky-cloud cloud-a"></div><div class="sky-cloud cloud-b"></div><div class="sky-cloud cloud-c"></div>
     <header class="app-header">
@@ -79,12 +82,14 @@ export function mountUI(root: HTMLElement) {
       <p class="disclosure">调整从下一局生效。连击只做反馈，<br>不额外计层、不恢复宽度。</p><button class="primary-button" id="apply-settings" value="apply">保存候选参数</button>
     </form></dialog>
   `;
+  applyBranding(root,config);
 }
 
-export function mountSharedUnavailable(root:HTMLElement,message:string):()=>void {
+export function mountSharedUnavailable(root:HTMLElement,message:string,config:RuntimeConfig=DEFAULT_CONFIG):()=>void {
   root.innerHTML='<main class="compatibility-message"><h1>共享城市暂未连接</h1><p id="shared-error" role="status"></p><button id="retry-shared" class="primary-button">重试连接</button><p>连接成功后再开始盖楼，作品才能同步到大屏。</p></main>';
   root.querySelector('#shared-error')!.textContent=message;
-  if(message.includes('今日入口已更新')){root.querySelector('h1')!.textContent='请扫描今日二维码';root.querySelector<HTMLButtonElement>('#retry-shared')!.hidden=true;root.querySelector('main > p:last-child')!.textContent='每日午夜入口更新，同一天登记后无需重复扫码。';}
+  if(message.includes('今日入口已更新')){root.querySelector('h1')!.textContent='请扫描今日二维码';root.querySelector<HTMLButtonElement>('#retry-shared')!.hidden=true;root.querySelector('main > p:last-child')!.textContent='每日午夜入口更新。保留本次扫码打开的完整地址，同一天可刷新或再来一局。';}
+  applyBranding(root,config);
   const retry=root.querySelector<HTMLButtonElement>('#retry-shared')!;
   retry.onclick=()=>location.reload();
   return ()=>{retry.onclick=null;};

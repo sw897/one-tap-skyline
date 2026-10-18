@@ -34,6 +34,21 @@ docker compose --env-file /private/runtime.env ps
 
 更新时核对源码/镜像/SQL/配置/卷和就绪。回退仅用与当前SQL兼容的镜像，保留卷，不恢复到期数据。目标服务器拉取基础镜像曾超时，当前导入已校验的本机构建Linux amd64镜像；归档SHA256和RootFS层摘要须匹配，不能把导入启动记为目标冷构建通过。
 
+### 可选活动主题
+
+Docker可通过仓库外只读目录加载主题，无需把活动名称/素材写入源码或镜像。将[中性示例](../deploy/theme.example.json)另存为私有目录中的`theme.json`，在私有运行环境文件设置`CITY_DISPLAY_NAME`和`SKYLINE_THEME_DIRECTORY`。后者是主机绝对路径，目录和文件须允许容器非root用户读取；禁止把目录指向玩家照片卷或公开静态目录。
+
+```sh
+docker compose -f compose.yaml -f compose.theme.yaml --env-file /private/runtime.env config --quiet
+docker compose -f compose.yaml -f compose.theme.yaml --env-file /private/runtime.env up -d --no-build --no-deps --wait game
+```
+
+主题包含完整标题、活动短名、首页标语、既有展馆显示名和六位十六进制点缀色。城市名只取`CITY_DISPLAY_NAME`。可选`logoFile`仅接受同目录`logo.png`、`logo.jpg`、`logo.jpeg`或`logo.webp`，最大512KiB；未提供或无法读取时使用文字。不提供目录浏览或原始配置下载，只公开校验后的展示字段和选定Logo。配置和Logo独立于午夜照片清理。
+
+未配置主题时保持中性默认；明确配置但文件/必填字段/城市名无效则在打开数据库前停止启动。主题启动时读取，改配置后重启游戏容器，并在局间刷新手机和大屏；仅换配置不会改变源码构建标识。回退须同时恢复兼容镜像、主题文件/素材及挂载配置，保留数据和证书卷。
+
+更名和主题切换不清空当天作品/照片、不更新当天入口码，午夜照常重置。当前Compose固定项目/卷名，单独Git分支不提供数据隔离；并行实例需另设存储及网关路由。本次活动主题只更新Docker，Sites现有发布、受众和任务保持。
+
 ## Sites
 
 保留现有项目ID、D1/R2绑定、构建插件及受众。发布使用Sites技能的构建/源码准备/保存版本/部署工具，不以Node入口替代Worker，也不把Node镜像上传为Site。

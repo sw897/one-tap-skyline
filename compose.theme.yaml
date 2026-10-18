@@ -1,0 +1,11 @@
+# Optional runtime branding; the private directory is never part of the image.
+services:
+  game:
+    environment:
+      SKYLINE_THEME_FILE: /run/skyline-theme/theme.json
+    volumes:
+      - type: bind
+        source: ${SKYLINE_THEME_DIRECTORY:?Set the private theme directory}
+        target: /run/skyline-theme
+        read_only: true
+        bind: {create_host_path: false}

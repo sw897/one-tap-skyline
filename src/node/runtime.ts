@@ -5,7 +5,7 @@ import {isIP} from 'node:net';
 import path from 'node:path';
 import {NodeDatabase} from './database.ts';
 import {FileBucket} from './files.ts';
-import {serverRuntime} from '../server/runtime.ts';
+import {loadNodeTheme,renderNodeHtml} from './theme.ts';
 import {gameOperation} from '../server/boundary.ts';
 import {handleApi,type ServerContext} from '../server/service.ts';
 import {cleanupPhotos} from '../server/photos.ts';
@@ -26,12 +26,13 @@ export interface NodeRuntimeOptions {origin:string;dataRoot:string;webRoot:strin
 export async function createGameServer(options:NodeRuntimeOptions){
   const origin=new URL(options.origin),env=options.env??{},clock=options.now??Date.now,log=options.log??(v=>console.log(JSON.stringify(v)));
   if(!['http:','https:'].includes(origin.protocol)||origin.pathname!=='/'||origin.username||origin.password||origin.search||origin.hash)throw Error('invalid_public_origin');
+  const {config,logo}=await loadNodeTheme(env,log);
   const dbRoot=path.join(options.dataRoot,'db'),photosRoot=path.join(options.dataRoot,'photos');
   await mkdir(dbRoot,{recursive:true});
   const database=new NodeDatabase(path.join(dbRoot,'game.sqlite'),options.migrations),bucket=new FileBucket(photosRoot);
   await bucket.probe();
   const activeUploads=new Map<number,number>();let physicalPending=0,endedOldUploadRevision=0,sweptUploadRevision=0;
-  const config=serverRuntime(env),context:ServerContext={db:database.asD1(),bucket:bucket.asR2(),now:clock,boundary:job=>database.atomic(job,()=>{
+  const context:ServerContext={db:database.asD1(),bucket:bucket.asR2(),now:clock,boundary:job=>database.atomic(job,()=>{
     const marker=database.connection.prepare("SELECT day_start FROM game_clock WHERE id='daily'").get();
     if(marker?.day_start!==shanghaiMidnight(clock()))throw new ApiError(410,'city_reset');
   }),publicWriteOpen:env.SKYLINE_PUBLIC_WRITE_OPEN==='1',publicPhotosOpen:env.SKYLINE_PUBLIC_PHOTOS_OPEN==='1',cityName:config.cityDisplayName,layout:waterfrontLayout(config.city.openDistricts,config.city.capacities)};
@@ -103,12 +104,13 @@ export async function createGameServer(options:NodeRuntimeOptions){
         if(!health.ready)result=Response.json({error:'storage_unavailable'},{status:503});
         else result=await handleApi(webRequest,{...context,clientAddress:requestAddress(request,env.SKYLINE_TRUST_PROXY==='1')});
       }else if(url.pathname==='/runtime-config.json')result=Response.json(config);
+      else if(url.pathname==='/theme/logo')result=!['GET','HEAD'].includes(request.method??'GET')?new Response(null,{status:405}):logo?new Response(new Uint8Array(logo.bytes),{headers:{'Content-Type':logo.type,'X-Content-Type-Options':'nosniff'}}):new Response(null,{status:404});
       else if(!['GET','HEAD'].includes(request.method??'GET'))result=new Response(null,{status:405});
       else{
         const decoded=decodeURIComponent(url.pathname);
         const file=path.resolve(webRoot,'.'+(decoded==='/'?'/index.html':decoded));
         if(!file.startsWith(webRoot+path.sep)||decoded.includes('\0'))result=new Response(null,{status:404});
-        else try{const info=await stat(file);result=info.isFile()?new Response(await readFile(file),{headers:{'Content-Type':types[path.extname(file)]??'application/octet-stream','X-Content-Type-Options':'nosniff'}}):new Response(null,{status:404});}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')result=new Response(null,{status:404});else throw error;}
+        else try{const info=await stat(file);if(info.isFile()){const bytes=await readFile(file);const body=file===path.join(webRoot,'index.html')?renderNodeHtml(bytes.toString('utf8'),config):bytes;result=new Response(body,{headers:{'Content-Type':types[path.extname(file)]??'application/octet-stream','X-Content-Type-Options':'nosniff'}});}else result=new Response(null,{status:404});}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')result=new Response(null,{status:404});else throw error;}
       }
       result=cachePolicy(webRequest,result);
       response.writeHead(result.status,Object.fromEntries(result.headers));

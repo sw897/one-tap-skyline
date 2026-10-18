@@ -4,6 +4,7 @@ import {allPlots,districtPoint,districtsFor,streetCurve,type CityLayout} from '.
 import {islandPlan,shoreLoop,shorePoint,insideIsland} from './core/island.ts';
 import {groundPixels,type GroundTriangle} from './core/ground.ts';
 import {waterfrontRoads} from './core/roads.ts';
+import {DEFAULT_BRANDING,type BrandingConfig} from './branding.ts';
 export interface SceneryLabel {name:string;x:number;z:number;height:number}
 const EXHIBITION={x:-8,z:38};
 const v=(x:number,z:number,y=.035)=>new T.Vector3(x,y,z);
@@ -44,7 +45,7 @@ export function disposeLandscape(group:T.Group){
 }
 
 /** Original procedural scenery; public architecture never enters scores/player data. */
-export function createWaterfront(layout:CityLayout,publicBuildings=true){
+export function createWaterfront(layout:CityLayout,publicBuildings=true,branding:BrandingConfig=DEFAULT_BRANDING){
   const root=new T.Group(),island=islandPlan(layout),ds=districtsFor(layout),plots=allPlots(layout);
   const network=layout.version==='waterfront-1'?waterfrontRoads(layout):undefined;
   const ribbon=makeRibbon;
@@ -201,10 +202,10 @@ export function createWaterfront(layout:CityLayout,publicBuildings=true){
       box(x,.09,z,w+1.1,.13,d+1,'#eee4d0');add('glass',x,.76,z,w,1.25,d,'#8dc7d2');
       box(x,1.44,z,w+1,.13,d+.7,'#f3eee4',0,i===1?.09:0);
       for(const sign of [-1,1])for(let j=0;j<5;j++)box(x+(j-2)*w*.2,.78,z+sign*d/2,.055,1.28,.08,'#edf1e7');
-      if(i===0)for(let j=0;j<5;j++)box(x+(j-2)*.9,1.59,z,.12,.11,d+.6,'#a3bcc3');
+      if(i===0)for(let j=0;j<5;j++)box(x+(j-2)*.9,1.59,z,.12,.11,d+.6,branding.enabled?branding.accent:'#a3bcc3');
       if(i===1)add('metal',x,1.58,z,w*.6,.1,d*.65,'#638da6',0,-.12);
       if(i===2)for(let j=0;j<6;j++)box(x+(j-2.5)*.65,1.59,z,.09,.08,d+.5,'#c9a26e');
-      labels.push({name:['云岸展馆','晴湾艺廊','海风咖啡'][i],x,z,height:1.9});
+      labels.push({name:[branding.pavilionName,'晴湾艺廊','海风咖啡'][i],x,z,height:1.9});
       root.userData.publicFootprints.push({x,z,radius:Math.hypot(w+1.1,d+1)/2});
     }
   });

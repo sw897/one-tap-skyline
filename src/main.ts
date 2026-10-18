@@ -13,6 +13,7 @@ import { fixtureTower, towerHeight, emptyTower } from './core/tower.ts';
 import { SkylineRenderer } from './render.ts';
 import type { View } from './render.ts';
 import { mountUI, mountSharedUnavailable } from './ui.ts';
+import {applyPageTheme,applyBranding} from './ui/branding.ts';
 import { RunClock } from './core/trace.ts';
 import type { RunTrace } from './core/trace.ts';
 import { SharedCityRepository, DisplayCityRepository,loadDisplay, SharedError, loadSession, startSharedRun, sharedMessage } from './shared/client.ts';
@@ -31,6 +32,9 @@ const displaySurface=search.get('mode')==='display';
 const fullCityPreview=isFullCityPreview(search);
 const personalSurface=search.get('mode')!=='display';
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
+if(signal?.aborted)return ()=>{};
+applyPageTheme(config);
+document.documentElement.dataset.surface=displaySurface?'display':personalSurface?'personal':'city';
 const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':search.get('city')==='test'?'test':'public';
 const measuring=displaySurface&&cityId==='test'&&search.get('measure')==='1';
 const measurement={frames:[] as number[],drawn:{} as Record<string,unknown>,ambient:false};
@@ -39,11 +43,11 @@ const shared = !fullCityPreview&&(displaySurface||search.get('mode') === 'shared
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
   try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all',search.get('entry')??undefined); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
-  catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); if(!displaySurface) return mountSharedUnavailable(root,initialError); }
+  catch (error) { if (signal?.aborted) return () => {}; initialError=sharedMessage(error); if(!displaySurface) return mountSharedUnavailable(root,initialError,config); }
 }
 if (signal?.aborted) return () => {};
 if (shared && session) config={...config,game:{...session.rules},cityDisplayName:session.snapshot.name};
-mountUI(root);
+mountUI(root,config);
 document.documentElement.dataset.surface=displaySurface?'display':personalSurface?'personal':'city';
 const $ = <E extends HTMLElement = HTMLElement>(id: string) => root.querySelector('#'+id) as E;
 const defaultLayout=waterfrontLayout(config.city.openDistricts,config.city.capacities);
@@ -79,6 +83,7 @@ let viewer: SkylineRenderer;
 try { viewer = new SkylineRenderer($('viewport'), config,currentLayout(),!personalSurface,displaySurface); }
 catch {
   root.innerHTML = '<div class="compatibility-message"><h1>还差一点，就能看到天际线。</h1><p>当前浏览器无法启动 3D 画面，请尝试新版 Safari 或 Chrome，并启用图形加速。</p></div>';
+  applyBranding(root,config);
   throw new Error('WebGL2 renderer unavailable');
 }
 let soundNoteTimer:ReturnType<typeof setTimeout>|undefined;

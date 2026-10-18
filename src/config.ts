@@ -1,5 +1,6 @@
 import type { CutMode } from './core/tower.ts';
 import { DEFAULT_DISTRICT_CAPACITIES, waterfrontLayout } from './core/layout.ts';
+import { DEFAULT_BRANDING, parseBranding, type BrandingConfig } from './branding.ts';
 export interface GameConfig {
   cutMode: CutMode;
   roundSeconds: number;
@@ -11,12 +12,14 @@ export interface GameConfig {
 }
 export interface RuntimeConfig {
   cityDisplayName: string;
+  branding: BrandingConfig;
   city: { openDistricts: number; capacities: number[] };
   game: GameConfig;
   visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number; lowFloors: number; midFloors: number; publicBuildings: boolean; tourStaySeconds: number; tourTransitionSeconds: number; focusTransitionSeconds:number; tourIdleSeconds: number; landingGlowSeconds:number; noticeStaySeconds:number; tourArcDegrees:number };
 }
 export const DEFAULT_CONFIG: RuntimeConfig = {
   cityDisplayName: '城市天际线',
+  branding: {...DEFAULT_BRANDING},
   city: {openDistricts:6, capacities:[...DEFAULT_DISTRICT_CAPACITIES]},
   game: { cutMode: 'alternate-xz', roundSeconds: 60, baseSpeed: 2.7, speedStep: 0.035, perfectRatio: 0.035, comboMilestone: 3, dropSeconds: 0.24 },
   visual: { cameraSeconds: 1.15, growthSeconds: 1.7, maxPixelRatio: 1.75, lowFloors:12, midFloors:24, publicBuildings:true, tourStaySeconds:18, tourTransitionSeconds:7,focusTransitionSeconds:2.5, tourIdleSeconds:20,landingGlowSeconds:.55,noticeStaySeconds:6,tourArcDegrees:6 },
@@ -32,8 +35,10 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
   const layout=waterfrontLayout();
   const lowFloors=Math.round(numeric(visual.lowFloors,12,1,100)),midFloors=Math.max(lowFloors+1,Math.round(numeric(visual.midFloors,24,2,200)));
   const name = typeof root.cityDisplayName === 'string' ? root.cityDisplayName.trim() : '';
+  const cityDisplayName = name.length > 0 && name.length <= 40 && !/[<>\u0000-\u001f]/u.test(name) ? name : d.cityDisplayName;
   return {
-    cityDisplayName: name.length > 0 && name.length <= 40 && !/[<>\u0000-\u001f]/u.test(name) ? name : d.cityDisplayName,
+    cityDisplayName,
+    branding: parseBranding(root.branding, cityDisplayName),
     city:{openDistricts:layout.districtCount,capacities:layout.capacities},
     game: {
       cutMode: game.cutMode === 'single-x' || game.cutMode === 'alternate-xz' ? game.cutMode : d.game.cutMode,
@@ -60,6 +65,9 @@ export function playtestConfig(config: RuntimeConfig, search: string): RuntimeCo
   return mode === 'single-x' || mode === 'alternate-xz' ? { ...config, game: { ...config.game, cutMode: mode } } : config;
 }
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  // Node embeds the same public configuration used by its HTML title and API.
+  const bootstrap = document.getElementById('skyline-runtime');
+  if (bootstrap) { try { return parseRuntimeConfig(JSON.parse(bootstrap.textContent ?? '')); } catch { /* Fetch the public projection if the bootstrap is damaged. */ } }
   try {
     const response = await fetch(new URL('runtime-config.json', document.baseURI), { cache: 'no-store' });
     return response.ok ? parseRuntimeConfig(await response.json()) : parseRuntimeConfig(null);
