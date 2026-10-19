@@ -126,13 +126,14 @@
 :root[data-view=city]:not([data-surface=personal]) #app{background:#b8e1e7}
 :root[data-view=city]:not([data-surface=personal]) .sky-cloud{display:none}
 
-/* Independent of the ranking scroll area; the display uses Beijing time. */
-.display-clock{display:none}
-:root[data-surface=display][data-view=city] .display-clock{position:absolute;top:24px;right:calc(28% + 18px);width:292px;padding:12px 20px;display:flex;flex-direction:column;align-items:center;gap:7px;border-radius:14px;background:#ffffffef;box-shadow:0 6px 20px #183e5010;color:#183e50;pointer-events:none;white-space:nowrap}
-.display-clock time{font-size:44px;font-weight:500;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.02em}
-#display-date{font-size:20px;line-height:1.4}
-@media(max-width:1100px){:root[data-surface=display][data-view=city] .display-clock{right:333px;width:210px;padding:10px}.display-clock time{font-size:32px}#display-date{font-size:14px}}
-@media(max-width:850px){:root[data-surface=display][data-view=city] .display-clock{top:auto;bottom:108px;left:32px;right:auto}}
+/* Date and time follow the activity label, outside the ranking scroll area. */
+.city-heading,.display-clock{display:none}
+:root[data-surface=display][data-view=city] .city-heading{grid-column:1/-1;display:flex;align-items:baseline;gap:20px}
+:root[data-surface=display][data-view=city] .city-heading>.theme-context{margin:0;font-size:20px;line-height:1.5;white-space:nowrap}
+:root[data-surface=display][data-view=city] .display-clock{display:inline-flex;align-items:baseline;gap:12px;color:#183e50;pointer-events:none;white-space:nowrap}
+.display-clock time{font-size:24px;font-weight:500;line-height:1.5;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#display-date{font-size:20px;line-height:1.5}
+@media(max-width:1100px){:root[data-surface=display][data-view=city] .city-heading{gap:12px;flex-wrap:wrap}:root[data-surface=display][data-view=city] .city-heading>.theme-context,#display-date{font-size:16px}.display-clock time{font-size:20px}}
 
 /* Large display hierarchy; personal/mobile screens retain their existing type sizes. */
 @media (min-width:1101px) and (min-height:700px){

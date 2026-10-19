@@ -14,8 +14,7 @@
 :root[data-theme=custom] .brand small{letter-spacing:.05em;white-space:normal;line-height:1.35;max-width:220px}
 .theme-logo{width:42px;height:42px;object-fit:contain;flex-shrink:0}
 .theme-context{font-size:12px;line-height:1.5;font-weight:650;letter-spacing:.07em;color:#46545c;margin:0 0 8px}
-:root[data-theme=custom] .city-title>.theme-context{grid-column:1/-1;margin:0;border-left:4px solid var(--theme-accent);padding-left:10px}
-:root[data-theme=custom][data-surface=display] .city-title>.theme-context{font-size:16px}
+:root[data-theme=custom] .city-heading>.theme-context{border-left:4px solid var(--theme-accent);padding-left:10px}
 :root[data-theme=custom] .result-title>.theme-context{margin-bottom:10px}
 :root[data-theme=custom] .compatibility-message>.theme-context{font-size:15px;letter-spacing:0}
 @media(min-width:1101px) and (min-height:700px){:root[data-theme=custom][data-surface=display][data-view=city] #city-event{top:410px}}

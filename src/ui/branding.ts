@@ -19,7 +19,9 @@ export function applyBranding(root:HTMLElement,config:RuntimeConfig){
   set('.brand small',colon>0?branding.title.slice(colon+1):config.cityDisplayName);
   root.querySelector('.brand')?.setAttribute('aria-label',branding.title+' 首页');
   set('#city-name',config.cityDisplayName);
+  set('#display-activity',branding.activityLabel);
   if(!branding.enabled)return;
+  set('.board-heading .eyebrow',colon>0?branding.title.slice(colon+1):branding.title);
   const eyebrow=root.querySelector('.intro-copy > .eyebrow');
   if(eyebrow){eyebrow.textContent=' '+branding.activityLabel;eyebrow.prepend(document.createElement('span'));}
   const headline=root.querySelector('.intro-copy h1');
@@ -30,7 +32,7 @@ export function applyBranding(root:HTMLElement,config:RuntimeConfig){
   }
   set('.footer-mark',branding.activityLabel);
   set('.personal-summary > .eyebrow',branding.activityLabel);
-  for(const selector of ['.city-title','.result-title','.compatibility-message']){
+  for(const selector of ['.result-title','.compatibility-message']){
     const section=root.querySelector<HTMLElement>(selector);
     if(section&&!section.querySelector('.theme-context')){
       const label=document.createElement('p');label.className='theme-context';

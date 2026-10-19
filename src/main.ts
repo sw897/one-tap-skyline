@@ -128,12 +128,13 @@ $('mode-links').hidden=shared;
 $('shared-link').hidden=shared;
 ($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
+$('data-badge').hidden=displaySurface&&shared&&cityId==='public';
 if(fullCityPreview)$('data-badge').textContent='模拟数据 · 全地块预览';
 $('board-title').textContent=shared?'排行榜':'模拟排行榜';
 $('city-disclosure').textContent=shared?'署名、成绩与楼体公开展示。只在新最佳时更新主楼。':'这里是视觉模拟。刷新会重置，不是共享城市或真实排名。';
 $('submit-button').firstChild!.textContent=shared?'共享入城 ':'模拟入城 ';
 if(initialError)$('intro-direction').textContent=initialError;
-if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link'])$(id).hidden=true;
+if(displaySurface){for(const id of ['home-button','overview-button','settings-button','city-play','own-photo-actions','mode-links','shared-link','city-name'])$(id).hidden=true;
   $('prototype-badge').textContent=fullCityPreview?'满城模拟':'今日城市';$('city-callout-title').textContent='每一栋小楼，都是今天的新风景';$('city-callout-note').textContent='拖动环绕 · 滚轮放大 · 手动查看后自动恢复巡游';}
 if(fullCityPreview||cityId!=='public')root.querySelector<HTMLElement>('.city-qr')!.hidden=true;
 root.dataset.release=RELEASE_ID;
