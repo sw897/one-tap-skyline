@@ -126,6 +126,14 @@
 :root[data-view=city]:not([data-surface=personal]) #app{background:#b8e1e7}
 :root[data-view=city]:not([data-surface=personal]) .sky-cloud{display:none}
 
+/* Independent of the ranking scroll area; the display uses Beijing time. */
+.display-clock{display:none}
+:root[data-surface=display][data-view=city] .display-clock{position:absolute;top:24px;right:calc(28% + 18px);width:292px;padding:12px 20px;display:flex;flex-direction:column;align-items:center;gap:7px;border-radius:14px;background:#ffffffef;box-shadow:0 6px 20px #183e5010;color:#183e50;pointer-events:none;white-space:nowrap}
+.display-clock time{font-size:44px;font-weight:500;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#display-date{font-size:20px;line-height:1.4}
+@media(max-width:1100px){:root[data-surface=display][data-view=city] .display-clock{right:333px;width:210px;padding:10px}.display-clock time{font-size:32px}#display-date{font-size:14px}}
+@media(max-width:850px){:root[data-surface=display][data-view=city] .display-clock{top:auto;bottom:108px;left:32px;right:auto}}
+
 /* Large display hierarchy; personal/mobile screens retain their existing type sizes. */
 @media (min-width:1101px) and (min-height:700px){
   :root[data-surface=display][data-view=city] .city-title h1{font-size:40px;letter-spacing:-.025em;color:#183c50;text-shadow:0 1px 3px #ffffffc0}

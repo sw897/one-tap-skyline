@@ -56,6 +56,7 @@ export function mountUI(root: HTMLElement,config:RuntimeConfig=DEFAULT_CONFIG) {
       <div class="city-title"><div class="eyebrow">每一栋小楼，都让城市多一个颜色</div><h1 id="city-name">城市天际线</h1><span class="simulation-badge" id="data-badge">模拟数据 · 本页城市</span>
         <div class="city-qr glass"><canvas id="entry-qr" aria-label="手机试玩入口二维码"></canvas><div><strong>扫码，盖进这座城</strong><a id="entry-link" target="_blank" rel="noopener">手机试玩入口</a><small id="qr-note">正在生成二维码</small></div></div>
       </div>
+      <aside id="display-clock" class="display-clock" aria-label="北京时间" aria-live="off" hidden><time id="display-time"></time><span id="display-date"></span></aside>
       <div id="city-event" role="status" aria-live="polite" hidden></div>
       <aside id="building-results" class="glass building-results" hidden><div class="dialog-heading"><h3 id="results-title">找到这些楼</h3><button id="results-close" class="text-button" aria-label="关闭楼名列表">×</button></div><p id="results-note"></p><ul id="results-list"></ul></aside>
       <aside class="glass city-board">

@@ -22,6 +22,7 @@ import { requestJson } from './shared/client.ts';
 import { PhotoEditor } from './ui/photo-editor.ts';
 import {GameAudio,landingHaptic} from './ui/game-audio.ts';
 import {CityLabels} from './ui/city-labels.ts';
+import {mountDisplayClock} from './ui/display-clock.ts';
 import {NoticeQueue} from './core/presentation.ts';
 import type { PhotoDraft } from './core/photo.ts';
 import { nextShanghaiMidnight } from './core/photo.ts';
@@ -501,8 +502,9 @@ async function pollCity(){
 const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
 const resetTimer=setInterval(()=>{if(fullCityPreview||Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
+const disposeDisplayClock=displaySurface?mountDisplayClock(root):()=>{};
 animationFrame=requestAnimationFrame(frame);
-return()=>{disposed=true;cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);clearTimeout(soundNoteTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
+return()=>{disposed=true;disposeDisplayClock();cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);clearTimeout(soundNoteTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();
   root.removeEventListener('pointerdown',gestureStart,true);root.removeEventListener('click',gestureClick,true);root.removeEventListener('touchend',audioGesture,true);
   document.removeEventListener('visibilitychange',visibilityHandler);document.removeEventListener('keydown',keyHandler);
   if(city instanceof SharedCityRepository)city.dispose();viewer.dispose();
