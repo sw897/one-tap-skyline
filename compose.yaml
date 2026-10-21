@@ -39,7 +39,7 @@ services:
         bind: {create_host_path: false}
       - caddy_data:/data
       - caddy_config:/config
-    networks: [game,edge]
+    networks: [game,edge,shared_backend]
     depends_on:
       game: {condition: service_healthy}
     read_only: true
@@ -57,3 +57,6 @@ volumes:
 networks:
   game: {internal: true}
   edge: {}
+  shared_backend:
+    external: true
+    name: ${SKYLINE_SHARED_NETWORK:?Set the existing shared backend network}

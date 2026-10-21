@@ -1,8 +1,0 @@
-# Include this override whenever the shared gateway needs another backend network.
-services:
-  gateway:
-    networks: [shared_backend]
-networks:
-  shared_backend:
-    external: true
-    name: ${SKYLINE_SHARED_NETWORK:?Set the existing shared backend network}

@@ -30,10 +30,10 @@ docker compose --env-file /private/runtime.env ps
 
 `SKYLINE_GATEWAY_DIRECTORY`必须指向仓库外已有目录，整体只读挂载到网关`/etc/caddy`。其中`Caddyfile`保留所有其他站点原配置，并以独立一行`import /etc/caddy/skyline.caddy`导入本游戏；`skyline.caddy`初始内容取[游戏规则模板](../deploy/Caddyfile)。首次拆分须校验拆分前后路由等价，不能覆盖现有共享根配置。仓库checkout、复制单游戏模板均不会改动实际共享根配置。
 
-若网关还连接其他后端，实际部署命令必须始终包含[共享网络覆盖配置](../compose.shared-gateway.yaml)，并在私有环境文件设置`SKYLINE_SHARED_NETWORK`为已存在的外部网络名；该网络不由本游戏创建/删除。主题部署另带`compose.theme.yaml`。后续所有Compose和助手命令均须使用同一组文件，不能漏掉共享网络覆盖配置。
+共享后端网络直接声明在主`compose.yaml`，私有环境文件必须设置`SKYLINE_SHARED_NETWORK`为已存在的外部网络名；该网络不由本游戏创建/删除。缺项时Compose拒绝解析，不靠可选覆盖文件保留网络。主题部署另带`compose.theme.yaml`。后续所有Compose和助手命令须使用同一组文件；增加更多共享网络时也须持久声明，助手拒绝遗漏任何实际网络。
 
 ```sh
-python3 scripts/gateway.py --file compose.yaml --file compose.theme.yaml --file compose.shared-gateway.yaml --env-file /private/runtime.env check
+python3 scripts/gateway.py --file compose.yaml --file compose.theme.yaml --env-file /private/runtime.env check
 ```
 
 [网关助手](../scripts/gateway.py)仅原子替换本游戏导入文件，不写共享根配置或其他站点文件；`admission`、`maintenance`、`open`分别用于阻止新登记/开局、游戏维护和恢复游戏规则。每次先适配候选配置并检查其他路由，再写入和加载，随后复核；其他文件变更、其他路由变更或实际/声明网络不一致时拒绝。失败时不要用单游戏配置覆盖共享根文件；保持当时维护状态，核查后修复候选。
