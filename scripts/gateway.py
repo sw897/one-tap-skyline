@@ -62,6 +62,18 @@ def private_directory(directory, repository):
     return directory
 
 
+def atomic_text(destination, text, mode=0o644):
+    fd, temporary = tempfile.mkstemp(prefix='.' + destination.name, dir=destination.parent)
+    try:
+        with os.fdopen(fd, 'w') as file:
+            file.write(text)
+        os.chmod(temporary, mode)
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 class Gateway:
     def __init__(self, files, envfile):
         self.repo = Path(__file__).resolve().parent.parent
@@ -86,20 +98,36 @@ class Gateway:
         if self.original_root.splitlines().count(self.import_line) != 1:
             raise ValueError('explicit_managed_import_required')
         self.fingerprints = shared_files(self.directory, self.managed)
+        self.configured = {self.config['networks'][k]['name'] for k in service['networks']}
+        self.checkpoint = self.directory.parent / (self.directory.name + '-' + self.game_id + '-good.json')
+        self.binding = {'gameId': self.game_id, 'host': self.host, 'directory': str(self.directory),
+                        'networks': sorted(self.configured), 'gateway': service}
         self.current = self.inspect()
-        actual_mounts = [m for m in self.current['Mounts'] if m['Destination'] == '/etc/caddy']
-        if len(actual_mounts) != 1 or Path(actual_mounts[0]['Source']).resolve() != self.directory:
-            raise ValueError('runtime_gateway_mount_mismatch')
-        configured = {self.config['networks'][k]['name'] for k in service['networks']}
-        require_networks(self.current['NetworkSettings']['Networks'], configured)
-        self.protected = protected_routes(self.loaded(), self.host)
+        self.assert_runtime()
+        if self.running():
+            self.protected = protected_routes(self.loaded(), self.host)
+        else:
+            self.protected = self.read_good()['protected']
         self.assert_files()
 
     def inspect(self):
-        ids = run(self.compose + ['ps', '-q', 'gateway']).split()
-        if len(ids) != 1:
-            raise ValueError('one_running_gateway_required')
+        ids = run(self.compose + ['ps', '-aq', 'gateway']).split()
+        if not ids:
+            return None
+        if len(ids) > 1:
+            raise ValueError('one_gateway_required')
         return json.loads(run(['docker', 'inspect', ids[0]]))[0]
+
+    def running(self):
+        return self.current is not None and self.current['State']['Running']
+
+    def assert_runtime(self):
+        if self.current is None:
+            return
+        mounts = [m for m in self.current['Mounts'] if m['Destination'] == '/etc/caddy']
+        if len(mounts) != 1 or mounts[0]['RW'] or Path(mounts[0]['Source']).resolve() != self.directory:
+            raise ValueError('runtime_gateway_mount_mismatch')
+        require_networks(self.current['NetworkSettings']['Networks'], self.configured)
 
     def loaded(self):
         return json.loads(run(['docker', 'exec', self.current['Id'], 'wget', '-qO-',
@@ -111,16 +139,47 @@ class Gateway:
 
     def validate(self, candidate):
         self.assert_files()
-        # Stage only in the container's /tmp; the live files are untouched until validation passes.
-        staged = '/tmp/skyline-managed-next.caddy'
-        run(['docker', 'exec', '-i', self.current['Id'], 'sh', '-c', 'cat > ' + staged], candidate)
-        root = self.original_root.replace(self.import_line, 'import ' + staged)
-        adapted = json.loads(run(['docker', 'exec', '-i', self.current['Id'], 'caddy', 'adapt',
-                                  '--config', '-', '--adapter', 'caddyfile'], root))
+        # Inline only this candidate into a temporary stdin config, never into live files.
+        root = self.original_root.replace(self.import_line, candidate)
+        if self.running():
+            engine = ['docker', 'exec', '-i', self.current['Id'], 'caddy']
+        else:
+            # Same image, user, read-only mounts, environment and networks; no listening ports.
+            engine = self.compose + ['run', '--rm', '--no-deps', '-T', '--entrypoint', 'caddy', 'gateway']
+        adapted = json.loads(run(engine + ['adapt', '--config', '-', '--adapter', 'caddyfile'], root))
         if protected_routes(adapted['apps']['http']['servers'], self.host) != self.protected:
             raise ValueError('non_target_gateway_routes_changed')
+        run(engine + ['validate', '--config', '-'], json.dumps(adapted))
+        self.assert_files()
+        return adapted['apps']['http']['servers']
+
+    def read_good(self):
+        try:
+            good = json.loads(self.checkpoint.read_text())
+        except (OSError, ValueError) as error:
+            raise ValueError('known_good_game_config_required') from error
+        if good['binding'] != self.binding or good['sharedFiles'] != self.fingerprints:
+            raise ValueError('known_good_gateway_context_mismatch')
+        return good
+
+    def remember_good(self):
+        if not self.running():
+            raise ValueError('gateway_stopped_use_recover')
+        candidate = self.managed.read_text()
+        servers = self.validate(candidate)
+        if protected_routes(servers, '') != protected_routes(self.loaded(), ''):
+            raise ValueError('loaded_game_config_does_not_match_disk')
+        good = {'binding': self.binding, 'sharedFiles': self.fingerprints,
+                'protected': self.protected, 'game': candidate}
+        atomic_text(self.checkpoint, json.dumps(good, ensure_ascii=False, indent=2), 0o600)
+        return good
+
+    def reload(self):
+        run(['docker', 'exec', self.current['Id'], 'caddy', 'reload',
+             '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'])
 
     def apply(self, phase):
+        previous = self.remember_good()
         template = (self.repo / 'deploy/Caddyfile').read_text()
         if phase == 'maintenance':
             candidate = '{$GAME_HOST} {\n header Cache-Control no-store\n respond "Maintenance" 503\n}\n'
@@ -133,48 +192,66 @@ class Gateway:
             candidate = template
         self.validate(candidate)
         self.assert_files()
-        # Directory mount permits an atomic replacement of this one imported file.
-        fd, temporary = tempfile.mkstemp(prefix='.' + self.game_id, dir=self.directory)
+        atomic_text(self.managed, candidate)
         try:
-            with os.fdopen(fd, 'w') as file:
-                file.write(candidate)
-            os.chmod(temporary, 0o644)
-            os.replace(temporary, self.managed)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
-        run(['docker', 'exec', self.current['Id'], 'caddy', 'reload',
-             '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'])
-        self.verify()
+            self.reload()
+            self.verify()
+            self.remember_good()
+        except Exception:
+            # Restore only this game, including a previous maintenance phase if applicable.
+            self.assert_files()
+            atomic_text(self.managed, previous['game'])
+            self.current = self.inspect()
+            if self.running():
+                self.reload()
+                self.verify()
+            raise
 
     def verify(self):
         self.assert_files()
+        self.current = self.inspect()
+        self.assert_runtime()
+        if not self.running():
+            raise ValueError('gateway_stopped_use_recover')
         if protected_routes(self.loaded(), self.host) != self.protected:
             raise ValueError('non_target_loaded_routes_changed')
-        configured = {self.config['networks'][k]['name']
-                      for k in self.config['services']['gateway']['networks']}
-        require_networks(self.current['NetworkSettings']['Networks'], configured)
 
     def recreate(self):
-        self.validate(self.managed.read_text())
+        self.remember_good()
         run(self.compose + ['up', '-d', '--no-build', '--no-deps', '--force-recreate',
                             '--wait', '--wait-timeout', '90', 'gateway'])
         self.current = self.inspect()
         self.verify()
+        self.remember_good()
+
+    def recover(self):
+        if self.running():
+            raise ValueError('recover_requires_stopped_gateway')
+        good = self.read_good()
+        self.validate(good['game'])
+        self.assert_files()
+        atomic_text(self.managed, good['game'])
+        run(self.compose + ['up', '-d', '--no-build', '--no-deps', '--force-recreate',
+                            '--wait', '--wait-timeout', '90', 'gateway'])
+        self.current = self.inspect()
+        self.verify()
+        self.remember_good()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--file', action='append', required=True, help='Every actual Compose file, in order')
     parser.add_argument('--env-file', required=True)
-    parser.add_argument('action', choices=['check', 'admission', 'maintenance', 'open', 'recreate'])
+    parser.add_argument('action', choices=['check', 'admission', 'maintenance', 'open', 'recreate', 'recover'])
     args = parser.parse_args()
     gateway = Gateway(args.file, args.env_file)
     if args.action == 'recreate':
         gateway.recreate()
+    elif args.action == 'recover':
+        gateway.recover()
     elif args.action == 'check':
-        gateway.validate(gateway.managed.read_text())
         gateway.verify()
+        gateway.remember_good()
     else:
         gateway.apply(args.action)
     print(json.dumps({'action': args.action, 'otherRoutesPreserved': True,

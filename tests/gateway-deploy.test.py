@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 spec = importlib.util.spec_from_file_location('gateway', Path(__file__).resolve().parents[1] / 'scripts/gateway.py')
 gateway = importlib.util.module_from_spec(spec)
@@ -65,6 +66,40 @@ class GatewayGuards(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with self.assertRaisesRegex(ValueError, 'gateway_directory_must_be_outside_repository'):
             gateway.private_directory(repo / 'deploy', repo)
+
+    def test_atomic_game_and_checkpoint_files_have_separate_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            game, checkpoint = root / 'skyline.caddy', root / 'good.json'
+            gateway.atomic_text(game, 'valid game')
+            gateway.atomic_text(checkpoint, '{"game":"valid game"}', 0o600)
+            self.assertEqual(game.read_text(), 'valid game')
+            self.assertEqual(json.loads(checkpoint.read_text())['game'], 'valid game')
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ['good.json', 'skyline.caddy'])
+
+    def test_stopped_recovery_requires_matching_shared_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            instance = object.__new__(gateway.Gateway)
+            instance.checkpoint = Path(directory) / 'good.json'
+            instance.binding = {'gameId': 'skyline'}
+            instance.fingerprints = {'Caddyfile': 'original'}
+            with self.assertRaisesRegex(ValueError, 'known_good_game_config_required'):
+                instance.read_good()
+            instance.checkpoint.write_text(json.dumps({'binding': instance.binding,
+                                                      'sharedFiles': {'Caddyfile': 'changed'}}))
+            with self.assertRaisesRegex(ValueError, 'known_good_gateway_context_mismatch'):
+                instance.read_good()
+
+    def test_verify_refreshes_networks_instead_of_using_constructor_snapshot(self):
+        instance = object.__new__(gateway.Gateway)
+        instance.assert_files = Mock()
+        instance.current = {'NetworkSettings': {'Networks': ['edge', 'game', 'shared']}}
+        changed = {'NetworkSettings': {'Networks': ['edge', 'game']}}
+        instance.inspect = Mock(return_value=changed)
+        instance.assert_runtime = Mock(side_effect=ValueError('shared_gateway_network_not_declared'))
+        with self.assertRaisesRegex(ValueError, 'shared_gateway_network_not_declared'):
+            instance.verify()
+        self.assertIs(instance.current, changed)
 
 
 if __name__ == '__main__':
