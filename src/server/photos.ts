@@ -66,7 +66,7 @@ export async function handlePhotoApi(request:Request,context:PhotoContext,expect
     if(request.method==='GET'&&url.pathname==='/api/photos/cleanup-due')return json(await cleanupPhotos(context));
     const media=/^\/api\/photos\/media\/([a-f0-9-]{36})\/(image|thumbnail)$/i.exec(url.pathname);
     if(request.method==='GET'&&media){
-      const active=(now:number)=>photos.stmt("SELECT a.* FROM photo_assets a JOIN building_facades f ON f.asset_id=a.id WHERE a.id=? AND a.status='active' AND a.expires_at>?",media[1],now).first<Asset>();
+      const active=(now:number)=>photos.stmt("SELECT a.* FROM photo_assets a JOIN building_facades f ON f.asset_id=a.id WHERE a.id=? AND a.status='active' AND a.expires_at>? AND (?=0 OR a.city_id='public')",media[1],now,context.scope?.publicOnly?1:0).first<Asset>();
       const asset=await gameOperation(context,active);
       if(!asset)return json({error:'photo_expired'},404);
       const object=await context.bucket.get(media[2]==='image'?asset.image_key:asset.thumbnail_key);

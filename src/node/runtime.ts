@@ -16,6 +16,7 @@ import {ApiError} from '../server/policy.ts';
 import {cachePolicy} from '../server/cache.ts';
 import {RELEASE_ID} from '../release.ts';
 import {gameScope,appPath,assertParameters} from '../shared/app-scope.ts';
+import {bindStorageIdentity} from './storage-identity.ts';
 
 export function requestAddress(request:IncomingMessage,trustProxy:boolean){
   const remote=request.socket.remoteAddress??'unknown',plain=remote.replace(/^::ffff:/,'');
@@ -31,6 +32,7 @@ export async function createGameServer(options:NodeRuntimeOptions){
   const loaded=await loadNodeTheme(env,log),logo=loaded.logo;
   const config={...loaded.config,deployment:scope,branding:{...loaded.config.branding,logoUrl:logo?appPath('/theme/logo',scope):null}};
   const dbRoot=path.join(options.dataRoot,'db'),photosRoot=path.join(options.dataRoot,'photos');
+  await bindStorageIdentity([dbRoot,photosRoot],scope.gameId);
   await mkdir(dbRoot,{recursive:true});
   const database=new NodeDatabase(path.join(dbRoot,'game.sqlite'),options.migrations),bucket=new FileBucket(photosRoot);
   await bucket.probe();

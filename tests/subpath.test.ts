@@ -6,6 +6,7 @@ import path from 'node:path';
 import {request} from 'node:http';
 import jpeg from 'jpeg-js';
 import {createGameServer} from '../src/node/runtime.ts';
+import {handleApi} from '../src/server/service.ts';
 import {gameScope} from '../src/shared/app-scope.ts';
 import {mobileEntryUrl} from '../src/shared/entry.ts';
 import {nextShanghaiMidnight} from '../src/core/photo.ts';
@@ -118,4 +119,78 @@ test('two live instances isolate credentials, runs, photo URLs/files and midnigh
     const removed=await b.api('/api/photos/remove',{version:1},pb.cookie);assert.equal(removed.status,200);
     assert.equal((await b.call(bp.media.imageUrl)).status,404);
   }finally{await a.runtime.close();await b.runtime.close();}
+});
+
+test('storage identity rejects wrong or mixed mounts before database/day maintenance, and survives midnight',async()=>{
+  const a=await fixture(),b=await fixture('route-check');
+  try{
+    const p=await a.session();await a.play(p.cookie,p.info.entry);
+    await a.runtime.close();
+    const database=await readFile(path.join(a.options.dataRoot,'db/game.sqlite'));
+    await assert.rejects(createGameServer({...a.options,now:()=>nextShanghaiMidnight(a.now())+1,env:{...a.options.env,GAME_ID:'route-check'}}),/storage_identity_mismatch/);
+    assert.deepEqual(await readFile(path.join(a.options.dataRoot,'db/game.sqlite')),database);
+    assert.equal(await readFile(path.join(a.options.dataRoot,'photos/.game-id'),'utf8'),'skyline\n');
+    await writeFile(path.join(a.options.dataRoot,'photos/.game-id'),'route-check\n');
+    await assert.rejects(createGameServer(a.options),/storage_identity_mismatch/);
+    assert.deepEqual(await readFile(path.join(a.options.dataRoot,'db/game.sqlite')),database);
+    await writeFile(path.join(a.options.dataRoot,'photos/.game-id'),'skyline\n');
+    const again=await createGameServer(a.options);
+    try{
+      assert.equal(again.database.connection.prepare('SELECT COUNT(*) n FROM buildings').get()!.n,1);
+      a.setNow(nextShanghaiMidnight(a.now())+1);await again.maintain();
+      assert.equal(await readFile(path.join(a.options.dataRoot,'db/.game-id'),'utf8'),'skyline\n');
+      assert.equal(await readFile(path.join(a.options.dataRoot,'photos/.game-id'),'utf8'),'skyline\n');
+    }finally{await again.close();}
+    assert.equal(await readFile(path.join(b.options.dataRoot,'db/.game-id'),'utf8'),'route-check\n');
+  }finally{await b.runtime.close();}
+});
+
+test('original unmarked volumes register without data loss; another game cannot claim them',async()=>{
+  const f=await fixture();await f.runtime.close();
+  const {unlink}=await import('node:fs/promises');
+  await unlink(path.join(f.options.dataRoot,'db/.game-id'));await unlink(path.join(f.options.dataRoot,'photos/.game-id'));
+  const original=await readFile(path.join(f.options.dataRoot,'db/game.sqlite'));
+  await assert.rejects(createGameServer({...f.options,env:{...f.options.env,GAME_ID:'route-check'}}),/storage_identity_missing/);
+  assert.deepEqual(await readFile(path.join(f.options.dataRoot,'db/game.sqlite')),original);
+  await assert.rejects(stat(path.join(f.options.dataRoot,'db/.game-id')),{code:'ENOENT'});
+  const again=await createGameServer(f.options);
+  try{assert.equal(await readFile(path.join(f.options.dataRoot,'db/.game-id'),'utf8'),'skyline\n');}
+  finally{await again.close();}
+});
+
+test('disabling test cities also rejects known run and media IDs, without changing public retries',async()=>{
+  const f=await fixture();let runtime=f.runtime;
+  const call=async(route:string,body?:unknown,cookie?:string)=>{
+    const image=body instanceof Uint8Array;
+    const response=await handleApi(new Request(f.options.origin+route,{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{Origin:f.options.origin,'Content-Type':image?'image/jpeg':'application/json'})},...(body===undefined?{}:{body:image?body as BodyInit:JSON.stringify(body)})}),runtime.context);
+    const value=response.headers.get('content-type')?.includes('json')?await response.json() as any:null;
+    return {response,status:response.status,value};
+  };
+  try{
+    await runtime.close();runtime=await createGameServer({...f.options,env:{...f.options.env,SKYLINE_ALLOW_TEST_CITIES:'1'}});
+    const s=await call('/api/session?city=test&scope=own'),cookie=s.response.headers.get('set-cookie')!.split(';')[0];
+    assert.equal(s.status,200);
+    const run=await call('/api/runs',{city:'test',startKey:randomId()},cookie),trace=makeTrace(3).trace;
+    assert.equal(run.status,200);f.setNow(f.now()+Math.ceil(trace.endUs/1000)+1);
+    assert.equal((await call('/api/runs/'+run.value.runId+'/submit',{trace},cookie)).status,200);
+    const draft=await call('/api/photos/draft?city=test&uploadKey='+randomId(),photo(),cookie);assert.equal(draft.status,200);
+    assert.equal((await call('/api/photos/save?city=test',{id:draft.value.id,version:0},cookie)).status,200);
+    assert.equal((await call('/api/photos/media/'+draft.value.id+'/image')).status,200);
+    await runtime.close();runtime=await createGameServer(f.options);
+    const before=runtime.database.connection.prepare('SELECT status,receipt_json FROM runs WHERE id=?').get(run.value.runId);
+    for(const suffix of ['', '/submit','/cancel'])assert.equal((await call('/api/runs/'+run.value.runId+suffix,suffix==='/submit'?{trace}:suffix==='/cancel'?{}:undefined,cookie)).status,404);
+    for(const kind of ['image','thumbnail'])assert.equal((await call('/api/photos/media/'+draft.value.id+'/'+kind)).status,404);
+    assert.deepEqual(runtime.database.connection.prepare('SELECT status,receipt_json FROM runs WHERE id=?').get(run.value.runId),before);
+    const entry=(await call('/api/game/entry')).value.entry;
+    const publicRun=await call('/api/runs?entry='+entry,{city:'public',startKey:randomId()},cookie);assert.equal(publicRun.status,200);
+    const publicTrace=makeTrace(2).trace;f.setNow(f.now()+Math.ceil(publicTrace.endUs/1000)+1);
+    const body={trace:publicTrace};assert.equal((await call('/api/runs/'+publicRun.value.runId+'/submit',body,cookie)).status,200);
+    assert.equal((await call('/api/runs/'+publicRun.value.runId+'/submit',body,cookie)).value.duplicate,true);
+    const publicDraft=await call('/api/photos/draft?uploadKey='+randomId(),photo(),cookie);assert.equal(publicDraft.status,200);
+    assert.equal((await call('/api/photos/save',{id:publicDraft.value.id,version:0},cookie)).status,200);
+    assert.equal((await call('/api/photos/media/'+publicDraft.value.id+'/image')).status,200);
+    await runtime.close();runtime=await createGameServer({...f.options,env:{...f.options.env,SKYLINE_ALLOW_TEST_CITIES:'1'}});
+    assert.equal((await call('/api/runs/'+run.value.runId,undefined,cookie)).status,200);
+    assert.equal((await call('/api/photos/media/'+draft.value.id+'/image')).status,200);
+  }finally{await runtime.close();}
 });

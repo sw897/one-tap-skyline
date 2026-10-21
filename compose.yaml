@@ -46,8 +46,8 @@ services:
     mem_limit: 128m
     cpus: 0.25
 volumes:
-  game_db: {name: "${SKYLINE_DB_VOLUME:-skyline_game_db}"}
-  game_photos: {name: "${SKYLINE_PHOTOS_VOLUME:-skyline_game_photos}"}
+  game_db: {name: "${SKYLINE_DB_VOLUME:?Set the independent database volume}"}
+  game_photos: {name: "${SKYLINE_PHOTOS_VOLUME:?Set the independent photo volume}"}
   caddy_data: {name: skyline_caddy_data}
   caddy_config: {name: skyline_caddy_config}
 networks:

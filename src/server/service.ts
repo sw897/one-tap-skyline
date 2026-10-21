@@ -87,6 +87,7 @@ async function handleGameApi(request:Request,context:ServerContext,parsedBody:Re
     const matched=/^\/api\/runs\/([a-f0-9-]{36})(?:\/(submit|cancel))?$/i.exec(url.pathname);
     if(matched) {
       const owner=requirePlayer(),run=await store.getRun(matched[1],owner.id,now);
+      if(scope.publicOnly&&run.city_id!=='public')throw new ApiError(404,'run_not_found');
       if(run.created_at<shanghaiMidnight(now))throw new ApiError(410,'city_reset');
       if(request.method==='GET'&&!matched[2])return json({runId:run.id,status:run.status,receipt:run.receipt_json?JSON.parse(run.receipt_json):null,snapshot:await snapshot(run.city_id)});
       if(request.method==='POST'&&matched[2]==='cancel') {const body=parsedBody!;keys(body,[]);await store.cancel(run.id,owner.id);return json({cancelled:true});}
