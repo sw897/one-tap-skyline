@@ -32,7 +32,11 @@ services:
       - "127.0.0.1:${SKYLINE_HTTP_PORT:-18080}:80"
       - "${SKYLINE_HTTPS_PORT:-443}:443"
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: ${SKYLINE_GATEWAY_DIRECTORY:?Set the private shared gateway directory}
+        target: /etc/caddy
+        read_only: true
+        bind: {create_host_path: false}
       - caddy_data:/data
       - caddy_config:/config
     networks: [game,edge]

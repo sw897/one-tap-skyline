@@ -20,11 +20,27 @@
 
 ```sh
 docker compose --env-file /private/runtime.env build
-docker compose --env-file /private/runtime.env up -d --no-build --wait
+docker compose --env-file /private/runtime.env up -d --no-build --no-deps --wait game
 docker compose --env-file /private/runtime.env ps
 ```
 
 主机Nginx继续监听80并承载原网站，仅新增[游戏虚拟主机](../deploy/nginx-game.conf.example)，转发到`127.0.0.1:18080`，保持Host，支持Caddy证书验证和HTTPS重定向。Caddy监听空闲公网443，游戏8080仅在内部网络。新增配置先检查，再平滑加载；失败只撤除本次新增文件，不改既有网站/GitLab。检查DNS、80/443及安全组，部署前后比较原网站响应/配置摘要、GitLab容器/端口/挂载。
+
+### 共享网关配置
+
+`SKYLINE_GATEWAY_DIRECTORY`必须指向仓库外已有目录，整体只读挂载到网关`/etc/caddy`。其中`Caddyfile`保留所有其他站点原配置，并以独立一行`import /etc/caddy/skyline.caddy`导入本游戏；`skyline.caddy`初始内容取[游戏规则模板](../deploy/Caddyfile)。首次拆分须校验拆分前后路由等价，不能覆盖现有共享根配置。仓库checkout、复制单游戏模板均不会改动实际共享根配置。
+
+若网关还连接其他后端，实际部署命令必须始终包含[共享网络覆盖配置](../compose.shared-gateway.yaml)，并在私有环境文件设置`SKYLINE_SHARED_NETWORK`为已存在的外部网络名；该网络不由本游戏创建/删除。主题部署另带`compose.theme.yaml`。后续所有Compose和助手命令均须使用同一组文件，不能漏掉共享网络覆盖配置。
+
+```sh
+python3 scripts/gateway.py --file compose.yaml --file compose.theme.yaml --file compose.shared-gateway.yaml --env-file /private/runtime.env check
+```
+
+[网关助手](../scripts/gateway.py)仅原子替换本游戏导入文件，不写共享根配置或其他站点文件；`admission`、`maintenance`、`open`分别用于阻止新登记/开局、游戏维护和恢复游戏规则。每次先适配候选配置并检查其他路由，再写入和加载，随后复核；其他文件变更、其他路由变更或实际/声明网络不一致时拒绝。失败时不要用单游戏配置覆盖共享根文件；保持当时维护状态，核查后修复候选。
+
+普通游戏更新先用助手`admission`、检查局次与上传收尾，再`maintenance`，只停止/更新`game`；就绪及卷核对通过后`open`。这些步骤不替代原有收尾检查。需要重建网关时用相同参数调用助手`recreate`，它先核对路由和所有网络，再仅重建`gateway`并复查；443连接会短暂重连。不要复用历史私有整文件覆盖脚本，不将`docker compose up`整个项目作为普通游戏更新步骤。
+
+保护回归：`python3 tests/gateway-deploy.test.py`。本地隔离与真实重建结果须分别留证，不将规则比较视为其他站点完整业务验收。
 
 数据库/照片卷必须通过`SKYLINE_DB_VOLUME`、`SKYLINE_PHOTOS_VOLUME`显式指定，缺项时Compose拒绝解析。原游戏仍使用`skyline_game_db`、`skyline_game_photos`；未来其他游戏使用不同项目、卷、内部网络及唯一后端别名。显式卷名不随项目名自动隔离。启动前核对路径、实例、代理与实际挂载，禁止候选和旧进程并行挂正式写卷。证书卷`skyline_caddy_data`、`skyline_caddy_config`仅网关使用。不使用`down -v`。容器以非root用户、只读根目录及资源限制运行。镜像/上下文只含公开安全构建输入，不打包密钥、Git历史、私有证据或玩家数据。
 
