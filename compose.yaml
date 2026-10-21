@@ -5,13 +5,16 @@ services:
     build: {context: .}
     restart: unless-stopped
     environment:
+      GAME_ID: ${GAME_ID:-skyline}
       PUBLIC_ORIGIN: https://${GAME_HOST}
       CITY_DISPLAY_NAME: ${CITY_DISPLAY_NAME:-城市天际线}
       SKYLINE_PUBLIC_WRITE_OPEN: "1"
       SKYLINE_PUBLIC_PHOTOS_OPEN: "1"
       SKYLINE_TRUST_PROXY: "1"
     volumes: [game_db:/data/db, game_photos:/data/photos]
-    networks: [game]
+    networks:
+      game:
+        aliases: ["${GAME_ID:-skyline}-backend"]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -24,6 +27,7 @@ services:
     restart: unless-stopped
     environment:
       GAME_HOST: ${GAME_HOST:?GAME_HOST must be set}
+      GAME_ID: ${GAME_ID:-skyline}
     ports:
       - "127.0.0.1:${SKYLINE_HTTP_PORT:-18080}:80"
       - "${SKYLINE_HTTPS_PORT:-443}:443"
@@ -42,8 +46,8 @@ services:
     mem_limit: 128m
     cpus: 0.25
 volumes:
-  game_db: {name: skyline_game_db}
-  game_photos: {name: skyline_game_photos}
+  game_db: {name: "${SKYLINE_DB_VOLUME:-skyline_game_db}"}
+  game_photos: {name: "${SKYLINE_PHOTOS_VOLUME:-skyline_game_photos}"}
   caddy_data: {name: skyline_caddy_data}
   caddy_config: {name: skyline_caddy_config}
 networks:

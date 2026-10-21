@@ -3,6 +3,7 @@ import type { CityBuilding, CityUpdate } from '../core/city.ts';
 import type { RunTrace } from '../core/trace.ts';
 import type { CitySnapshot, CityEvent, SharedCityId, SharedSession, StartReceipt, SubmissionResponse, SnapshotScope } from './protocol.ts';
 import {DEFAULT_CONFIG} from '../config.ts';
+import {browserPath} from './app-scope.ts';
 
 export class SharedError extends Error {
   readonly code:string;
@@ -13,7 +14,7 @@ export const sharedMessage=(error:unknown)=>error instanceof SharedError?(messag
 messages.city_full='城市已满，已有楼仍可继续长高；本局作品保留在结算页。';
 Object.assign(messages,{city_reset:'新的一天，城市已经重新开始。',photos_closed:'照片体验暂未开放。',no_saved_building:'先把有效成绩保存到城市，再装饰你的楼。',photo_too_large:'压缩后的照片仍然较大，请换一张。',invalid_photo:'这张照片暂时无法处理，请重新选择。',photo_expired:'照片草稿已失效，请重新选择。',photo_conflict:'照片状态已更新，请查看我的楼后再试。',photo_service_unavailable:'照片暂未保存，请稍后重试。',photo_storage_unavailable:'照片存储暂时不可用。'});
 export async function requestJson<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T>{
-  const response=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal});
+  const response=await fetch(browserPath(path),{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal});
   const value=await response.json() as T&{error?:string};if(!response.ok)throw new SharedError(value.error??'service_unavailable');return value as T;
 }
 export class SharedCityRepository {

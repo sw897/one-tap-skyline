@@ -1,4 +1,5 @@
 import {cueUri} from './cue-wave.ts';
+import {preferenceKey} from '../shared/app-scope.ts';
 export type LandingCue='trimmed'|'perfect'|'miss';
 export interface Tone {frequency:number;end:number;delay:number;length:number;gain:number;type:OscillatorType}
 export function cueTones(kind:LandingCue,combo=0,milestone=3):Tone[]{
@@ -19,7 +20,7 @@ export class GameAudio {
   private status:(message:string)=>void;
   constructor(status:(message:string)=>void=()=>{}){
     this.status=status;
-    try{this.muted=localStorage.getItem('skyline-muted')==='1';}catch{/* optional preference */}
+    try{this.muted=localStorage.getItem(preferenceKey('muted'))==='1';}catch{/* optional preference */}
     // iPhone browsers share WebKit's output restrictions. iPad desktop mode also applies.
     this.useMedia=/iPhone|iPad|iPod/.test(navigator.userAgent)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1;
   }
@@ -45,7 +46,7 @@ export class GameAudio {
     if(performance.now()-pending.at>(pending.preview?1200:150)){pending.element.pause();this.pending=undefined;return;}
     if(pending.element.paused)this.startMedia(pending);
   }
-  toggle(){this.muted=!this.muted;try{localStorage.setItem('skyline-muted',this.muted?'1':'0');}catch{/* optional preference */}if(this.muted)this.stop();else this.unlock();return this.muted;}
+  toggle(){this.muted=!this.muted;try{localStorage.setItem(preferenceKey('muted'),this.muted?'1':'0');}catch{/* optional preference */}if(this.muted)this.stop();else this.unlock();return this.muted;}
   landed(kind:LandingCue,combo:number,milestone:number){
     if(this.muted||this.disposed||document.hidden)return;
     if(this.useMedia){this.playMedia(cueTones(kind,combo,milestone),false);return;}

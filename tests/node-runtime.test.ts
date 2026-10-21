@@ -29,7 +29,7 @@ async function fixture(){
   await mkdir(base,{recursive:true});const root=await mkdtemp(path.join(base,'case-')),web=path.join(root,'web');
   await mkdir(path.join(web,'assets'),{recursive:true});await writeFile(path.join(web,'index.html'),'<html>fixture</html>');await writeFile(path.join(web,'assets/index-abcdefgh.js'),'fixture');
   let now=Date.parse('2030-10-01T02:00:00Z');
-  const options={origin:'https://game.example.com',dataRoot:root,webRoot:web,migrations:path.resolve('drizzle'),env:{SKYLINE_PUBLIC_WRITE_OPEN:'1',SKYLINE_PUBLIC_PHOTOS_OPEN:'1'},now:()=>now,timers:false,log:()=>{}};
+  const options={origin:'https://game.example.com',dataRoot:root,webRoot:web,migrations:path.resolve('drizzle'),env:{GAME_ID:'skyline',SKYLINE_ALLOW_TEST_CITIES:'1',SKYLINE_PUBLIC_WRITE_OPEN:'1',SKYLINE_PUBLIC_PHOTOS_OPEN:'1'},now:()=>now,timers:false,log:()=>{}};
   const runtime=await createGameServer(options);
   const call=async(route:string,body?:unknown,cookie?:string,ctx:ServerContext=runtime.context)=>{
     const response=await handleApi(new Request(options.origin+route,{method:body===undefined?'GET':'POST',headers:{...(cookie?{cookie}:{}),...(body===undefined?{}:{Origin:options.origin,'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})}),ctx);
@@ -73,14 +73,14 @@ test('HTTP bridge preserves cache/cookie/origin behavior and rejects forged dire
   const f=await fixture();try{
     await new Promise<void>(resolve=>f.runtime.server.listen(0,'127.0.0.1',resolve));
     const address=f.runtime.server.address() as {port:number},base='http://127.0.0.1:'+address.port;
-    const get=(route:string,headers:Record<string,string>={})=>http(base+route,{headers:{Host:'game.example.com',...headers}});
+    const get=(route:string,headers:Record<string,string>={})=>http(base+'/skyline'+route,{headers:{Host:'game.example.com',...headers}});
     assert.equal((await get('/')).headers.get('Cache-Control'),'no-store');
     assert.match((await get('/assets/index-abcdefgh.js')).headers.get('Cache-Control')!,/immutable/);
     assert.equal((await get('/runtime-config.json')).headers.get('Cache-Control'),'no-store');
     assert.equal((await get('/api/session?city=test')).headers.get('Set-Cookie')!.includes('Secure'),true);
     assert.equal((await http(base+'/',{headers:{Host:'wrong.example.com'}})).status,421);
-    assert.equal((await http(base+'/api/runs',{method:'POST',headers:{Host:'game.example.com',Origin:'https://evil.example','Content-Type':'application/json'},body:'{}'})).status,403);
-    assert.equal((await http(base+'/api/runs',{method:'POST',headers:{Host:'game.example.com','Content-Type':'application/json','Content-Length':'70000'},body:'x'.repeat(70_000)})).status,413);
+    assert.equal((await http(base+'/skyline/api/runs',{method:'POST',headers:{Host:'game.example.com',Origin:'https://evil.example','Content-Type':'application/json'},body:'{}'})).status,403);
+    assert.equal((await http(base+'/skyline/api/runs',{method:'POST',headers:{Host:'game.example.com','Content-Type':'application/json','Content-Length':'70000'},body:'x'.repeat(70_000)})).status,413);
     const incoming=(ip:string,header:string)=>({socket:{remoteAddress:ip},headers:{'x-skyline-client-ip':header}} as unknown as IncomingMessage);
     assert.equal(requestAddress(incoming('198.51.100.1','203.0.113.1'),true),'198.51.100.1');
     assert.equal(requestAddress(incoming('172.18.0.2','203.0.113.1'),true),'203.0.113.1');

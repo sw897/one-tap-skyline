@@ -15,6 +15,7 @@ import {nextShanghaiMidnight,shanghaiMidnight} from '../core/photo.ts';
 import {ApiError} from '../server/policy.ts';
 import {cachePolicy} from '../server/cache.ts';
 import {RELEASE_ID} from '../release.ts';
+import {gameScope,appPath,assertParameters} from '../shared/app-scope.ts';
 
 export function requestAddress(request:IncomingMessage,trustProxy:boolean){
   const remote=request.socket.remoteAddress??'unknown',plain=remote.replace(/^::ffff:/,'');
@@ -26,13 +27,15 @@ export interface NodeRuntimeOptions {origin:string;dataRoot:string;webRoot:strin
 export async function createGameServer(options:NodeRuntimeOptions){
   const origin=new URL(options.origin),env=options.env??{},clock=options.now??Date.now,log=options.log??(v=>console.log(JSON.stringify(v)));
   if(!['http:','https:'].includes(origin.protocol)||origin.pathname!=='/'||origin.username||origin.password||origin.search||origin.hash)throw Error('invalid_public_origin');
-  const {config,logo}=await loadNodeTheme(env,log);
+  const scope=gameScope(env.GAME_ID??'',env.SKYLINE_ALLOW_TEST_CITIES==='1');
+  const loaded=await loadNodeTheme(env,log),logo=loaded.logo;
+  const config={...loaded.config,deployment:scope,branding:{...loaded.config.branding,logoUrl:logo?appPath('/theme/logo',scope):null}};
   const dbRoot=path.join(options.dataRoot,'db'),photosRoot=path.join(options.dataRoot,'photos');
   await mkdir(dbRoot,{recursive:true});
   const database=new NodeDatabase(path.join(dbRoot,'game.sqlite'),options.migrations),bucket=new FileBucket(photosRoot);
   await bucket.probe();
   const activeUploads=new Map<number,number>();let physicalPending=0,endedOldUploadRevision=0,sweptUploadRevision=0;
-  const context:ServerContext={db:database.asD1(),bucket:bucket.asR2(),now:clock,boundary:job=>database.atomic(job,()=>{
+  const context:ServerContext={scope,db:database.asD1(),bucket:bucket.asR2(),now:clock,boundary:job=>database.atomic(job,()=>{
     const marker=database.connection.prepare("SELECT day_start FROM game_clock WHERE id='daily'").get();
     if(marker?.day_start!==shanghaiMidnight(clock()))throw new ApiError(410,'city_reset');
   }),publicWriteOpen:env.SKYLINE_PUBLIC_WRITE_OPEN==='1',publicPhotosOpen:env.SKYLINE_PUBLIC_PHOTOS_OPEN==='1',cityName:config.cityDisplayName,layout:waterfrontLayout(config.city.openDistricts,config.city.capacities)};
@@ -89,9 +92,23 @@ export async function createGameServer(options:NodeRuntimeOptions){
       if(url.origin!==origin.origin){response.writeHead(400);response.end();return;}
       if(url.pathname==='/health/live'||url.pathname==='/health/ready'){
         response.writeHead(url.pathname.endsWith('ready')&&!health.ready?503:200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        response.end(JSON.stringify({releaseId:RELEASE_ID,...health}));return;
+        response.end(JSON.stringify({gameId:scope.gameId,basePath:scope.basePath,releaseId:RELEASE_ID,...health}));return;
       }
       if(request.headers.host!==origin.host){response.writeHead(421,{'Cache-Control':'no-store'});response.end();return;}
+      const rawPath=(request.url??'/').split('?')[0];
+      if(/%(?:2f|5c|2e|00)/i.test(rawPath)||rawPath.includes('\\')||rawPath.includes('//')||rawPath.split('/').some(p=>p==='.'||p==='..')){
+        response.writeHead(404,{'Cache-Control':'no-store'});response.end();return;
+      }
+      if(url.pathname===scope.basePath.slice(0,-1)){
+        if(!['GET','HEAD'].includes(request.method??'GET')){response.writeHead(404,{'Cache-Control':'no-store'});response.end();return;}
+        response.writeHead(308,{'Location':scope.basePath+url.search,'Cache-Control':'no-store'});response.end();return;
+      }
+      // Check the literal path before decoding; no alternate or double-normalized routes.
+      if(!rawPath.startsWith(scope.basePath)){
+        response.writeHead(404,{'Cache-Control':'no-store'});response.end();return;
+      }
+      try{assertParameters(url,scope);}catch(error){response.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify({error:(error as Error).message}));return;}
+      url.pathname=url.pathname.slice(scope.basePath.length-1);
       if(Number(request.headers['content-length'])>(url.pathname==='/api/photos/draft'?512*1024:65_536)){
         request.resume();response.writeHead(413,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end('{"error":"body_too_large"}');return;
       }

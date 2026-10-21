@@ -1,6 +1,7 @@
 import type { CutMode } from './core/tower.ts';
 import { DEFAULT_DISTRICT_CAPACITIES, waterfrontLayout } from './core/layout.ts';
 import { DEFAULT_BRANDING, parseBranding, type BrandingConfig } from './branding.ts';
+import {parseAppScope,ROOT_SCOPE,type AppScope} from './shared/app-scope.ts';
 export interface GameConfig {
   cutMode: CutMode;
   roundSeconds: number;
@@ -11,6 +12,7 @@ export interface GameConfig {
   dropSeconds: number;
 }
 export interface RuntimeConfig {
+  deployment: AppScope;
   cityDisplayName: string;
   branding: BrandingConfig;
   city: { openDistricts: number; capacities: number[] };
@@ -18,6 +20,7 @@ export interface RuntimeConfig {
   visual: { cameraSeconds: number; growthSeconds: number; maxPixelRatio: number; lowFloors: number; midFloors: number; publicBuildings: boolean; tourStaySeconds: number; tourTransitionSeconds: number; focusTransitionSeconds:number; tourIdleSeconds: number; landingGlowSeconds:number; noticeStaySeconds:number; tourArcDegrees:number };
 }
 export const DEFAULT_CONFIG: RuntimeConfig = {
+  deployment: {...ROOT_SCOPE},
   cityDisplayName: '城市天际线',
   branding: {...DEFAULT_BRANDING},
   city: {openDistricts:6, capacities:[...DEFAULT_DISTRICT_CAPACITIES]},
@@ -37,6 +40,7 @@ export function parseRuntimeConfig(input: unknown): RuntimeConfig {
   const name = typeof root.cityDisplayName === 'string' ? root.cityDisplayName.trim() : '';
   const cityDisplayName = name.length > 0 && name.length <= 40 && !/[<>\u0000-\u001f]/u.test(name) ? name : d.cityDisplayName;
   return {
+    deployment: parseAppScope(root.deployment),
     cityDisplayName,
     branding: parseBranding(root.branding, cityDisplayName),
     city:{openDistricts:layout.districtCount,capacities:layout.capacities},
@@ -65,11 +69,18 @@ export function playtestConfig(config: RuntimeConfig, search: string): RuntimeCo
   return mode === 'single-x' || mode === 'alternate-xz' ? { ...config, game: { ...config.game, cutMode: mode } } : config;
 }
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  const finish=(value:unknown)=>{
+    const config=parseRuntimeConfig(value);
+    if(location.pathname!==config.deployment.basePath)throw Error('runtime_scope_mismatch');
+    return config;
+  };
   // Node embeds the same public configuration used by its HTML title and API.
   const bootstrap = document.getElementById('skyline-runtime');
-  if (bootstrap) { try { return parseRuntimeConfig(JSON.parse(bootstrap.textContent ?? '')); } catch { /* Fetch the public projection if the bootstrap is damaged. */ } }
+  if (bootstrap) { try { return finish(JSON.parse(bootstrap.textContent ?? '')); } catch { /* Fetch the public projection if the bootstrap is damaged. */ } }
   try {
     const response = await fetch(new URL('runtime-config.json', document.baseURI), { cache: 'no-store' });
-    return response.ok ? parseRuntimeConfig(await response.json()) : parseRuntimeConfig(null);
-  } catch { return parseRuntimeConfig(null); }
+    if(response.ok)return finish(await response.json());
+    if(location.pathname!=='/')throw Error('runtime_config_unavailable');
+    return parseRuntimeConfig(null);
+  } catch (error) { if(location.pathname!=='/')throw error;return parseRuntimeConfig(null); }
 }

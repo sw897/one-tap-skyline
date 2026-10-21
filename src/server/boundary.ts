@@ -2,8 +2,10 @@ import type {D1Database} from '@cloudflare/workers-types';
 import {shanghaiMidnight} from '../core/photo.ts';
 import {ensureGameDay} from './daily-reset.ts';
 import {ApiError} from './policy.ts';
+import type {AppScope} from '../shared/app-scope.ts';
 
 export interface BoundaryContext {
+  scope?:AppScope;
   db?:D1Database;
   now?:()=>number;
   boundary?:<T>(job:()=>Promise<T>)=>Promise<T>;

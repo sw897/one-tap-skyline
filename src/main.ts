@@ -7,6 +7,7 @@ import {waterfrontLayout,districtsFor,plotLocation,layoutCapacity} from './core/
 import QRCode from 'qrcode';
 import {RELEASE_ID} from './release.ts';
 import {mobileEntryUrl} from './shared/entry.ts';
+import {setBrowserScope,browserPath} from './shared/app-scope.ts';
 import {ReleaseUpdate} from './ui/release-update.ts';
 import { temporaryId } from './core/session-id.ts';
 import { fixtureTower, towerHeight, emptyTower } from './core/tower.ts';
@@ -33,6 +34,7 @@ const displaySurface=search.get('mode')==='display';
 const fullCityPreview=isFullCityPreview(search);
 const personalSurface=search.get('mode')!=='display';
 let config = playtestConfig(await loadRuntimeConfig(), location.search);
+setBrowserScope(config.deployment);
 if(signal?.aborted)return ()=>{};
 applyPageTheme(config);
 document.documentElement.dataset.surface=displaySurface?'display':personalSurface?'personal':'city';
@@ -40,7 +42,7 @@ const cityId: SharedCityId = search.get('city')==='test-mobile'?'test-mobile':se
 const measuring=displaySurface&&cityId==='test'&&search.get('measure')==='1';
 const measurement={frames:[] as number[],drawn:{} as Record<string,unknown>,ambient:false};
 if(measuring)(window as unknown as {__SKYLINE_MEASURE__:unknown}).__SKYLINE_MEASURE__=measurement;
-const shared = !fullCityPreview&&(displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut'));
+const shared = !fullCityPreview&&(config.deployment.publicOnly||displaySurface||search.get('mode') === 'shared'||search.get('mode') !== 'practice' && !search.has('cut'));
 let session: SharedSession | undefined, displaySnapshot:CitySnapshot|undefined, initialError = '';
 if (shared) {
   try {if(displaySurface)displaySnapshot=await loadDisplay(cityId,signal);else{ session = await loadSession(cityId,signal,personalSurface?'own':'all',search.get('entry')??undefined); if (!session.snapshot.writeOpen) throw new SharedError('city_write_closed'); }}
@@ -126,7 +128,7 @@ if(fullCityPreview)$('scene-data-mark').textContent='模拟数据 · 全地块�
 $('settings-button').hidden=shared;
 $('mode-links').hidden=shared;
 $('shared-link').hidden=shared;
-($('shared-link') as HTMLAnchorElement).href='/?mode=shared';
+($('shared-link') as HTMLAnchorElement).href=browserPath('/?mode=shared');
 $('data-badge').textContent=shared?(cityId!=='public'?'共享测试数据':'真实共享城市'):'模拟数据 · 本页城市';
 $('data-badge').hidden=displaySurface&&shared&&cityId==='public';
 if(fullCityPreview)$('data-badge').textContent='模拟数据 · 全地块预览';
@@ -142,7 +144,7 @@ let qrUrl='',qrGeneration=0;
 $('entry-link').hidden=displaySurface;
 $('entry-qr').hidden=true;
 const updates=shared?new ReleaseUpdate(root,cityId,()=>({starting,submitting,photoBusy,playing:!!game&&game.phase!=='ended',unsaved:!!completed&&!!activeServerRun,photoPending:!!photoEditor.selected||($('photo-dialog') as HTMLDialogElement).open}),info=>{
-  const mobileEntry=mobileEntryUrl(location.origin,info,cityId);if(qrUrl===mobileEntry.href)return;
+  const mobileEntry=mobileEntryUrl(location.origin,info,cityId,config.deployment);if(qrUrl===mobileEntry.href)return;
   qrUrl=mobileEntry.href;const generation=++qrGeneration;
   ($('entry-link') as HTMLAnchorElement).href=mobileEntry.href;$('entry-link').textContent=mobileEntry.host;
   const qrCanvas=document.createElement('canvas');
@@ -377,7 +379,7 @@ async function saveSelectedPhoto(){
       if(!city.snapshot.photoWriteOpen)throw new SharedError('photos_closed');
       const scope='&scope='+city.scope;
       if(!selected.draftId){
-        const response=await fetch('/api/photos/draft?city='+cityId+'&uploadKey='+selected.uploadKey,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'image/jpeg'},body:selected.blob,signal:AbortSignal.timeout(20_000)});
+        const response=await fetch(browserPath('/api/photos/draft?city='+cityId+'&uploadKey='+selected.uploadKey),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'image/jpeg'},body:selected.blob,signal:AbortSignal.timeout(20_000)});
         const value=await response.json() as PhotoDraft&{error?:string};if(!response.ok)throw new SharedError(value.error??'photo_service_unavailable');selected.draftId=value.id;
       }
       const saved=await requestJson<{snapshot:import('./shared/protocol.ts').CitySnapshot}>('/api/photos/save?city='+cityId+scope,{id:selected.draftId,version:own.appearanceVersion??0});
@@ -502,7 +504,7 @@ async function pollCity(){
 }
 const pollTimer=setInterval(()=>void pollCity(),3000);
 const resetAt=session?.snapshot.resetAt??displaySnapshot?.resetAt??nextShanghaiMidnight();let resettingDay=false;
-const resetTimer=setInterval(()=>{if(fullCityPreview||Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch('/api/game/reset-due',{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
+const resetTimer=setInterval(()=>{if(fullCityPreview||Date.now()<resetAt||resettingDay)return;resettingDay=true;pauseGame();navigationVersion++;clearNotices();recentEvents=[];selectedId=undefined;viewer.setCity([]);viewer.setSolo(emptyTower(),buildingColor);photoEditor.clear();labels.clear();resultIds=[];$('building-results').hidden=true;$('event-feed').replaceChildren();$('search-note').textContent='';$('building-labels').replaceChildren();$('city-ranking').replaceChildren();$('city-count').textContent='新的一天，城市重新开始';$('personal-floors').textContent='0';$('personal-name').textContent='新的一天，再盖一栋新的楼';$('own-photo-actions').hidden=true;$('city-event').hidden=true;void fetch(browserPath('/api/game/reset-due'),{cache:'no-store',signal:AbortSignal.timeout(10_000)}).catch(()=>{}).finally(()=>location.reload());},500);
 const disposeDisplayClock=displaySurface?mountDisplayClock(root):()=>{};
 animationFrame=requestAnimationFrame(frame);
 return()=>{disposed=true;disposeDisplayClock();cancelAnimationFrame(animationFrame);clearInterval(pollTimer);clearInterval(resetTimer);clearTimeout(soundNoteTimer);updates?.dispose();pollAbort.abort();photoEditor.dispose();audio.dispose();labels.clear();

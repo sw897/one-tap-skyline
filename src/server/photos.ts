@@ -5,6 +5,7 @@ import {ApiError,hashText,randomId} from './policy.ts';
 import {CityStore} from './store.ts';
 import {normalizePhoto,readPhotoBytes} from './photo-codec.ts';
 import {gameOperation,type BoundaryContext} from './boundary.ts';
+import {credential,ROOT_SCOPE,type AppScope} from '../shared/app-scope.ts';
 export interface PhotoContext extends BoundaryContext {db?:D1Database;bucket?:R2Bucket;publicWriteOpen:boolean;publicPhotosOpen:boolean}
 type Asset={id:string;city_id:SharedCityId;player_id:string;upload_key:string;request_hash:string;status:string;created_at:number;expires_at:number;image_key:string;thumbnail_key:string;bytes:number};
 type Facade={id:string;asset_id:string|null;version:number};
@@ -21,15 +22,15 @@ async function body(request:Request){
   try{const v=JSON.parse(new TextDecoder().decode(bytes));if(!v||typeof v!=='object'||Array.isArray(v))throw Error();return v as Record<string,unknown>;}catch{throw new ApiError(400,'invalid_body');}
 }
 class Photos {
-  constructor(readonly db:D1Database,readonly bucket:R2Bucket){}
+  constructor(readonly db:D1Database,readonly bucket:R2Bucket,readonly scope:AppScope=ROOT_SCOPE){}
   stmt(sql:string,...values:(string|number|null)[]){return this.db.prepare(sql).bind(...values);}
   async facade(city:SharedCityId,player:string){
     const f=await this.stmt('SELECT b.id,f.asset_id,COALESCE(f.version,0) AS version FROM buildings b LEFT JOIN building_facades f ON f.building_id=b.id WHERE b.city_id=? AND b.player_id=?',city,player).first<Facade>();
     if(!f)throw new ApiError(409,'no_saved_building');return f;
   }
   async owner(request:Request,now:number){
-    const token=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith('skyline_player='))?.slice(15);
-    const player=token?await new CityStore(this.db).player(await hashText(token),now):null;
+    const token=credential(request,this.scope);
+    const player=token?await new CityStore(this.db,this.scope).player(await hashText(token),now):null;
     if(!player)throw new ApiError(401,'session_required');return player;
   }
   async deleteFiles(asset:Asset,context:PhotoContext){
@@ -60,7 +61,7 @@ export async function cleanupPhotos(context:PhotoContext){
 export async function handlePhotoApi(request:Request,context:PhotoContext,expectedDay?:number){
   try{
     if(!context.db||!context.bucket)throw new ApiError(503,'photo_storage_unavailable');
-    const url=new URL(request.url),bucket=context.bucket,photos=new Photos(context.db,bucket);
+    const url=new URL(request.url),bucket=context.bucket,photos=new Photos(context.db,bucket,context.scope);
     const writeDay=expectedDay??(request.method==='POST'?shanghaiMidnight((context.now??Date.now)()):undefined);
     if(request.method==='GET'&&url.pathname==='/api/photos/cleanup-due')return json(await cleanupPhotos(context));
     const media=/^\/api\/photos\/media\/([a-f0-9-]{36})\/(image|thumbnail)$/i.exec(url.pathname);
@@ -149,7 +150,7 @@ export async function handlePhotoApi(request:Request,context:PhotoContext,expect
           ]);
           result={removed:true,pending:false};
         }
-        const snapshot=await new CityStore(context.db!).snapshot(city,city!=='public'||context.publicWriteOpen,url.searchParams.get('scope')==='all'?undefined:player.id);
+        const snapshot=await new CityStore(context.db!,context.scope).snapshot(city,city!=='public'||context.publicWriteOpen,url.searchParams.get('scope')==='all'?undefined:player.id);
         snapshot.photoWriteOpen=city!=='public'||context.publicPhotosOpen;
         return {result,old,snapshot};
       },writeDay);

@@ -13,9 +13,9 @@ import { ensureGameDay,removePastDayFiles } from './daily-reset.ts';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { PlayerRow } from './store.ts';
 import {gameOperation,type BoundaryContext} from './boundary.ts';
+import {credential as readCredential,cookiePolicy,assertParameters,ROOT_SCOPE} from '../shared/app-scope.ts';
 
 export interface ServerContext extends BoundaryContext { db?: D1Database; bucket?: R2Bucket; publicWriteOpen: boolean; publicPhotosOpen?: boolean; cityName?: string; layout?:CityLayout; clientAddress?:string }
-const COOKIE='skyline_player';
 const json=(value:unknown,status=200,cookie?:string)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Cookie',...(cookie?{'Set-Cookie':cookie}:{})}});
 const cityId=(value:unknown):SharedCityId=>{if(value==='public'||value==='test'||value==='test-mobile')return value;throw new ApiError(400,'invalid_city');};
 const keys=(body:Record<string,unknown>,allowed:string[])=>{if(Object.keys(body).some(k=>!allowed.includes(k)))throw new ApiError(400,'unexpected_field');};
@@ -33,9 +33,9 @@ async function readBody(request:Request) {
 
 async function handleGameApi(request:Request,context:ServerContext,parsedBody:Record<string,unknown>|undefined,day:Awaited<ReturnType<typeof ensureGameDay>>):Promise<Response> {
     if(!context.db)throw new ApiError(503,'storage_unavailable');
-    const store=new CityStore(context.db),url=new URL(request.url),now=(context.now??Date.now)();
+    const scope=context.scope??ROOT_SCOPE,store=new CityStore(context.db,scope),url=new URL(request.url),now=(context.now??Date.now)();
     const name=parseRuntimeConfig({cityDisplayName:context.cityName}).cityDisplayName;
-    const token=request.headers.get('cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
+    const token=readCredential(request,scope);
     let player:PlayerRow|null=null;
     if(token&&/^[a-f0-9]{64}$/.test(token))player=await store.player(await hashText(token),now);
     const getCity=async(city:SharedCityId)=>{await store.ensureCity(city,city!=='public'?'城市天际线 · 共享测试':name,context.layout??waterfrontLayout());};
@@ -63,7 +63,8 @@ async function handleGameApi(request:Request,context:ServerContext,parsedBody:Re
         const address=context.clientAddress??request.headers.get('cf-connecting-ip')??'loopback';
         await store.rateLimit('signup:'+await hashText(address+':'+Math.floor(now/86_400_000)),240,now,300_000);
         const credential=randomCredential();player=await store.createPlayer(randomId(),randomId(),await hashText(credential),now,Math.min(now+PLAYER_TTL_MS,day.resetAt));
-        cookie=`${COOKIE}=${credential}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.max(1,Math.floor((day.resetAt-now)/1000))}${url.protocol==='https:'?'; Secure':''}`;
+        const policy=cookiePolicy(scope);
+        cookie=`${policy.name}=${credential}; HttpOnly; SameSite=Lax; Path=${policy.path}; Max-Age=${Math.max(1,Math.floor((day.resetAt-now)/1000))}${url.protocol==='https:'?'; Secure':''}`;
       }
       const view=await snapshot(city),active=await store.activeRun(city,player.id,now);
       const session:SharedSession={playerId:player.public_id,color:playerColor(player.public_id),snapshot:view,rules:{...OFFICIAL_RULES},rulesetId:RULESET_ID,activeRunId:active?.id??null};
@@ -77,6 +78,7 @@ async function handleGameApi(request:Request,context:ServerContext,parsedBody:Re
     }
     if(request.method==='POST'&&url.pathname==='/api/runs') {
       const body=parsedBody!;keys(body,['city','startKey','replaceRunId']);const city=cityId(body.city),owner=requirePlayer();
+      if(scope.publicOnly&&city!=='public')throw new ApiError(400,'invalid_city');
       if(!writeOpen(city))throw new ApiError(403,'city_write_closed');await getCity(city);
       if(city==='public'&&(await store.stmt('SELECT epoch FROM cities WHERE id=?',city).first<{epoch:string}>())?.epoch!==url.searchParams.get('entry'))throw new ApiError(403,'entry_expired');
       await store.rateLimit('start:'+owner.id,30,now,60_000);
@@ -111,6 +113,7 @@ async function handleGameApi(request:Request,context:ServerContext,parsedBody:Re
 
 export async function handleApi(request:Request,context:ServerContext):Promise<Response> {
   try {
+    try{assertParameters(new URL(request.url),context.scope??ROOT_SCOPE);}catch(error){throw new ApiError(400,(error as Error).message);}
     const expectedDay=request.method==='POST'?shanghaiMidnight((context.now??Date.now)()):undefined;
     const pathname=new URL(request.url).pathname;
     if(pathname.startsWith('/api/photos/'))return handlePhotoApi(request,{...context,publicPhotosOpen:context.publicPhotosOpen===true},expectedDay);

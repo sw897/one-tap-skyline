@@ -33,6 +33,6 @@ export function parseBranding(input: unknown, cityName: string): BrandingConfig 
     headline: text('headline', DEFAULT_BRANDING.headline, 80),
     pavilionName: text('pavilionName', DEFAULT_BRANDING.pavilionName, 32),
     accent: accentColor(raw.accent) ? raw.accent.toLowerCase() : DEFAULT_BRANDING.accent,
-    logoUrl: raw.logoUrl === '/theme/logo' ? raw.logoUrl : null,
+    logoUrl: typeof raw.logoUrl==='string'&&/^(?:\/[a-z][a-z0-9-]{0,31})?\/theme\/logo$/.test(raw.logoUrl) ? raw.logoUrl : null,
   };
 }

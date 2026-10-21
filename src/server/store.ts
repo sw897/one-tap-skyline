@@ -7,6 +7,7 @@ import { ApiError, GEOMETRY_VERSION, OFFICIAL_RULES, RULESET_ID, RUN_TTL_MS, ran
 import { nextShanghaiMidnight,shanghaiMidnight } from '../core/photo.ts';
 import {waterfrontLayout,layoutCapacity,storedLayout,plotLocation,occupiedLayout,type CityLayout} from '../core/layout.ts';
 import type {CityEvent} from '../shared/protocol.ts';
+import {appPath,ROOT_SCOPE,type AppScope} from '../shared/app-scope.ts';
 
 export interface PlayerRow { id: string; public_id: string; credential_hash: string; expires_at: number }
 export interface RunRow {
@@ -19,7 +20,7 @@ const buildingJson = (alias='b') => `json_object('playerId',p.public_id,'plotId'
 
 export class CityStore {
   readonly db: D1Database;
-  constructor(db:D1Database) { this.db=db; }
+  constructor(db:D1Database,readonly scope:AppScope=ROOT_SCOPE) { this.db=db; }
   stmt(sql:string,...values:(string|number|null)[]) { return this.db.prepare(sql).bind(...values); }
   async ensureCity(city:SharedCityId,name:string,layout:CityLayout=waterfrontLayout()) {
     await this.stmt('INSERT OR IGNORE INTO cities(id,epoch,display_name,ruleset_id,is_test,capacity,layout_json) VALUES(?,?,?,?,?,?,?)',city,randomId(),name,RULESET_ID,city!=='public'?1:0,layoutCapacity(layout),JSON.stringify(layout)).run();
@@ -60,7 +61,7 @@ export class CityStore {
     const meta=rows[0].results[0] as unknown as CityRow;
     if(!meta)throw new ApiError(404,'city_not_found');
     const appearances=new Map((rows[2].results as unknown as {id:string;version:number;asset_id:string|null;expires_at:number;status:string}[]).map(a=>[a.id,a]));
-    const buildings=(rows[1].results as unknown as BuildingRow[]).map(b=>{const a=appearances.get(b.id);return {playerId:b.public_id,plotId:b.plot_id,color:b.color,name:b.name,bestRunId:b.best_run_id,tower:JSON.parse(b.tower_json),source:'shared' as const,rank:b.rank,appearanceVersion:a?.version??0,photo:a?.asset_id&&a.status==='active'&&a.expires_at>Date.now()?{id:a.asset_id,version:a.version,imageUrl:'/api/photos/media/'+a.asset_id+'/image',thumbnailUrl:'/api/photos/media/'+a.asset_id+'/thumbnail',expiresAt:a.expires_at}:null};});
+    const buildings=(rows[1].results as unknown as BuildingRow[]).map(b=>{const a=appearances.get(b.id);return {playerId:b.public_id,plotId:b.plot_id,color:b.color,name:b.name,bestRunId:b.best_run_id,tower:JSON.parse(b.tower_json),source:'shared' as const,rank:b.rank,appearanceVersion:a?.version??0,photo:a?.asset_id&&a.status==='active'&&a.expires_at>Date.now()?{id:a.asset_id,version:a.version,imageUrl:appPath('/api/photos/media/'+a.asset_id+'/image',this.scope),thumbnailUrl:appPath('/api/photos/media/'+a.asset_id+'/thumbnail',this.scope),expiresAt:a.expires_at}:null};});
     const layout=storedLayout(meta.layout_json,meta.capacity);
     type EventRow={id:number;epoch:string;revision:number;run_id:string;kind:'first'|'best';player_public_id:string;plot_id:number;name:string;previous_floors:number;floors:number;global_record:number;created_at:number};
     const events=(rows[3].results as unknown as EventRow[]).map(e=>({id:e.id,epoch:e.epoch,revision:e.revision,runId:e.run_id,kind:e.kind,playerId:e.player_public_id,plotId:e.plot_id,name:e.name,previousFloors:e.previous_floors,floors:e.floors,globalRecord:!!e.global_record,createdAt:e.created_at} satisfies CityEvent));

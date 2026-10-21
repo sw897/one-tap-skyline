@@ -55,10 +55,11 @@ npm run preview -- --port 5173 --var SKYLINE_PUBLIC_WRITE_OPEN:1 --var SKYLINE_P
 ```powershell
 npm run build:node
 $env:PUBLIC_ORIGIN='http://127.0.0.1:8080'
+$env:GAME_ID='skyline'
 $env:SKYLINE_DATA_ROOT='D:\private\skyline-data'
 $env:SKYLINE_PUBLIC_WRITE_OPEN='1'
 $env:SKYLINE_PUBLIC_PHOTOS_OPEN='1'
 npm run start:node
 ```
 
-Node按SQL版本自动初始化新数据库；同日重启保留数据，跨日启动补偿清空。打开`http://127.0.0.1:8080/?mode=display&view=city`生成当天二维码。Docker与Sites两套目标见[部署说明](docs/deployment.md)，两端数据和匿名身份独立。
+Node运行环境需设置GAME_ID=skyline。Node按SQL版本自动初始化新数据库；同日重启保留数据，跨日启动补偿清空。打开`http://127.0.0.1:8080/skyline/?mode=display&view=city`生成当天二维码。Docker与Sites两套目标见[部署说明](docs/deployment.md)，两端数据和匿名身份独立。

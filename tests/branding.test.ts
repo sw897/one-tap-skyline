@@ -22,7 +22,7 @@ async function fixture(){
   const themeDir=path.join(root,'private-theme'),web=path.join(root,'web'),data=path.join(root,'game-data');
   await mkdir(themeDir);await mkdir(web);await writeFile(path.join(web,'index.html'),html);
   const file=path.join(themeDir,'theme.json');await writeFile(file,JSON.stringify(theme));
-  const env:Record<string,string|undefined>={SKYLINE_THEME_FILE:file,CITY_DISPLAY_NAME:'示例城市',SKYLINE_PUBLIC_WRITE_OPEN:'1',SKYLINE_PUBLIC_PHOTOS_OPEN:'1'};
+  const env:Record<string,string|undefined>={GAME_ID:'skyline',SKYLINE_THEME_FILE:file,CITY_DISPLAY_NAME:'示例城市',SKYLINE_PUBLIC_WRITE_OPEN:'1',SKYLINE_PUBLIC_PHOTOS_OPEN:'1'};
   let now=Date.parse('2030-10-01T02:00:00Z');
   const options={origin:'https://game.example.com',dataRoot:data,webRoot:web,migrations:path.resolve('drizzle'),env,now:()=>now,timers:false,log:()=>{}};
   return {root,themeDir,web,data,file,env,options,now:()=>now,setNow:(value:number)=>now=value};
@@ -76,12 +76,12 @@ test('HTTP exposes a no-store public projection and the selected logo only; midn
   try{
     await new Promise<void>(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
     const base='http://127.0.0.1:'+(runtime.server.address() as {port:number}).port;
-    const home=await get(base+'/');assert.equal(home.status,200);assert.equal(home.headers.get('Cache-Control'),'no-store');assert.match(await home.text(),new RegExp(theme.title));
-    const config=await get(base+'/runtime-config.json');assert.equal(config.headers.get('Cache-Control'),'no-store');const publicConfig=await config.json();assert.equal(publicConfig.branding.logoUrl,'/theme/logo');assert.doesNotMatch(JSON.stringify(publicConfig),/never-serve-me|private-theme|logoFile/);
-    const logo=await get(base+'/theme/logo');assert.equal(logo.headers.get('Content-Type'),'image/jpeg');assert.equal(logo.headers.get('Cache-Control'),'no-store');assert.deepEqual(Buffer.from(await logo.arrayBuffer()),image);
-    assert.equal((await get(base+'/theme/logo','HEAD')).status,200);assert.equal((await get(base+'/theme/logo','POST')).status,405);
-    for(const route of ['/theme/','/theme/theme.json','/theme/logo.jpg','/private-theme/theme.json'])assert.equal((await get(base+route)).status,404);
-    f.setNow(nextShanghaiMidnight(f.now())+1);await runtime.maintain();assert.equal((await get(base+'/theme/logo')).status,200);assert.deepEqual(await readFile(path.join(f.themeDir,'logo.jpg')),image);assert.equal(JSON.parse(await readFile(f.file,'utf8')).title,theme.title);
+    const home=await get(base+'/skyline/');assert.equal(home.status,200);assert.equal(home.headers.get('Cache-Control'),'no-store');assert.match(await home.text(),new RegExp(theme.title));
+    const config=await get(base+'/skyline/runtime-config.json');assert.equal(config.headers.get('Cache-Control'),'no-store');const publicConfig=await config.json();assert.equal(publicConfig.branding.logoUrl,'/skyline/theme/logo');assert.doesNotMatch(JSON.stringify(publicConfig),/never-serve-me|private-theme|logoFile/);
+    const logo=await get(base+'/skyline/theme/logo');assert.equal(logo.headers.get('Content-Type'),'image/jpeg');assert.equal(logo.headers.get('Cache-Control'),'no-store');assert.deepEqual(Buffer.from(await logo.arrayBuffer()),image);
+    assert.equal((await get(base+'/skyline/theme/logo','HEAD')).status,200);assert.equal((await get(base+'/skyline/theme/logo','POST')).status,405);
+    for(const route of ['/theme/','/theme/theme.json','/theme/logo.jpg','/private-theme/theme.json'])assert.equal((await get(base+'/skyline'+route)).status,404);
+    f.setNow(nextShanghaiMidnight(f.now())+1);await runtime.maintain();assert.equal((await get(base+'/skyline/theme/logo')).status,200);assert.deepEqual(await readFile(path.join(f.themeDir,'logo.jpg')),image);assert.equal(JSON.parse(await readFile(f.file,'utf8')).title,theme.title);
   }finally{await runtime.close();}
 });
 
