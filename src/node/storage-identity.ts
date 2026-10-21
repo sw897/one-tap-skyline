@@ -18,8 +18,8 @@ export async function bindStorageIdentity(directories:string[],gameId:string){
       if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;
       entries=[];
     }
-    // Only the original game may register its pre-existing, unmarked volumes.
-    if(entries.length&&gameId!=='skyline')throw Error('storage_identity_missing');
+    // Only empty storage can be registered; existing data requires its original marker.
+    if(entries.length)throw Error('storage_identity_missing');
     return {directory,file,exists:false};
   }));
   for(const state of states)if(!state.exists){

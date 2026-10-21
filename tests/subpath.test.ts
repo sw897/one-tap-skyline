@@ -145,17 +145,24 @@ test('storage identity rejects wrong or mixed mounts before database/day mainten
   }finally{await b.runtime.close();}
 });
 
-test('original unmarked volumes register without data loss; another game cannot claim them',async()=>{
-  const f=await fixture();await f.runtime.close();
+test('every game rejects nonempty unmarked database or photo storage without registering either mount',async()=>{
   const {unlink}=await import('node:fs/promises');
-  await unlink(path.join(f.options.dataRoot,'db/.game-id'));await unlink(path.join(f.options.dataRoot,'photos/.game-id'));
-  const original=await readFile(path.join(f.options.dataRoot,'db/game.sqlite'));
-  await assert.rejects(createGameServer({...f.options,env:{...f.options.env,GAME_ID:'route-check'}}),/storage_identity_missing/);
-  assert.deepEqual(await readFile(path.join(f.options.dataRoot,'db/game.sqlite')),original);
-  await assert.rejects(stat(path.join(f.options.dataRoot,'db/.game-id')),{code:'ENOENT'});
-  const again=await createGameServer(f.options);
-  try{assert.equal(await readFile(path.join(f.options.dataRoot,'db/.game-id'),'utf8'),'skyline\n');}
-  finally{await again.close();}
+  for(const id of ['skyline','route-check'])for(const missing of [['db'],['photos'],['db','photos']]){
+    const f=await fixture(id);await f.runtime.close();
+    const original=await readFile(path.join(f.options.dataRoot,'db/game.sqlite'));
+    const photoFile=path.join(f.options.dataRoot,'photos','existing-photo.jpg');
+    await writeFile(photoFile,'existing private image sentinel');
+    for(const directory of missing)await unlink(path.join(f.options.dataRoot,directory,'.game-id'));
+    // A future game day must not trigger maintenance before the missing identity is rejected.
+    await assert.rejects(createGameServer({...f.options,now:()=>nextShanghaiMidnight(f.now())+1}),/storage_identity_missing/);
+    assert.deepEqual(await readFile(path.join(f.options.dataRoot,'db/game.sqlite')),original);
+    assert.equal(await readFile(photoFile,'utf8'),'existing private image sentinel');
+    for(const directory of ['db','photos']){
+      const marker=path.join(f.options.dataRoot,directory,'.game-id');
+      if(missing.includes(directory))await assert.rejects(stat(marker),{code:'ENOENT'});
+      else assert.equal(await readFile(marker,'utf8'),id+'\n');
+    }
+  }
 });
 
 test('disabling test cities also rejects known run and media IDs, without changing public retries',async()=>{
