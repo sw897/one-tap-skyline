@@ -1,0 +1,39 @@
+{
+  "name": "one-tap-skyline",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "packageManager": "npm@10.9.7",
+  "scripts": {
+    "install:ci": "npm ci --ignore-scripts",
+    "dev": "vite",
+    "build": "npm run build:node",
+    "start": "npm run start:node",
+    "build:node": "tsc -p tsconfig.node.json && node scripts/build-node.mjs",
+    "start:node": "node node-dist/server/main.js",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "test:browser": "node tests/browser.mjs"
+  },
+  "dependencies": {
+    "jpeg-js": "0.4.4",
+    "qrcode": "1.5.4",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260515.1",
+    "@types/node": "22.19.19",
+    "@types/qrcode": "1.5.6",
+    "@types/three": "0.186.0",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "playwright": "1.64.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.6"
+  },
+  "description": "A one-finger tower-stacking game with a shared coastal city display.",
+  "license": "MIT"
+}

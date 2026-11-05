@@ -1,0 +1,11 @@
+# Example only. Keep all other existing site blocks in the private root file.
+{$GAME_HOST} {
+    encode zstd gzip
+    import /etc/caddy/skyline.caddy
+    # Optional second path import, rendered with that instance's GAME_ID.
+    # import /etc/caddy/event.caddy
+    handle {
+        header Cache-Control no-store
+        respond 404
+    }
+}

@@ -1,0 +1,52 @@
+# Dependencies and generated output
+node_modules/
+node-dist/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Account-specific tooling and old local build caches
+.openai/
+.sites-runtime/
+.sites-checkout*/
+.wrangler/
+.vinext/
+.next/
+
+# Private configuration, credentials and data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.kdbx
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.bundle
+*.zip
+*.tar
+*.tar.gz
+/.game-id
+/data/
+/uploads/
+/backups/
+/private/
+/evidence/
+/handoff/
+/交接目录/
+/config/activity.local.json
+
+# Editor and OS state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

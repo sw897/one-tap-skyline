@@ -1,0 +1,8 @@
+# Import inside the existing shared host block, once per game.
+@game_{$GAME_ID} path /{$GAME_ID} /{$GAME_ID}/*
+handle @game_{$GAME_ID} {
+    reverse_proxy {$GAME_ID}-backend:8080 {
+        header_up X-Skyline-Client-IP {remote_host}
+        header_up -CF-Connecting-IP
+    }
+}
