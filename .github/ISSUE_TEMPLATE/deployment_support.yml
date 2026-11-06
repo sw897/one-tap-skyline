@@ -1,0 +1,35 @@
+name: "部署服务咨询 / Deployment support"
+description: "咨询年会、展会或现场互动的部署与使用协助 / Ask about deployment support for a live event."
+title: "[部署咨询] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        可提供部署服务与活动前使用准备支持，具体范围和安排通过留言沟通确认。
+        Deployment services and event preparation support are available; leave a message to discuss scope and arrangements.
+
+        本表内容公开。先提供可公开的需求概况，不要填写实际部署地址、密钥、密码、完整扫码链接或个人联系方式。敏感信息通过后续约定的私密方式交接。
+        This form is public. Share a public summary first, without live addresses, keys, passwords, full QR links or personal contact details. Arrange a private channel later for sensitive information.
+  - type: textarea
+    id: needs
+    attributes:
+      label: "希望获得哪些协助？ / Support needed"
+      placeholder: "例如希望用于一次现场互动，需要协助部署并准备手机扫码与城市大屏。 / For example, deployment and phone/big-screen setup for an event."
+    validations:
+      required: true
+  - type: input
+    id: target_date
+    attributes:
+      label: "计划使用时间 / Target date"
+      placeholder: "大致时间或待定即可 / Approximate date or TBD."
+  - type: input
+    id: participation
+    attributes:
+      label: "预计参与规模 / Expected participation"
+      description: "可分别估计总人数和同时游玩人数，便于讨论安排。 / Estimated total and concurrent players help with planning."
+  - type: textarea
+    id: preparation
+    attributes:
+      label: "已有条件 / What is available"
+      description: "只描述是否已有服务器、域名、大屏和现场网络，不要填写实际地址或凭据。 / State whether you have a server, domain, display and venue network, without actual addresses or credentials."

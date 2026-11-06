@@ -8,7 +8,7 @@
 
 One-Tap Skyline is an open-source tower stacking browser game for live events, with QR-code participation, a shared 3D city display and a leaderboard.
 
-[画面预览](#从一座空城开始) · [怎么玩](#手机上一指盖楼) · [自己部署](#在自己的活动中使用) · [常见问题](#常见问题)
+[画面预览](#从一座空城开始) · [怎么玩](#手机上一指盖楼) · [自己部署](#在自己的活动中使用) · [反馈与部署服务](#反馈与部署服务) · [常见问题](#常见问题)
 
 ## 从一座空城开始
 
@@ -61,6 +61,16 @@ One-Tap Skyline is an open-source tower stacking browser game for live events, w
 ## 在自己的活动中使用
 
 支持 **Docker 自托管**，可将手机扫码入口和城市大屏部署在自己的活动环境中。游戏使用 **TypeScript、Three.js（WebGL）、Node.js 和 SQLite**。搭建活动环境可查看[部署说明](docs/deployment.md)；想先在电脑上体验模拟玩法，可查看[本地运行说明](CONTRIBUTING.md#local-practice)。
+
+## 反馈与部署服务
+
+可提供**部署服务与活动前使用准备支持**，帮助将游戏准备好，供年会、展会或现场互动直接使用：参与者手机扫码盖楼，大屏展示城市与排行榜。具体服务范围和安排欢迎留言沟通。
+
+- [问题反馈](https://github.com/sw897/one-tap-skyline/issues/new?template=bug_report.yml)：报告操作、画面、访问或部署问题。
+- [需求建议](https://github.com/sw897/one-tap-skyline/issues/new?template=feature_request.yml)：描述希望改善的场景或新增功能。
+- [部署服务咨询](https://github.com/sw897/one-tap-skyline/issues/new?template=deployment_support.yml)：说明计划使用时间、预计参与规模和希望获得的协助。
+
+已有相关讨论时，可在[原有 Issue](https://github.com/sw897/one-tap-skyline/issues)下继续留言。留言需要登录 GitHub，内容公开；请先提供可公开的需求概况与脱敏信息，敏感部署资料通过后续约定的私密方式交接。更多说明见[使用与反馈指南](SUPPORT.md)。
 
 ## 常见问题
 

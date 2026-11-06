@@ -6,7 +6,7 @@
 
 One-Tap Skyline is an open-source tower stacking browser game for live events, exhibitions and team gatherings. Players scan a QR code on their phones, stack moving floors with one finger and compete for a place in a shared 3D coastal city and leaderboard on the big screen. No app download or account registration is required.
 
-[Screenshots](#start-with-an-open-city) · [How to play](#build-with-one-finger) · [Self-hosting](#run-your-own-event) · [FAQ](#frequently-asked-questions)
+[Screenshots](#start-with-an-open-city) · [How to play](#build-with-one-finger) · [Self-hosting](#run-your-own-event) · [Feedback and deployment support](#feedback-and-deployment-support) · [FAQ](#frequently-asked-questions)
 
 ## Start with an open city
 
@@ -59,6 +59,16 @@ Keep the complete page opened from the QR code to refresh or play again that day
 ## Run your own event
 
 The game supports **Docker self-hosting** for your own QR-code participation page and city display. It uses **TypeScript, Three.js (WebGL), Node.js and SQLite**. Follow the [deployment guide](docs/deployment.md) to set up an event, or the [local practice instructions](CONTRIBUTING.md#local-practice) to try simulated play on your computer.
+
+## Feedback and deployment support
+
+**Deployment services and event preparation support are available** to help you use the game at an annual gathering, exhibition or live event. Participants play by scanning a QR code on their phones, while a big screen shows the shared city and leaderboard. Leave a message to discuss the scope and arrangements.
+
+- [Report a problem](https://github.com/sw897/one-tap-skyline/issues/new?template=bug_report.yml): gameplay, display, access or deployment issues.
+- [Suggest a feature](https://github.com/sw897/one-tap-skyline/issues/new?template=feature_request.yml): explain the use case and proposed improvement.
+- [Ask about deployment services](https://github.com/sw897/one-tap-skyline/issues/new?template=deployment_support.yml): share your target date, expected participation and the help you need.
+
+If a related [Issue](https://github.com/sw897/one-tap-skyline/issues) exists, continue the conversation there. Posting requires a GitHub account and messages are public. Share a public summary and redacted details first; arrange a private channel later for sensitive deployment information. See the [support guide](SUPPORT.md) for details.
 
 ## Frequently asked questions
 

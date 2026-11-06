@@ -1,0 +1,40 @@
+name: "问题反馈 / Bug report"
+description: "报告操作、画面、访问或部署问题 / Report gameplay, display, access or deployment issues."
+title: "[问题反馈] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        留言内容公开。请只提供脱敏信息，勿填写凭据、实际部署地址、完整扫码链接或参与码、真实玩家照片及个人联系方式。
+        Messages are public. Share redacted details only; no credentials, live addresses, full QR links or entry codes, player photos or personal contact details.
+  - type: dropdown
+    id: area
+    attributes:
+      label: "问题出现在哪里？ / Affected area"
+      options:
+        - "手机盖楼 / Phone gameplay"
+        - "我的楼与照片 / My tower and photos"
+        - "城市大屏与漫游 / City display and camera"
+        - "排行榜与同步 / Leaderboard and sync"
+        - "访问或部署 / Access or deployment"
+        - "其他 / Other"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: "发生了什么？ / What happened?"
+      description: "请描述复现步骤、实际表现和预期表现。可附脱敏截图。 / Include steps, actual and expected behavior; redacted screenshots are optional."
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: "设备、系统和浏览器 / Device, OS and browser"
+      placeholder: "例如手机型号、系统和浏览器版本 / Device model, OS and browser version, if known."
+  - type: input
+    id: version
+    attributes:
+      label: "游戏版本（如知道） / Game version, if known"
+      description: "可填版本号或提交号，不要粘贴活动参与网址。 / A release or commit is enough; do not paste a participation URL."

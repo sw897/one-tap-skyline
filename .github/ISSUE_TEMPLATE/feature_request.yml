@@ -1,0 +1,28 @@
+name: "需求建议 / Feature request"
+description: "描述希望改善的使用场景或新增功能 / Suggest an improvement or a new feature."
+title: "[需求建议] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        留言内容公开，请只描述可公开的需求概况，不要附客户资料、个人信息、凭据或真实玩家照片。
+        Messages are public. Describe a public use case without private event materials, personal data, credentials or player photos.
+  - type: textarea
+    id: use_case
+    attributes:
+      label: "想改善哪个使用场景？ / Your use case"
+      description: "说明目前遇到的限制或希望实现的目标。 / Explain the current limitation or the goal."
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: "希望怎样改进？ / Suggested change"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "其他条件（可选） / Additional context, optional"
+      description: "例如手机端还是大屏端、可公开的使用条件。 / For example, phone or big screen and publicly shareable constraints."
