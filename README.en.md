@@ -10,15 +10,19 @@ One-Tap Skyline is an open-source tower stacking browser game for live events, e
 
 The GitHub Pages demo needs no login. It uses page-local simulated data, with no shared scores or photo uploads. Refreshing or device-clock Shanghai midnight resets the page. Full multiplayer event features run in the Docker deployment.
 
+[<img src="docs/images/demo-qr.svg" width="200" alt="Scan to open the public phone simulation on GitHub Pages">](https://sw897.github.io/one-tap-skyline/?mode=practice)
+
+*Scan or click the code to play. Your simulated work stays in the current page and does not sync to the city display.*
+
 [Screenshots](#start-with-an-open-city) · [How to play](#build-with-one-finger) · [Self-hosting](#run-your-own-event) · [Feedback and deployment support](#feedback-and-deployment-support) · [FAQ](#frequently-asked-questions)
 
 ## Start with an open city
 
 Streets, parks, a fairground and waterfronts are ready for everyone’s towers. The display shows the day’s city and leaderboard, with an automatic camera tour, manual orbit and zoom, building-name search and district navigation.
 
-![One-Tap Skyline 3D coastal city on the big screen before player towers arrive](docs/images/city-initial.png)
+![Simulated initial city with a working QR code for the public phone demo](docs/images/city-initial.png)
 
-*Illustrative initial scene with no player towers. The QR code shown is for illustration; scan the current code at your event to join.*
+*Simulated initial scene with no player towers. The pictured code opens the [phone simulation](https://sw897.github.io/one-tap-skyline/?mode=practice), as does the code above. Full event participation uses the current on-site display code.*
 
 ## Build with one finger
 
@@ -89,6 +93,10 @@ Every valid personal best is retained. The highest-scoring 76 towers get display
 ### Why does yesterday's QR code stop working?
 
 All game data resets at 00:00 Beijing time and the participation QR code changes. Scan the new code on a new day. The complete page opened from a valid scan remains usable during that day.
+
+### Are names entered in the demo public?
+
+The Pages demo does not upload names or scores; your simulated work is visible only in your current page. The full shared deployment publicly displays saved names and photos. It currently performs length and basic character cleanup, with no content moderation. Restricting event names to system-generated names is the simplest option; custom names need server-side content checks and a way for a moderator to remove content. Photos need their own moderation policy.
 
 ## License
 
