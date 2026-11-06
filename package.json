@@ -34,6 +34,31 @@
     "typescript": "7.0.2",
     "vite": "8.3.6"
   },
-  "description": "A one-finger tower-stacking game with a shared coastal city display.",
+  "description": "Open-source tower stacking browser game for QR-code event participation and a shared 3D city display. 一指盖楼：城市天际线，手机扫码盖楼与大屏互动。",
+  "keywords": [
+    "tower-stacking",
+    "browser-game",
+    "html5-game",
+    "mobile-game",
+    "threejs",
+    "webgl",
+    "typescript",
+    "3d-city",
+    "qr-code",
+    "event-game",
+    "leaderboard",
+    "self-hosted",
+    "docker",
+    "nodejs",
+    "sqlite"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sw897/one-tap-skyline.git"
+  },
+  "homepage": "https://github.com/sw897/one-tap-skyline#readme",
+  "bugs": {
+    "url": "https://github.com/sw897/one-tap-skyline/issues"
+  },
   "license": "MIT"
 }
