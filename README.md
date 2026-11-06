@@ -1,6 +1,6 @@
 # 一指盖楼：城市天际线 · One-Tap Skyline
 
-**简体中文** · [English](README.en.md)
+**简体中文** · [English](README.en.md) · [v1.0.0 发行说明](https://github.com/sw897/one-tap-skyline/releases/tag/v1.0.0)
 
 **一根手指，一栋小楼，和现场的人一起盖出一座城市。**
 

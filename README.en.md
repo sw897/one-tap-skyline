@@ -1,6 +1,6 @@
 # One-Tap Skyline · 一指盖楼：城市天际线
 
-[简体中文](README.md) · **English**
+[简体中文](README.md) · **English** · [v1.0.0 release notes](https://github.com/sw897/one-tap-skyline/releases/tag/v1.0.0)
 
 **One finger. One tower. A city built together.**
 
