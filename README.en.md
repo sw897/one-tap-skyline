@@ -6,6 +6,10 @@
 
 One-Tap Skyline is an open-source tower stacking browser game for live events, exhibitions and team gatherings. Players scan a QR code on their phones, stack moving floors with one finger and compete for a place in a shared 3D coastal city and leaderboard on the big screen. No app download or account registration is required.
 
+**[Try the public simulation](https://sw897.github.io/one-tap-skyline/)** · [Play on your phone](https://sw897.github.io/one-tap-skyline/?mode=practice) · [Simulated city display](https://sw897.github.io/one-tap-skyline/?mode=display&view=city&demo=full)
+
+The GitHub Pages demo needs no login. It uses page-local simulated data, with no shared scores or photo uploads. Refreshing or device-clock Shanghai midnight resets the page. Full multiplayer event features run in the Docker deployment.
+
 [Screenshots](#start-with-an-open-city) · [How to play](#build-with-one-finger) · [Self-hosting](#run-your-own-event) · [Feedback and deployment support](#feedback-and-deployment-support) · [FAQ](#frequently-asked-questions)
 
 ## Start with an open city
@@ -55,6 +59,8 @@ With moving cars and a slowly turning Ferris wheel, the display becomes both a l
 At 00:00 Beijing time, the city, scores, towers, photos and anonymous identities reset, and the participation QR code changes.
 
 Keep the complete page opened from the QR code to refresh or play again that day. On the next day, scan the new event code and help build a new city.
+
+These shared-city and QR-reset rules apply to the full event deployment. The Pages demo keeps a fixed URL and only resets page-local state; fictional sample towers remain for illustration.
 
 ## Run your own event
 

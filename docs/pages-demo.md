@@ -2,6 +2,14 @@
 
 这个独立构建目标提供单机盖楼与只读满城预览。游玩、结算和城市继续复用同一套楼体几何与渲染代码，默认逐层换向、60秒、连击仅做反馈。
 
+## 已发布入口
+
+- [试玩说明与选择](https://sw897.github.io/one-tap-skyline/)
+- [手机模拟试玩](https://sw897.github.io/one-tap-skyline/?mode=practice)
+- [公开模拟大屏](https://sw897.github.io/one-tap-skyline/?mode=display&view=city&demo=full)
+
+入口已验证可免登录访问，地址固定。日切只重置本页状态，不更换网址。
+
 ## 体验边界
 
 - 只有当前页面的模拟成绩与作品，刷新或重新打开会重新初始化。没有跨浏览器、跨设备的共享城市与真实排行榜。
@@ -28,7 +36,7 @@ python -m http.server 5174 --bind 127.0.0.1 --directory pages-dist
 
 工作流 [pages.yml](../.github/workflows/pages.yml) 使用固定提交的官方 Actions，在 `main` 的相关构建输入变更后自动构建，也可手动触发。构建只读取代码和 Pages 配置；部署权限限于 Pages 与所需身份令牌，不读取或使用完整活动服务器凭据。
 
-上传内容仅为静态 `pages-dist`。工作流不构建或发布 Docker 镜像，不更新其他站点，也不通过定时 Actions 执行游戏日切。公开 URL 以平台实际部署结果为准，经验证后写入双语 README。
+上传内容仅为静态 `pages-dist`。工作流不构建或发布 Docker 镜像，不更新其他站点，也不通过定时 Actions 执行游戏日切。公开 URL 采用平台实际部署结果，已完成访问验证并写入双语 README。
 
 ## English
 
@@ -36,4 +44,4 @@ This target is a public, page-local simulation: default 60-second tower stacking
 
 The sample city contains no administrative actions or private data, so it is public without a password. Real administrative access requires server-enforced authentication. This target does not change the complete Node/Docker game or its deployment.
 
-Use `npm run build:pages -- --base-path /` for local root preview. The Pages workflow publishes only the static artifact from `main`; it uses no production deployment credentials and does not deploy Docker. The verified public demo link is documented in the READMEs after a real deployment.
+Use `npm run build:pages -- --base-path /` for local root preview. The Pages workflow publishes only the static artifact from `main`; it uses no production deployment credentials and does not deploy Docker. The verified [public demo](https://sw897.github.io/one-tap-skyline/) is linked in both READMEs. Its URL stays fixed while page-local state resets.

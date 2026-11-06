@@ -1,5 +1,7 @@
 # 使用、反馈与部署服务 · Support
 
+先体验[公开模拟试玩](https://sw897.github.io/one-tap-skyline/)：无需登录，成绩只在当前页面中，照片与真实共享功能请使用完整部署版。
+
 ## 留言入口
 
 | 想做什么 | 入口 |
@@ -25,6 +27,8 @@
 请勿在公开留言中填写密钥、密码、完整扫码链接及当日参与码、真实玩家照片、个人联系方式或未经允许公开的活动资料。敏感部署信息通过后续双方约定的私密方式交接，本项目不在公开表单中收集这些资料。
 
 ## English
+
+[Try the public simulation](https://sw897.github.io/one-tap-skyline/) without signing in. It keeps data only in the current page; shared scores and photo uploads require the full deployment.
 
 Use the links above for bug reports, feature requests or deployment inquiries. Check existing Issues first and continue related follow-up in the same thread. A GitHub account is required to post; messages in this public repository are public.
 

@@ -8,6 +8,10 @@
 
 One-Tap Skyline is an open-source tower stacking browser game for live events, with QR-code participation, a shared 3D city display and a leaderboard.
 
+**[在线模拟试玩](https://sw897.github.io/one-tap-skyline/)** · [手机盖楼](https://sw897.github.io/one-tap-skyline/?mode=practice) · [模拟大屏](https://sw897.github.io/one-tap-skyline/?mode=display&view=city&demo=full)
+
+GitHub Pages 试玩无需登录，只有本页内存中的模拟数据，不联机、不接收照片。刷新或按设备时间换算的北京时间00:00重置本页；完整多人活动功能使用 Docker 部署。
+
 [画面预览](#从一座空城开始) · [怎么玩](#手机上一指盖楼) · [自己部署](#在自己的活动中使用) · [反馈与部署服务](#反馈与部署服务) · [常见问题](#常见问题)
 
 ## 从一座空城开始
@@ -57,6 +61,8 @@ One-Tap Skyline is an open-source tower stacking browser game for live events, w
 北京时间每天00:00，城市、成绩、作品、照片和匿名身份统一重置，参与二维码随之更新。
 
 当天可以保留扫码打开的完整页面，刷新或再来一局；新一天，请扫描现场的新二维码，开始共建下一座城市。
+
+上述城市与二维码重置规则适用于完整活动版。Pages 试玩地址固定，只重置本页状态，固定样例楼继续用于演示。
 
 ## 在自己的活动中使用
 
