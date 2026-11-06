@@ -3,6 +3,7 @@
 ## Product boundaries
 
 - Public defaults use “城市天际线” and neutral assets. Event names, branding and live service addresses belong in private runtime configuration, not source, fixtures, screenshots or commit messages.
+- The explicitly approved public GitHub Pages simulation URL may be linked in project documentation. Production and private event service addresses remain private.
 - Keep one tower geometry and floor-height definition across gameplay, results and the city. A new personal best replaces the complete tower, never splices rounds together.
 - Default play alternates X/Z automatically, one axis per floor, with one-finger input and 60 seconds of active play. Combos provide feedback only. Keep adjustable parameters explicit; do not silently alter scoring.
 - Phones show their own best tower; the display reads the shared city. Preserve all valid personal bests, the six-district/76-display-plot model, equal-score display priority by achievement time, and official tied ranks.

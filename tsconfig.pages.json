@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["pages-web"],
+  "exclude": ["node_modules", "node-dist", "pages-dist"]
+}

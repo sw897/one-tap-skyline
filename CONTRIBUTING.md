@@ -19,6 +19,8 @@ Open `http://127.0.0.1:5173`. The development frontend opens isolated practice m
 
 ## Shared game on your computer
 
+For the separate public simulation target, see the [Pages demo guide](docs/pages-demo.md). `npm run build` and `npm start` continue to target the full Node/Docker game.
+
 ```sh
 npm run build
 GAME_ID=skyline PUBLIC_ORIGIN=http://127.0.0.1:8080 SKYLINE_DATA_ROOT=/tmp/skyline-demo SKYLINE_PUBLIC_WRITE_OPEN=1 SKYLINE_PUBLIC_PHOTOS_OPEN=1 npm start

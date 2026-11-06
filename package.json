@@ -13,6 +13,7 @@
     "build": "npm run build:node",
     "start": "npm run start:node",
     "build:node": "tsc -p tsconfig.node.json && node scripts/build-node.mjs",
+    "build:pages": "tsc -p tsconfig.pages.json && node tools/build-pages.mjs",
     "start:node": "node node-dist/server/main.js",
     "db:generate": "drizzle-kit generate",
     "test": "node --experimental-transform-types --test tests/*.test.ts",

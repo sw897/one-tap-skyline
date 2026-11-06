@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN" data-pages-view="landing">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#d8effb">
+  <meta name="description" content="一指盖楼：城市天际线的公开模拟试玩。手机体验60秒一指盖楼，电脑查看76栋样例的3D城市大屏。本页不联机，不接收真实成绩或照片。">
+  <meta property="og:title" content="一指盖楼：城市天际线 · 公开模拟试玩">
+  <meta property="og:description" content="One-Tap Skyline: try the tower stacking game and explore a simulated 3D city. No shared scores or photo uploads.">
+  <link rel="icon" href="../public/favicon.svg" type="image/svg+xml">
+  <title>一指盖楼：城市天际线 · 模拟试玩 | One-Tap Skyline</title>
+</head>
+<body>
+  <main id="pages-landing" class="pages-landing">
+    <header class="pages-heading"><span class="pages-mark">公开模拟试玩 · GitHub Pages</span><a href="https://github.com/sw897/one-tap-skyline">项目源码 ↗</a></header>
+    <section class="pages-hero">
+      <p class="pages-eyebrow">ONE FINGER. ONE TOWER. A CITY BUILT TOGETHER.</p>
+      <h1>一指盖楼，<br>一起点亮城市天际线。</h1>
+      <p class="pages-intro">手机体验逐层换向的盖楼玩法；电脑探索明亮滨水城市。这里的成绩与楼房都是模拟体验，不会进入任何真实活动。</p>
+      <nav class="pages-actions" aria-label="选择模拟体验">
+        <a class="pages-primary" href="?mode=practice">手机模拟试玩 <span>60秒 · 单指落层</span></a>
+        <a class="pages-secondary" href="?mode=display&amp;view=city&amp;demo=full">看模拟大屏 <span>76栋样例 · 巡游与查找</span></a>
+      </nav>
+      <figure class="pages-preview"><img src="../docs/images/city-full-simulated.png" width="1920" height="1080" alt="模拟数据：76栋样例楼组成的城市天际线大屏"><figcaption>模拟数据 · 样例楼名、成绩和排行榜均为虚构，不代表真实玩家。</figcaption></figure>
+    </section>
+    <section class="pages-notes" aria-label="试玩范围">
+      <article><h2>每天重置本页</h2><p>成绩和作品只在当前页面内存中。刷新即重置；按设备时间换算北京时间，每天00:00重新初始化，后台页面恢复时补清。固定样例楼仍用于演示。</p></article>
+      <article><h2>公开、只读的模拟大屏</h2><p>大屏只有虚构样例与浏览交互，没有真实玩家或管理操作，无需口令。完整版本的管理功能应由服务端认证保护。</p></article>
+      <article><h2>完整活动另行部署</h2><p>这个静态试玩不联机、不共享榜单，也不接收照片。多人同步、照片保存与真实城市需要完整 Docker 部署。</p></article>
+    </section>
+    <section class="pages-contact"><h2>想用于年会或现场互动？</h2><p>可提供部署服务与活动前使用准备支持，具体范围和安排欢迎留言沟通。</p><a href="https://github.com/sw897/one-tap-skyline/issues/new?template=deployment_support.yml">咨询部署服务 ↗</a><a href="https://github.com/sw897/one-tap-skyline/blob/main/SUPPORT.md">反馈与使用指南 ↗</a></section>
+    <footer class="pages-footer"><span>One-Tap Skyline · <span id="demo-version"></span></span><span><a href="./LICENSE.txt">MIT</a> · <a href="./THIRD_PARTY_NOTICES.txt">第三方声明</a></span></footer>
+  </main>
+  <aside id="demo-notice" class="demo-notice" hidden><span>公开模拟 · 本页数据 · 刷新/每日00:00重置</span><a href="./">体验说明</a></aside>
+  <div id="app" hidden></div>
+  <noscript><p>试玩需要启用 JavaScript；请使用支持 WebGL2 的新版手机或电脑浏览器。</p></noscript>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
